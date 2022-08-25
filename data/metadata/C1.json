@@ -1,0 +1,15 @@
+{
+    "age":"continuous",
+    "workclass":"nominal",
+    "fnlwgt":"continuous",
+    "education":"nominal",
+    "`marital.status`":"nominal",
+    "occupation":"nominal",
+    "relationship":"nominal",
+    "race":"nominal",
+    "sex":"nominal",
+    "`hours.per.week`":"continuous",
+    "`native.country`":"nominal",
+    "capital":"continuous",
+    "income":"nominal"
+}
