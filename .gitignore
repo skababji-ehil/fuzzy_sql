@@ -1,5 +1,6 @@
+runs/
 /src/toy.*
-sdgd.db
+*.db
 /data/oncovid
 test_*.*
 toy_*.*

@@ -5,8 +5,11 @@ from tabular_query import TABULAR_QUERY
 import os
 
 
-def fuzzy_sql(real_name: str, syn_name='None', query_type= 'single_agg'):
-
+def fuzzy_sql(n_queries: int, real_name: str, syn_name='None', query_type= 'single_agg') -> dict:
+    """ The function generates (n_queries) number of randomly generated SELECT queries for the input datasets. The input datasets named (real_name) shall be tabular and saved earlier in csv format in the folder /data/real. The file name shall be identical to the input (real_name). The function also generates random twin queries for both real and twin synthetic datasets. The synthetic dataset shall saved in /data/synthetic. The query_type can be one of the following: 'single_agg', 'single_fltr', 'twin_agg', 'twin_fltr'.
+    The function generates the necessary reports and a dictionary of all generated queries, query parameters and distance scores, if applicable."""
+    
+    assert n_queries == int(n_queries), "n_queries must be integer"
     # Set paths
     root_dir=Path(__file__).parent.parent
     os.chdir(root_dir)
@@ -62,16 +65,18 @@ def fuzzy_sql(real_name: str, syn_name='None', query_type= 'single_agg'):
         # Single fltr query
         output_id="single_fltr"
         agg_fntn=False
-        queries=test_tq.gen_single_fltr_queries(10, agg_fntn=agg_fntn)
+        queries=test_tq.gen_single_fltr_queries(n_queries, agg_fntn=agg_fntn)
         with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
             print_single_fltr_queries(queries, file_writer)
         pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+        print("Generated {} random queries and saved results in: /runs/{}".format(len(queries['query_real']), run_id))
+        return queries
 
     elif query_type=='twin_fltr':
         # Twin fltr query
         output_id="twin_fltr"
         agg_fntn=True
-        queries=test_tq.gen_twin_fltr_queries(10, syn_name, agg_fntn=agg_fntn)
+        queries=test_tq.gen_twin_fltr_queries(n_queries, syn_name, agg_fntn=agg_fntn)
         scored_queries=test_tq.get_fltr_metrics(queries)
         with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
             if agg_fntn:
@@ -79,6 +84,8 @@ def fuzzy_sql(real_name: str, syn_name='None', query_type= 'single_agg'):
             else:
                 print_twin_fltr_queries0(scored_queries, file_writer)
         pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+        print("Generated {} random twin queries and saved results in: /runs/{}".format(len(scored_queries['query_real']), run_id))
+        return scored_queries
 
 
     elif query_type=='single_agg':
@@ -86,10 +93,12 @@ def fuzzy_sql(real_name: str, syn_name='None', query_type= 'single_agg'):
         output_id="single_agg"
         agg_fntn=False
         hlngr_dropna=False
-        queries=test_tq.gen_single_agg_queries(10, agg_fntn=agg_fntn) #returned dictionary of non-matching lists
+        queries=test_tq.gen_single_agg_queries(n_queries, agg_fntn=agg_fntn) #returned dictionary of non-matching lists
         with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
             print_single_agg_queries(queries, file_writer)
         pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+        print("Generated {} random queries and saved results in: /runs/{}".format(len(queries['query_real']), run_id))
+        return queries
 
 
     elif query_type=='twin_agg':
@@ -97,7 +106,7 @@ def fuzzy_sql(real_name: str, syn_name='None', query_type= 'single_agg'):
         output_id="twin_agg"
         agg_fntn=True
         hlngr_dropna=False
-        queries=test_tq.gen_twin_agg_queries(10, syn_name, agg_fntn=agg_fntn) #returned dictionary of non-matching lists
+        queries=test_tq.gen_twin_agg_queries(n_queries, syn_name, agg_fntn=agg_fntn) #returned dictionary of non-matching lists
         scored_queries=test_tq.get_agg_metrics(queries, hlngr_dropna=hlngr_dropna)
         with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
             print_twin_agg_queries(scored_queries, file_writer)
@@ -108,8 +117,9 @@ def fuzzy_sql(real_name: str, syn_name='None', query_type= 'single_agg'):
         if agg_fntn:
             ecldn_stats=calc_stats(scored_queries['ecldn_dist'])
             fig=plot_violin(np.array(scored_queries['ecldn_dist']),'Euclidean Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),ecldn_stats)
-            fig.savefig(run_dir+'/ecldn_{}.png'.format(output_id))
+            fig.savefig(run_dir+'/ecldn_{}.png'.format(output_id))    
+        print("Generated {} random twin queries and saved results in: /runs/{}".format(len(scored_queries['query_real']), run_id))
+        return scored_queries
 
 
-
-
+#queries=fuzzy_sql(10, 'C1','C1_syn_06', query_type='twin_fltr')
