@@ -1,9 +1,15 @@
+data/
+dist/
 runs/
-/src/toy.*
+src/toy.*
+src/fuzzy_sql.egg-info/
 *.db
 /data/oncovid
 test_*.*
 toy_*.*
+
+
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
