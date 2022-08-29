@@ -24,7 +24,8 @@ from fuzzy_sql import fuzzy_sql
 ```
 
 4) Use the function fuzzy_sql.fuzz_tabular (...) to generate the random queries. The function constructs the database in your working directory and generates reports in a subfolder under your working directory. The function also  returns a dictionary with all generated queries for further analysis. Fro example, if your data is named X, pass the following arguments in sequence:
-* Number of required random queries
+* An integer representing the number of required random queries.
+* A string representing query type and can be one of four options: "single_agg", "single_fltr","twin_agg", twin_fltr". 'single' and 'twin' refers to whether synthetic data is used in the query generation. For types starting with 'single', the path to synthetic data, if provided, will be ignored. Aggregate (agg) type refers to queries that include GROUP BY clause while Filter (fltr) type refers to queries with WHERE clause without any aggregation.  
 * Full file path of real data e.g. "path/to/file/X_real.csv". 
 * Full file path of your manually generated metadata that includes each variable description, i.e. continuos, nominal or date. The data shall be passed as json file e.g. "path/to/file/X_meta.json".  See below an example of the json file:
 ```
@@ -37,16 +38,15 @@ from fuzzy_sql import fuzzy_sql
 }
 ```
 * Full file path of synthetic data e.g. "path/to/file/X_syn.csv"
-* Query type: "single_agg", "single_fltr","twin_agg", twin_fltr" . For the first two options, the synthetic data will be ignored.  
 
-Here is an example how to generate queries for only one dataset:
+Here is an example how to generate 10 queries for a single  dataset:
 ```
-queries=fuzzy_sql.fuzz_tabular(10,"path/to/file/X_real.csv", "path/to/file/X_metadata.json","single_fltr")
+queries=fuzzy_sql.fuzz_tabular(10,,"single_fltr","path/to/file/X_real.csv", "path/to/file/X_metadata.json")
 ```
-and for both real and synthetic datatsets along with distance scores:
+Below is another example to generate 100 aggregate queries simualeouldy applied to both real and synthetic input datatsets:
 
 ```
-queries=fuzzy_sql.fuzz_tabular(100,"path/to/file/X_real.csv", "path/to/file/X_metadata.json", "path/to/file/X_syn.csv","twin_agg")
+queries=fuzzy_sql.fuzz_tabular(100,"twin_agg","path/to/file/X_real.csv", "path/to/file/X_metadata.json", "path/to/file/X_syn.csv")
 ```
 
 **Note**: Windows users may need to add 'r' before the path string they pass to the function. This will force treating windows backslashes as literal raw character. For instance, pass: r"C:\path\to\file\X_real.csv"
