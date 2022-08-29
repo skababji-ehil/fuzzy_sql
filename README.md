@@ -4,23 +4,26 @@ The package generate random SQL Statements to check the query response from tabu
 
 ## Usage:
 
-#### 1) From your terminal, install pre-requisite dependencies: 
+1) From your terminal, install pre-requisite dependencies: 
 ```
 pip install scikit-learn pandas pdfkit seaborn
 ```
-Note: For conda users, update conda to latest version, install pip to your conda's environment and use pip above to install packages. It is not recommended to use conda. 
+Note that the output report is provided in html format. For Linux machines, the report is provided in pdf as well. For that purpose, Linux users may need to install wkhtmltopdf package using:
+```
+sudo apt install -y wkhtmltopdf
+```
+Once the above is installed, install fuzzy-sql using:
 
-#### 2) From your terminal: 
 ```
 pip install fuzzy-sql
 ```
 
-#### 3) From your_script.py, import the module fuzzy_sql using:
+3) From your_script.py, import the module fuzzy_sql using:
 ``` 
 from fuzzy_sql import fuzzy_sql
 ```
 
-#### 4) Use the function fuzzy_sql.make_fuzzy_sql (...) to generate the random queries. The function constructs the database in your working directory and generates reports in a subfolder under your working directory. The function also  returns a dictionary with all generated queries for further analysis. Fro example, if your data is names X, pass the follwing arguments in sequence:
+4) Use the function fuzzy_sql.make_fuzzy_sql (...) to generate the random queries. The function constructs the database in your working directory and generates reports in a subfolder under your working directory. The function also  returns a dictionary with all generated queries for further analysis. Fro example, if your data is names X, pass the following arguments in sequence:
 * Number of required random queries
 * Full file path of real data e.g. "path/to/file/X_real.csv". 
 * Full file path of your manually generated metadata that includes each variable description, i.e. continuos, nominal or date. The data shall be passed as json file e.g. "path/to/file/X_meta.json".  See below an example of the json file:
