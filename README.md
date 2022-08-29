@@ -23,7 +23,7 @@ pip install fuzzy-sql
 from fuzzy_sql import fuzzy_sql
 ```
 
-4) Use the function fuzzy_sql.make_fuzzy_sql (...) to generate the random queries. The function constructs the database in your working directory and generates reports in a subfolder under your working directory. The function also  returns a dictionary with all generated queries for further analysis. Fro example, if your data is names X, pass the following arguments in sequence:
+4) Use the function fuzzy_sql.fuzz_tabular (...) to generate the random queries. The function constructs the database in your working directory and generates reports in a subfolder under your working directory. The function also  returns a dictionary with all generated queries for further analysis. Fro example, if your data is named X, pass the following arguments in sequence:
 * Number of required random queries
 * Full file path of real data e.g. "path/to/file/X_real.csv". 
 * Full file path of your manually generated metadata that includes each variable description, i.e. continuos, nominal or date. The data shall be passed as json file e.g. "path/to/file/X_meta.json".  See below an example of the json file:
@@ -41,14 +41,14 @@ from fuzzy_sql import fuzzy_sql
 
 Here is an example how to generate queries for only one dataset:
 ```
-queries=fuzzy_sql.make_fuzzy_sql(10,"path/to/file/X_real.csv", "path/to/file/X_metadata.json","single_fltr")
+queries=fuzzy_sql.fuzz_tabular(10,"path/to/file/X_real.csv", "path/to/file/X_metadata.json","single_fltr")
 ```
 and for both real and synthetic datatsets along with distance scores:
 
 ```
-queries=fuzzy_sql.make_fuzzy_sql(100,"path/to/file/X_real.csv", "path/to/file/X_metadata.json", "path/to/file/X_syn.csv","twin_agg")
+queries=fuzzy_sql.fuzz_tabular(100,"path/to/file/X_real.csv", "path/to/file/X_metadata.json", "path/to/file/X_syn.csv","twin_agg")
 ```
 
 **Note**: Windows users may need to add 'r' before the path string they pass to the function. This will force treating windows backslashes as literal raw character. For instance, pass: r"C:\path\to\file\X_real.csv"
 
-The returned dictionary include the queries and other information. You may check its keys by typing: queries.keys(). For further information, please refer to help documentation. 
+The returned dictionary includes the queries and other information. You may check its keys by typing: queries.keys(). For further information, please refer to help documentation. 
