@@ -1384,4 +1384,3 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
     else:
         raise Exception("Please enter correct query type: 'single_fltr','twin_fltr', 'single_agg, or 'twin_agg' ")
 
-fuzz_tabular(3,'twin_agg', '/home/samer/projects/fuzzy_sql/data/real/C1.csv', '/home/samer/projects/fuzzy_sql/data/metadata/C1.json','/home/samer/projects/fuzzy_sql/data/synthetic/C1_syn_06.csv')
