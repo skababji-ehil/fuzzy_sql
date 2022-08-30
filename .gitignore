@@ -7,7 +7,7 @@ src/fuzzy_sql.egg-info/
 /data/oncovid
 test_*.*
 toy_*.*
-
+reports/latex/
 
 
 
