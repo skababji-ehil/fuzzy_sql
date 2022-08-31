@@ -1,3 +1,4 @@
+from cmath import nan
 from filecmp import cmp
 from multiprocessing.sharedctypes import Synchronized
 import random
@@ -118,7 +119,149 @@ class TABULAR_QUERY():
         else:
             return "{} {} {})  "
 
-    def _modify_vars(self, vars):
+#########################################################################################
+
+    def _make_aggfltr_tmplt_start_c1(self, n: int) -> list:
+        tmplts = []
+        for k in range(n):
+            a = "SELECT {}"
+            b = [",{}"*i for i in range(n)]
+            c = ",{}({}), COUNT(*) FROM {} "
+            tmplts.append(a+b[k]+c)
+        return tmplts
+
+    def _make_aggfltr_tmplt_start_c0(self, n: int) -> list:
+        tmplts = []
+        for k in range(n):
+            a = "SELECT {}"
+            b = [",{}"*i for i in range(n)]
+            c = ", COUNT(*) FROM {} "
+            tmplts.append(a+b[k]+c)
+        return tmplts
+
+
+    def _make_aggfltr_tmplt_end(self, n: int) -> list:
+        tmplts = []
+        for k in range(n):
+            b = [",{}"*i for i in range(n)]
+            d = " GROUP BY {}"
+            tmplts.append(d+b[k])
+        return tmplts
+
+
+    def _gen_single_aggfltr_expr(self, where_vars: list,  agg_fntn=True):
+
+        n_vars = int(len(where_vars))
+        log_ops = random.choices(self._logic_op_bag, weights=self._logic_op_wghts, k=n_vars-1)         # sample logical operators allowing repetition
+        exp_params,cmp_ops=self._sort_vars_ops(where_vars)
+        real_tbl_name = self.REAL_TBL_NAME
+        cat_vars = self.CAT_VARS
+        cnt_vars = self.CNT_VARS
+        #dt_vars=self.DT_VARS
+
+        if agg_fntn:#case1
+            tmplts_start = self._make_aggfltr_tmplt_start_c1(len(cat_vars))
+        else: #case0
+            tmplts_start = self._make_aggfltr_tmplt_start_c0(len(cat_vars))
+        
+        tmplts_end = self._make_aggfltr_tmplt_end(len(cat_vars))
+        tmplts_idx = list(range(len(tmplts_start)))
+        grp_rank = random.choice(tmplts_idx)
+
+        start_tmplt = tmplts_start[grp_rank]
+        end_tmplt=tmplts_end[grp_rank]
+
+        select_cat_vars = random.sample(cat_vars, grp_rank+1) #cat variables  for the select and not for the where, you may include date in the future, just comment this line and uncomment the one below. Also uncomnent dt_var above
+        #select_cat_vars = random.sample(cat_vars+dt_vars, grp_rank+1)
+
+        if agg_fntn: #case1
+            select_agg_op = random.choice(self._agg_op_bag)
+            select_cnt_var = random.choice(cnt_vars)
+            start_args_real = *select_cat_vars, select_agg_op, select_cnt_var, real_tbl_name
+        else: #case0
+            start_args_real = *select_cat_vars, real_tbl_name
+        
+        start_expr_real=start_tmplt.format(*start_args_real)
+        end_expr_real=end_tmplt.format(*select_cat_vars)
+        mid_expr_real, query_params = self._gen_single_fltr_expr23(where_vars,log_ops, cmp_ops, exp_params)
+        
+        expr_real=start_expr_real+mid_expr_real+end_expr_real
+
+        query_params['query_type']='aggfltr_{}'.format(int(agg_fntn))
+        query_params['real_table_name']=real_tbl_name
+        query_params['syn_table_name']=np.nan
+        query_params['query_tmplt_idx']=grp_rank #The word 'query' refers to aggregate query arguments. The arguments of teh where clause  will start with where e.g. where_cnt_vars
+        query_params['query_cat_vars']= select_cat_vars
+        query_params['query_cnt_vars']=np.nan
+        query_params['query_dt_vars']=np.nan
+        query_params['query_cnt_var']=select_cnt_var if agg_fntn else np.nan
+        query_params['query_agg_op']=select_agg_op if agg_fntn else np.nan
+        query_params['query_match_vars']=select_cat_vars
+        query_params['real_sql']=expr_real
+        query_params['syn_sql']=np.nan
+
+        return expr_real, query_params
+
+
+    def gen_single_aggfltr_queries(self, n_rnd_queries,agg_fntn=True) -> dict:
+        if agg_fntn:
+            assert agg_fntn and self.CNT_VARS, "Data shall include at least one continuous variable, or set agg_fntn to False"
+        cur = self.CUR
+        queries = {'query_real': [],  'query_params': []}
+        for k in range(n_rnd_queries):
+            this_n_vars = random.randrange(1, len(self.VARS))
+            this_vars = list(np.random.choice(self.VARS, size=this_n_vars, replace=False))  # Randomly pick a number of WHERE variables for the query
+
+            real_expr, query_params = self._gen_single_aggfltr_expr(this_vars, agg_fntn=agg_fntn)
+
+            cur.execute(real_expr)
+            query_real = cur.fetchall()
+            query_real_headers = [description[0] for description in cur.description]
+            query_real_df = pd.DataFrame( query_real, columns=query_real_headers)
+
+            query_params["real_n_rcrds"]= len(query_real_df),
+            query_params["syn_n_rcrds"]= np.nan
+
+            queries['query_real'].append(query_real_df)
+            queries['query_params'].append(query_params)
+            
+            print('Generated Conditioned Aggregate Query {} '.format(str(k)))
+        return queries
+
+        # #cur.execute(this_tmplt.format(*this_expr_real))
+        # #query_real = cur.fetchall()
+        # #query_real_df = pd.DataFrame(query_real, columns=[*this_cat_vars, this_CNT_VARS, "count"])
+
+        # query_params = {
+        #     "query_type":"agg_1",
+        #     "real_table_name": real_tbl_name,
+        #     "syn_table_name": np.nan,
+        #     "query_tmplt_idx": grp_rank,
+        #     "query_tmplt": this_tmplt,
+        #     "query_cat_vars": this_cat_vars,
+        #     "query_cnt_vars": np.nan,
+        #     "query_cnt_var": this_CNT_VARS,
+        #     "query_agg_op": this_op,
+        #     "real_n_rcrds": len(query_real_df),
+        #     "syn_n_rcrds": np.nan,
+        #     "query_match_vars": this_cat_vars, 
+        #     "real_sql":this_tmplt.format(*this_expr_real),
+        #     "syn_sql":np.nan
+        # }
+
+
+        
+
+
+    def _gen_twin_aggfltr_expr():
+        pass
+
+
+##########################################################################################
+
+
+    def _modify_vars(self, vars: list):
+        """ The function allows to randomly add NOT before any variable"""
         n_vars = len(vars)
         add_not = np.random.choice(
             self._logic_not_states, size=(n_vars,), p=self._logic_not_wghts)
@@ -134,7 +277,8 @@ class TABULAR_QUERY():
         new_val = "'"+str_val+"'"
         return new_val
 
-    def _sort_vars_ops(self, vars):
+    def _sort_vars_ops(self, vars: list):
+        """ The function randomly samples comparison operators and sorts them to be inline with input list of variables. It returns a list sorted comparison operators and a dictionary of of expression parameters that include the types of variable """
         exp_params = {}
 
         # separate continuous and categorical variable in the input variables
@@ -182,8 +326,8 @@ class TABULAR_QUERY():
 
         return exp_params, cmp_ops
 
-    def _append_var(self,args, var, cmp_op):
-        """ The function randomly picks values corresponding to the input variable var and based on its subsequent operator cmp_op. The picked value is appended to the train of argeuments that is necessary to construct the SQL statement."""
+    def _append_val(self,args, var, cmp_op):
+        """ The function randomly picks values corresponding to the input variable var and based on its subsequent operator cmp_op. The picked value is appended to the train of arguments that is necessary to construct the SQL statement."""
         if cmp_op == 'BETWEEN':
             if var in self.CNT_VARS:
                 args.append(random.choice(self.CNT_VAL_BAG[var])) # upper bound of BETWEEN
@@ -222,40 +366,45 @@ class TABULAR_QUERY():
                     
         return args
 
-    def _gen_fltr_expr(self, vars: list, agg_fntn=True) -> str:
-        """ The function returns sql where expression given the table name (tbl) and a list of variable names (vars). By default and a random aggregate function and random continuous variables are used. If agg_fntn is set to False, the query will return all records """
-        tbl = self.REAL_TBL_NAME
 
+    # def _gen_single_fltr_expr1(self, vars: list, agg_fntn=True) -> str:
+    #     tbl = self.REAL_TBL_NAME
+
+    #     n_vars = int(len(vars))
+
+    #     # sample logical operators allowing repetition
+    #     log_ops = random.choices(self._logic_op_bag, weights=self._logic_op_wghts, k=n_vars-1)
+    #     exp_params,cmp_ops=self._sort_vars_ops(vars)
+
+    #     # Construct SQL expression
+    #     # Prepare expression pertaining to template 1
+    #     if agg_fntn:
+    #         tmplt = self._make_fltr_tmplt1_c1()
+    #         args = []
+    #         this_agg_op = random.choices(
+    #             self._agg_op_bag, weights=self._agg_op_wghts, k=1)
+    #         args.append(*this_agg_op)
+    #         this_agg_var = random.choice(self.CNT_VARS)
+    #         args.append(this_agg_var)
+    #         exp_params['agg_cnt_var'] = this_agg_var
+    #         args.append(tbl)
+    #         expr1 = tmplt.format(*args)
+    #         exp_params['query_agg_op'] = this_agg_op
+
+    #     else:
+    #         tmplt = self._make_fltr_tmplt1_c0()
+    #         args = []
+    #         args.append(tbl)
+    #         expr1 = tmplt.format(*args)
+    #         exp_params['agg_cnt_var'] = np.nan
+    #         exp_params['query_agg_op'] = np.nan
+
+    #     return expr1, log_ops,cmp_ops,exp_params
+
+    def _gen_single_fltr_expr23(self, vars: list, log_ops, cmp_ops, exp_params) -> str:
         n_vars = int(len(vars))
 
-        # sample logical operators allowing repetition
-        log_ops = random.choices(self._logic_op_bag, weights=self._logic_op_wghts, k=n_vars-1)
-        exp_params,cmp_ops=self._sort_vars_ops(vars)
-
-        # Construct SQL expression
-        # Prepare expression pertaining to template 1
-        if agg_fntn:
-            tmplt = self._make_fltr_tmplt1_c1()
-            args = []
-            this_agg_op = random.choices(
-                self._agg_op_bag, weights=self._agg_op_wghts, k=1)
-            args.append(*this_agg_op)
-            this_agg_var = random.choice(self.CNT_VARS)
-            args.append(this_agg_var)
-            exp_params['agg_cnt_var'] = this_agg_var
-            args.append(tbl)
-            expr1 = tmplt.format(*args)
-            exp_params['query_agg_op'] = this_agg_op
-
-        else:
-            tmplt = self._make_fltr_tmplt1_c0()
-            args = []
-            args.append(tbl)
-            expr1 = tmplt.format(*args)
-            exp_params['agg_cnt_var'] = np.nan
-            exp_params['query_agg_op'] = np.nan
-
-        # Get randomly introduce NOT to nars by calling _modify_vars
+        # Get randomly introduces NOT to vars by calling _modify_vars
         frmted_vars = self._modify_vars(vars)
 
         # Prepare expression pertaining to template 2 if the number of input vars is odd
@@ -264,7 +413,7 @@ class TABULAR_QUERY():
             args.append(frmted_vars[0])
             args.append(cmp_ops[0])
             tmplt = self._make_fltr_tmplt2(cmp_ops[0])
-            args=self._append_var(args, vars[0],cmp_ops[0])
+            args=self._append_val(args, vars[0],cmp_ops[0])
 
             if log_ops:  # if list is not empty, ie. number of input variables > 1
                 tmplt = tmplt+' {} '
@@ -276,14 +425,14 @@ class TABULAR_QUERY():
             if log_ops:
                 log_ops.remove(log_ops[0])
             if not log_ops:  # return expression if number of input variables =1
-                return expr1+expr2,  exp_params
+                return expr2,  exp_params
 
         # Prepare expression pertaining to template 3 and template 4
         k = 0  # counter for logical operation
         if n_vars % 2 != 0:  # add expression 1 if the number of input variable is odd
-            expr = expr1+expr2
+            expr = expr2
         else:
-            expr = expr1 + ' WHERE '
+            expr = ' WHERE '
         n_terms = int(len(vars)/2)
 
         j=0
@@ -292,7 +441,7 @@ class TABULAR_QUERY():
             args.append(frmted_vars[j])
             args.append(cmp_ops[j])
             tmplt = self._make_fltr_tmplt3(cmp_ops[j])
-            args=self._append_var(args, vars[j],cmp_ops[j])
+            args=self._append_val(args, vars[j],cmp_ops[j])
             j+=1
             
             args.append(log_ops[k])
@@ -303,7 +452,7 @@ class TABULAR_QUERY():
             args.append(frmted_vars[j])
             args.append(cmp_ops[j])
             tmplt = self._make_fltr_tmplt4(cmp_ops[j])
-            args=self._append_var(args, vars[j], cmp_ops[j])
+            args=self._append_val(args, vars[j], cmp_ops[j])
             expr4 = tmplt.format(*args)
             j+=1
 
@@ -313,6 +462,98 @@ class TABULAR_QUERY():
                 expr = expr+expr3+expr4
 
         return expr,  exp_params
+
+    # def _gen_single_fltr_expr(self, vars: list, agg_fntn=True) -> str:
+    #     """ The function returns sql where expression given the table name (tbl) and a list of variable names (vars). By default and a random aggregate function and random continuous variables are used. If agg_fntn is set to False, the query will return all records """
+    #     tbl = self.REAL_TBL_NAME
+
+    #     n_vars = int(len(vars))
+
+    #     # sample logical operators allowing repetition
+    #     log_ops = random.choices(self._logic_op_bag, weights=self._logic_op_wghts, k=n_vars-1)
+    #     exp_params,cmp_ops=self._sort_vars_ops(vars)
+
+    #     # Construct SQL expression
+    #     # Prepare expression pertaining to template 1
+    #     if agg_fntn:
+    #         tmplt = self._make_fltr_tmplt1_c1()
+    #         args = []
+    #         this_agg_op = random.choices(
+    #             self._agg_op_bag, weights=self._agg_op_wghts, k=1)
+    #         args.append(*this_agg_op)
+    #         this_agg_var = random.choice(self.CNT_VARS)
+    #         args.append(this_agg_var)
+    #         exp_params['agg_cnt_var'] = this_agg_var
+    #         args.append(tbl)
+    #         expr1 = tmplt.format(*args)
+    #         exp_params['query_agg_op'] = this_agg_op
+
+    #     else:
+    #         tmplt = self._make_fltr_tmplt1_c0()
+    #         args = []
+    #         args.append(tbl)
+    #         expr1 = tmplt.format(*args)
+    #         exp_params['agg_cnt_var'] = np.nan
+    #         exp_params['query_agg_op'] = np.nan
+
+    #     # Get randomly introduces NOT to vars by calling _modify_vars
+    #     frmted_vars = self._modify_vars(vars)
+
+    #     # Prepare expression pertaining to template 2 if the number of input vars is odd
+    #     if n_vars % 2 != 0:
+    #         args = []
+    #         args.append(frmted_vars[0])
+    #         args.append(cmp_ops[0])
+    #         tmplt = self._make_fltr_tmplt2(cmp_ops[0])
+    #         args=self._append_val(args, vars[0],cmp_ops[0])
+
+    #         if log_ops:  # if list is not empty, ie. number of input variables > 1
+    #             tmplt = tmplt+' {} '
+    #             args.append(log_ops[0])
+    #         expr2 = tmplt.format(*args)
+    #         vars.remove(vars[0])
+    #         cmp_ops.remove(cmp_ops[0])
+    #         frmted_vars.remove(frmted_vars[0])
+    #         if log_ops:
+    #             log_ops.remove(log_ops[0])
+    #         if not log_ops:  # return expression if number of input variables =1
+    #             return expr1+expr2,  exp_params
+
+    #     # Prepare expression pertaining to template 3 and template 4
+    #     k = 0  # counter for logical operation
+    #     if n_vars % 2 != 0:  # add expression 1 if the number of input variable is odd
+    #         expr = expr1+expr2
+    #     else:
+    #         expr = expr1 + ' WHERE '
+    #     n_terms = int(len(vars)/2)
+
+    #     j=0
+    #     for i in range(n_terms):
+    #         args = []
+    #         args.append(frmted_vars[j])
+    #         args.append(cmp_ops[j])
+    #         tmplt = self._make_fltr_tmplt3(cmp_ops[j])
+    #         args=self._append_val(args, vars[j],cmp_ops[j])
+    #         j+=1
+            
+    #         args.append(log_ops[k])
+    #         k += 1
+    #         expr3 = tmplt.format(*args)
+           
+    #         args = []
+    #         args.append(frmted_vars[j])
+    #         args.append(cmp_ops[j])
+    #         tmplt = self._make_fltr_tmplt4(cmp_ops[j])
+    #         args=self._append_val(args, vars[j], cmp_ops[j])
+    #         expr4 = tmplt.format(*args)
+    #         j+=1
+
+    #         if i < n_terms-1:
+    #             expr = expr+expr3+expr4+' {} '.format(log_ops[k])
+    #         else:
+    #             expr = expr+expr3+expr4
+
+    #     return expr,  exp_params
 
 
     def _gen_twin_fltr_expr(self, vars: list,tbl_syn, agg_fntn=True) -> str:
@@ -362,7 +603,7 @@ class TABULAR_QUERY():
             args.append(frmted_vars[0])
             args.append(cmp_ops[0])
             tmplt = self._make_fltr_tmplt2(cmp_ops[0])
-            args=self._append_var(args, vars[0],cmp_ops[0])           
+            args=self._append_val(args, vars[0],cmp_ops[0])           
             if log_ops:  # if list is not empty, ie. number of input variables > 1
                 tmplt = tmplt+' {} '
                 args.append(log_ops[0])
@@ -391,7 +632,7 @@ class TABULAR_QUERY():
             args.append(frmted_vars[j])
             args.append(cmp_ops[j])
             tmplt = self._make_fltr_tmplt3(cmp_ops[j])
-            args=self._append_var(args, vars[j],cmp_ops[j])
+            args=self._append_val(args, vars[j],cmp_ops[j])
             j+=1
             args.append(log_ops[k])
             k += 1
@@ -400,7 +641,7 @@ class TABULAR_QUERY():
             args.append(frmted_vars[j])
             args.append(cmp_ops[j])
             tmplt = self._make_fltr_tmplt4(cmp_ops[j])
-            args=self._append_var(args, vars[j],cmp_ops[j])
+            args=self._append_val(args, vars[j],cmp_ops[j])
             expr4 = tmplt.format(*args)
             j+=1
             if i < n_terms-1:
@@ -731,7 +972,7 @@ class TABULAR_QUERY():
             # SMK - Randomly pick a number of WHERE variables for the query
             this_vars = list(np.random.choice(
                 self.VARS, size=this_n_vars, replace=False))
-            real_expr, expr_params = self._gen_fltr_expr(
+            real_expr, expr_params = self._gen_single_fltr_expr(
                 this_vars, agg_fntn=agg_fntn)
 
             cur.execute(real_expr)
@@ -818,6 +1059,7 @@ class TABULAR_QUERY():
         return queries
 
     def _match_agg_queries(self, queries: dict) -> dict:
+        " The function matches the records of both real and synthetic input queries and returns the the both queries being matched record-by-record"
         real_queries = queries['query_real']
         syn_queries = queries['query_syn']
         query_params = queries['query_params']
