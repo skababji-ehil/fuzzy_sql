@@ -14,6 +14,7 @@ class TABULAR_QUERY():
         self.CUR = db_conn.cursor()
         self.REAL_TBL_NAME = real_tbl_name
         self.VARS = list(metadata.keys())
+        self.HLNGR_DROPNA=1 #Drop non-matching records entries in the Hellinger pivot table. For Euclidean calac, we always drop non-matching records
 
         self.CAT_VARS = [key for key, value in metadata.items(
         ) if value == 'nominal']  # Get all categorical (nominal) var names
@@ -152,8 +153,9 @@ class TABULAR_QUERY():
     def _gen_single_aggfltr_expr(self, where_vars: list,  agg_fntn=True):
 
         n_vars = int(len(where_vars))
-        log_ops = random.choices(self._logic_op_bag, weights=self._logic_op_wghts, k=n_vars-1)         # sample logical operators allowing repetition
-        exp_params,cmp_ops=self._sort_vars_ops(where_vars)
+        if n_vars!=0: #if a WHERE clause is to be added to the aggregate query
+            log_ops = random.choices(self._logic_op_bag, weights=self._logic_op_wghts, k=n_vars-1)         # sample logical operators allowing repetition
+            exp_params,cmp_ops=self._sort_vars_ops(where_vars)
         real_tbl_name = self.REAL_TBL_NAME
         cat_vars = self.CAT_VARS
         cnt_vars = self.CNT_VARS
@@ -183,9 +185,13 @@ class TABULAR_QUERY():
         
         start_expr_real=start_tmplt.format(*start_args_real)
         end_expr_real=end_tmplt.format(*select_cat_vars)
-        mid_expr_real, query_params = self._gen_single_fltr_expr23(where_vars,log_ops, cmp_ops, exp_params)
         
-        expr_real=start_expr_real+mid_expr_real+end_expr_real
+        if n_vars!=0:
+            mid_expr_real, query_params = self._gen_single_fltr_expr23(where_vars,log_ops, cmp_ops, exp_params)
+            expr_real=start_expr_real+mid_expr_real+end_expr_real
+        else:#No WHERE clause
+            expr_real=start_expr_real+end_expr_real
+
 
         query_params['query_type']='aggfltr_{}'.format(int(agg_fntn))
         query_params['real_table_name']=real_tbl_name
@@ -228,33 +234,106 @@ class TABULAR_QUERY():
             print('Generated Conditioned Aggregate Query {} '.format(str(k)))
         return queries
 
-        # #cur.execute(this_tmplt.format(*this_expr_real))
-        # #query_real = cur.fetchall()
-        # #query_real_df = pd.DataFrame(query_real, columns=[*this_cat_vars, this_CNT_VARS, "count"])
 
-        # query_params = {
-        #     "query_type":"agg_1",
-        #     "real_table_name": real_tbl_name,
-        #     "syn_table_name": np.nan,
-        #     "query_tmplt_idx": grp_rank,
-        #     "query_tmplt": this_tmplt,
-        #     "query_cat_vars": this_cat_vars,
-        #     "query_cnt_vars": np.nan,
-        #     "query_cnt_var": this_CNT_VARS,
-        #     "query_agg_op": this_op,
-        #     "real_n_rcrds": len(query_real_df),
-        #     "syn_n_rcrds": np.nan,
-        #     "query_match_vars": this_cat_vars, 
-        #     "real_sql":this_tmplt.format(*this_expr_real),
-        #     "syn_sql":np.nan
-        # }
+    def _gen_twin_aggfltr_expr(self, where_vars: list, syn_tbl_name, agg_fntn=True):
+
+        n_vars = int(len(where_vars))
+        if n_vars!=0: #if a WHERE clause is to be added to the aggregate query
+            log_ops = random.choices(self._logic_op_bag, weights=self._logic_op_wghts, k=n_vars-1) # sample logical operators allowing repetition
+            exp_params,cmp_ops=self._sort_vars_ops(where_vars)
+        real_tbl_name = self.REAL_TBL_NAME
+        cat_vars = self.CAT_VARS
+        cnt_vars = self.CNT_VARS
+        #dt_vars=self.DT_VARS
+
+        if agg_fntn:#case1
+            tmplts_start = self._make_aggfltr_tmplt_start_c1(len(cat_vars))
+        else: #case0
+            tmplts_start = self._make_aggfltr_tmplt_start_c0(len(cat_vars))
+        
+        tmplts_end = self._make_aggfltr_tmplt_end(len(cat_vars))
+        tmplts_idx = list(range(len(tmplts_start)))
+        grp_rank = random.choice(tmplts_idx)
+
+        start_tmplt = tmplts_start[grp_rank]
+        end_tmplt=tmplts_end[grp_rank]
+
+        select_cat_vars = random.sample(cat_vars, grp_rank+1) #cat variables  for the select and not for the where, you may include date in the future, just comment this line and uncomment the one below. Also uncomnent dt_var above
+        #select_cat_vars = random.sample(cat_vars+dt_vars, grp_rank+1)
+
+        if agg_fntn: #case1
+            select_agg_op = random.choice(self._agg_op_bag)
+            select_cnt_var = random.choice(cnt_vars)
+            start_args_real = *select_cat_vars, select_agg_op, select_cnt_var, real_tbl_name
+            start_args_syn = *select_cat_vars, select_agg_op, select_cnt_var, syn_tbl_name
+
+        else: #case0
+            start_args_real = *select_cat_vars, real_tbl_name
+            start_args_syn = *select_cat_vars, syn_tbl_name
+
+        
+        start_expr_real=start_tmplt.format(*start_args_real)
+        start_expr_syn=start_tmplt.format(*start_args_syn)
+        end_expr_real=end_tmplt.format(*select_cat_vars)
+        
+        if n_vars!=0:
+            mid_expr_real, query_params = self._gen_single_fltr_expr23(where_vars,log_ops, cmp_ops, exp_params)
+            expr_real=start_expr_real+mid_expr_real+end_expr_real
+            expr_syn=start_expr_syn+mid_expr_real+end_expr_real
+        else: #No WHERE clause
+            expr_real=start_expr_real+end_expr_real
+            expr_syn=start_expr_syn+end_expr_real
+
+
+        query_params['query_type']='aggfltr_{}'.format(int(agg_fntn))
+        query_params['real_table_name']=real_tbl_name
+        query_params['syn_table_name']=syn_tbl_name
+        query_params['query_tmplt_idx']=grp_rank #The word 'query' refers to aggregate query arguments. The arguments of teh where clause  will start with where e.g. where_cnt_vars
+        query_params['query_cat_vars']= select_cat_vars
+        query_params['query_cnt_vars']=np.nan
+        query_params['query_dt_vars']=np.nan
+        query_params['query_cnt_var']=select_cnt_var if agg_fntn else np.nan
+        query_params['query_agg_op']=select_agg_op if agg_fntn else np.nan
+        query_params['query_match_vars']=select_cat_vars
+        query_params['real_sql']=expr_real
+        query_params['syn_sql']=expr_syn
+
+        return expr_real, expr_syn, query_params
+
+
+    def gen_twin_aggfltr_queries(self, n_rnd_queries,syn_tbl_name,agg_fntn=True) -> dict:
+        if agg_fntn:
+            assert agg_fntn and self.CNT_VARS, "Data shall include at least one continuous variable, or set agg_fntn to False"
+        cur = self.CUR
+        queries = {'query_real': [], 'query_syn':[],'query_params': []}
+        for k in range(n_rnd_queries):
+            this_n_vars = random.randrange(1, len(self.VARS)) #Change starting bound to zero to allow omitting the where statement
+            this_vars = list(np.random.choice(self.VARS, size=this_n_vars, replace=False))  # Randomly pick a number of WHERE variables for the query
+
+            real_expr, syn_expr, query_params = self._gen_twin_aggfltr_expr(this_vars,syn_tbl_name,  agg_fntn=agg_fntn)
+
+            cur.execute(real_expr)
+            query_real = cur.fetchall()
+            query_real_headers = [description[0] for description in cur.description]
+            query_real_df = pd.DataFrame( query_real, columns=query_real_headers)
+
+            cur.execute(syn_expr)
+            query_syn = cur.fetchall()
+            query_syn_headers = [description[0] for description in cur.description]
+            query_syn_df = pd.DataFrame( query_syn, columns=query_syn_headers)
+
+            query_params["real_n_rcrds"]= len(query_real_df)
+            query_params["syn_n_rcrds"]= len(query_syn_df)
+
+            queries['query_real'].append(query_real_df)
+            queries['query_syn'].append(query_syn_df)
+            queries['query_params'].append(query_params)
+            
+            print('Generated Conditioned Aggregate Query {} '.format(str(k)))
+        return queries
 
 
         
-
-
-    def _gen_twin_aggfltr_expr():
-        pass
 
 
 ##########################################################################################
@@ -463,97 +542,97 @@ class TABULAR_QUERY():
 
         return expr,  exp_params
 
-    # def _gen_single_fltr_expr(self, vars: list, agg_fntn=True) -> str:
-    #     """ The function returns sql where expression given the table name (tbl) and a list of variable names (vars). By default and a random aggregate function and random continuous variables are used. If agg_fntn is set to False, the query will return all records """
-    #     tbl = self.REAL_TBL_NAME
+    def _gen_single_fltr_expr(self, vars: list, agg_fntn=True) -> str:
+        """ The function returns sql where expression given the table name (tbl) and a list of variable names (vars). By default and a random aggregate function and random continuous variables are used. If agg_fntn is set to False, the query will return all records """
+        tbl = self.REAL_TBL_NAME
 
-    #     n_vars = int(len(vars))
+        n_vars = int(len(vars))
 
-    #     # sample logical operators allowing repetition
-    #     log_ops = random.choices(self._logic_op_bag, weights=self._logic_op_wghts, k=n_vars-1)
-    #     exp_params,cmp_ops=self._sort_vars_ops(vars)
+        # sample logical operators allowing repetition
+        log_ops = random.choices(self._logic_op_bag, weights=self._logic_op_wghts, k=n_vars-1)
+        exp_params,cmp_ops=self._sort_vars_ops(vars)
 
-    #     # Construct SQL expression
-    #     # Prepare expression pertaining to template 1
-    #     if agg_fntn:
-    #         tmplt = self._make_fltr_tmplt1_c1()
-    #         args = []
-    #         this_agg_op = random.choices(
-    #             self._agg_op_bag, weights=self._agg_op_wghts, k=1)
-    #         args.append(*this_agg_op)
-    #         this_agg_var = random.choice(self.CNT_VARS)
-    #         args.append(this_agg_var)
-    #         exp_params['agg_cnt_var'] = this_agg_var
-    #         args.append(tbl)
-    #         expr1 = tmplt.format(*args)
-    #         exp_params['query_agg_op'] = this_agg_op
+        # Construct SQL expression
+        # Prepare expression pertaining to template 1
+        if agg_fntn:
+            tmplt = self._make_fltr_tmplt1_c1()
+            args = []
+            this_agg_op = random.choices(
+                self._agg_op_bag, weights=self._agg_op_wghts, k=1)
+            args.append(*this_agg_op)
+            this_agg_var = random.choice(self.CNT_VARS)
+            args.append(this_agg_var)
+            exp_params['agg_cnt_var'] = this_agg_var
+            args.append(tbl)
+            expr1 = tmplt.format(*args)
+            exp_params['query_agg_op'] = this_agg_op
 
-    #     else:
-    #         tmplt = self._make_fltr_tmplt1_c0()
-    #         args = []
-    #         args.append(tbl)
-    #         expr1 = tmplt.format(*args)
-    #         exp_params['agg_cnt_var'] = np.nan
-    #         exp_params['query_agg_op'] = np.nan
+        else:
+            tmplt = self._make_fltr_tmplt1_c0()
+            args = []
+            args.append(tbl)
+            expr1 = tmplt.format(*args)
+            exp_params['agg_cnt_var'] = np.nan
+            exp_params['query_agg_op'] = np.nan
 
-    #     # Get randomly introduces NOT to vars by calling _modify_vars
-    #     frmted_vars = self._modify_vars(vars)
+        # Get randomly introduces NOT to vars by calling _modify_vars
+        frmted_vars = self._modify_vars(vars)
 
-    #     # Prepare expression pertaining to template 2 if the number of input vars is odd
-    #     if n_vars % 2 != 0:
-    #         args = []
-    #         args.append(frmted_vars[0])
-    #         args.append(cmp_ops[0])
-    #         tmplt = self._make_fltr_tmplt2(cmp_ops[0])
-    #         args=self._append_val(args, vars[0],cmp_ops[0])
+        # Prepare expression pertaining to template 2 if the number of input vars is odd
+        if n_vars % 2 != 0:
+            args = []
+            args.append(frmted_vars[0])
+            args.append(cmp_ops[0])
+            tmplt = self._make_fltr_tmplt2(cmp_ops[0])
+            args=self._append_val(args, vars[0],cmp_ops[0])
 
-    #         if log_ops:  # if list is not empty, ie. number of input variables > 1
-    #             tmplt = tmplt+' {} '
-    #             args.append(log_ops[0])
-    #         expr2 = tmplt.format(*args)
-    #         vars.remove(vars[0])
-    #         cmp_ops.remove(cmp_ops[0])
-    #         frmted_vars.remove(frmted_vars[0])
-    #         if log_ops:
-    #             log_ops.remove(log_ops[0])
-    #         if not log_ops:  # return expression if number of input variables =1
-    #             return expr1+expr2,  exp_params
+            if log_ops:  # if list is not empty, ie. number of input variables > 1
+                tmplt = tmplt+' {} '
+                args.append(log_ops[0])
+            expr2 = tmplt.format(*args)
+            vars.remove(vars[0])
+            cmp_ops.remove(cmp_ops[0])
+            frmted_vars.remove(frmted_vars[0])
+            if log_ops:
+                log_ops.remove(log_ops[0])
+            if not log_ops:  # return expression if number of input variables =1
+                return expr1+expr2,  exp_params
 
-    #     # Prepare expression pertaining to template 3 and template 4
-    #     k = 0  # counter for logical operation
-    #     if n_vars % 2 != 0:  # add expression 1 if the number of input variable is odd
-    #         expr = expr1+expr2
-    #     else:
-    #         expr = expr1 + ' WHERE '
-    #     n_terms = int(len(vars)/2)
+        # Prepare expression pertaining to template 3 and template 4
+        k = 0  # counter for logical operation
+        if n_vars % 2 != 0:  # add expression 1 if the number of input variable is odd
+            expr = expr1+expr2
+        else:
+            expr = expr1 + ' WHERE '
+        n_terms = int(len(vars)/2)
 
-    #     j=0
-    #     for i in range(n_terms):
-    #         args = []
-    #         args.append(frmted_vars[j])
-    #         args.append(cmp_ops[j])
-    #         tmplt = self._make_fltr_tmplt3(cmp_ops[j])
-    #         args=self._append_val(args, vars[j],cmp_ops[j])
-    #         j+=1
+        j=0
+        for i in range(n_terms):
+            args = []
+            args.append(frmted_vars[j])
+            args.append(cmp_ops[j])
+            tmplt = self._make_fltr_tmplt3(cmp_ops[j])
+            args=self._append_val(args, vars[j],cmp_ops[j])
+            j+=1
             
-    #         args.append(log_ops[k])
-    #         k += 1
-    #         expr3 = tmplt.format(*args)
+            args.append(log_ops[k])
+            k += 1
+            expr3 = tmplt.format(*args)
            
-    #         args = []
-    #         args.append(frmted_vars[j])
-    #         args.append(cmp_ops[j])
-    #         tmplt = self._make_fltr_tmplt4(cmp_ops[j])
-    #         args=self._append_val(args, vars[j], cmp_ops[j])
-    #         expr4 = tmplt.format(*args)
-    #         j+=1
+            args = []
+            args.append(frmted_vars[j])
+            args.append(cmp_ops[j])
+            tmplt = self._make_fltr_tmplt4(cmp_ops[j])
+            args=self._append_val(args, vars[j], cmp_ops[j])
+            expr4 = tmplt.format(*args)
+            j+=1
 
-    #         if i < n_terms-1:
-    #             expr = expr+expr3+expr4+' {} '.format(log_ops[k])
-    #         else:
-    #             expr = expr+expr3+expr4
+            if i < n_terms-1:
+                expr = expr+expr3+expr4+' {} '.format(log_ops[k])
+            else:
+                expr = expr+expr3+expr4
 
-    #     return expr,  exp_params
+        return expr,  exp_params
 
 
     def _gen_twin_fltr_expr(self, vars: list,tbl_syn, agg_fntn=True) -> str:
@@ -727,8 +806,10 @@ class TABULAR_QUERY():
         cur.execute(this_tmplt.format(*this_expr_real))
         query_real = cur.fetchall()
 
-        query_real_df = pd.DataFrame(
-            query_real, columns=[*this_cat_vars, this_CNT_VARS, "count"])
+        #SMK CHECK
+        query_real_header = [description[0] for description in cur.description]
+        query_real_df = pd.DataFrame(query_real, columns=query_real_header)
+        #query_real_df = pd.DataFrame(query_real, columns=[*this_cat_vars, this_CNT_VARS, "count"])
 
         query_params = {
             "query_type":"agg_1",
@@ -774,14 +855,29 @@ class TABULAR_QUERY():
         this_expr_real = *this_cat_vars, this_op, this_CNT_VARS, real_tbl_name, *this_cat_vars
         cur.execute(this_tmplt.format(*this_expr_real))
         query_real = cur.fetchall()
+        
+        #SMK CHECK
+        query_real_header = [description[0] for description in cur.description]
+        query_real_df = pd.DataFrame(query_real, columns=query_real_header)
+
+        
+        
         this_expr_syn = *this_cat_vars, this_op, this_CNT_VARS, syn_tbl_name, *this_cat_vars
         cur.execute(this_tmplt.format(*this_expr_syn))
         query_syn = cur.fetchall()
 
-        query_real_df = pd.DataFrame(
-            query_real, columns=[*this_cat_vars, this_CNT_VARS, "count"])
-        query_syn_df = pd.DataFrame(
-            query_syn, columns=[*this_cat_vars, this_CNT_VARS, "count"])
+        #SMK CHECK
+        query_syn_header = [description[0] for description in cur.description]
+        query_syn_df = pd.DataFrame(query_syn, columns=query_syn_header)
+
+        
+
+        #SMK CHECK
+        # query_real_df = pd.DataFrame(query_real, columns=[*this_cat_vars, this_CNT_VARS, "count"])
+        # query_syn_df = pd.DataFrame(query_syn, columns=[*this_cat_vars, this_CNT_VARS, "count"])
+        
+        
+        
         query_params = {
             "query_type":"agg_1",
             "real_table_name": real_tbl_name,
@@ -1074,8 +1170,10 @@ class TABULAR_QUERY():
         return matched_queries
 
     def _make_hlngr_pivot(self, real_df: pd.DataFrame, syn_df: pd.DataFrame) -> pd.DataFrame:
-        real_counts = real_df['count'].values
-        syn_counts = syn_df['count'].values
+        # real_counts = real_df['count'].values
+        # syn_counts = syn_df['count'].values
+        real_counts = real_df['COUNT(*)'].values
+        syn_counts = syn_df['COUNT(*)'].values
         pivot = np.concatenate([real_counts.reshape(
             1, -1), syn_counts.reshape(1, -1)], axis=0)
         pivot = pd.DataFrame(pivot, index=['real', 'syn'])
@@ -1089,8 +1187,8 @@ class TABULAR_QUERY():
         pivot = pd.DataFrame(pivot, index=['real', 'syn'])
         return pivot.T
 
-    def _calc_hlngr_dist(self, pivot: pd.DataFrame, dropna) -> float:
-        if dropna:
+    def _calc_hlngr_dist(self, pivot: pd.DataFrame) -> float:
+        if self.HLNGR_DROPNA:
             pivot = pivot.dropna()  # drop nan (ie drop non-matching records)
         else:
             pivot = pivot.fillna(0)  # replace nan with 0 (the default)
@@ -1100,7 +1198,11 @@ class TABULAR_QUERY():
         q = pivot['syn'].values
         q = q/np.sum(q)
         z = np.sqrt(p) - np.sqrt(q)
-        return np.sqrt(z @ z / 2)
+        if len(z)!=0:
+            res=np.sqrt(z @ z / 2)
+        else:
+            res=np.nan
+        return res
 
     def _calc_ecldn_dist(self, pivot: pd.DataFrame) -> float:
         # I am dropping nan since we can not penalize (ie replacing nan with zero) the generator in
@@ -1109,8 +1211,13 @@ class TABULAR_QUERY():
         p = pivot['real'].values
         q = pivot['syn'].values
         scaler = StandardScaler()
-        pq_s = scaler.fit_transform((p-q).reshape(-1, 1))
-        return np.linalg.norm(pq_s, 2)
+        p_q=(p-q).reshape(-1, 1)
+        if len(p_q) !=0:
+            pq_s = scaler.fit_transform((p-q).reshape(-1, 1))
+            res=np.linalg.norm(pq_s, 2)
+        else:
+            res=np.nan
+        return res
 
     def get_agg_metrics(self, queries: dict, hlngr_dropna=False) -> dict:
         """ The function returns Hillinger distance and Euclidean distance (whenever applicable) for each real-syn query tuple in the input dictionary"""
@@ -1122,13 +1229,13 @@ class TABULAR_QUERY():
         query_params = matched_queries['query_params']
         for query_real, query_syn, query_params in zip(real_queries, syn_queries, query_params):
             hlngr_pivot = self._make_hlngr_pivot(query_real, query_syn)
-            hlngr_dist = self._calc_hlngr_dist(
-                hlngr_pivot, dropna=hlngr_dropna)
+            hlngr_dist = self._calc_hlngr_dist(hlngr_pivot)
             matched_queries["hlngr_dist"].append(hlngr_dist)
             # For case1, both hlngr and ecldn pivots and distances will be produced
             if not pd.isnull(query_params['query_agg_op']):
-                ecldn_pivot = self._make_ecldn_pivot(
-                    query_real, query_syn, query_params['query_cnt_var'])
+                # SMK CHECK
+                ecldn_pivot = self._make_ecldn_pivot(query_real, query_syn, query_real.columns[-1])
+                #ecldn_pivot = self._make_ecldn_pivot(query_real, query_syn, query_params['query_cnt_var'])
                 ecldn_dist = self._calc_ecldn_dist(ecldn_pivot)
                 matched_queries["ecldn_dist"].append(ecldn_dist)
             else:  # For case 0, only hlngr pivots wil be produced
