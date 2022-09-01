@@ -8,6 +8,7 @@ if __name__=='__main__':
     fuzz_tabular(100,'single_fltr', '/home/samer/projects/fuzzy_sql/data/real/oncovid_dtd.csv', '/home/samer/projects/fuzzy_sql/data/metadata/oncovid_dtd.json')
     fuzz_tabular(100,'twin_fltr', '/home/samer/projects/fuzzy_sql/data/real/C1.csv', '/home/samer/projects/fuzzy_sql/data/metadata/C1.json','/home/samer/projects/fuzzy_sql/data/synthetic/C1_syn_06.csv')
     fuzz_tabular(100,'twin_agg', '/home/samer/projects/fuzzy_sql/data/real/C1.csv', '/home/samer/projects/fuzzy_sql/data/metadata/C1.json','/home/samer/projects/fuzzy_sql/data/synthetic/C1_syn_06.csv')
+    fuzz_tabular(100,'twin_aggfltr', '/home/samer/projects/fuzzy_sql/data/real/C1.csv', '/home/samer/projects/fuzzy_sql/data/metadata/C1.json','/home/samer/projects/fuzzy_sql/data/synthetic/C1_syn_06.csv')
 
 
 
@@ -24,7 +25,7 @@ if __name__=='__main__':
 #     #where_vars=['age','education','income','capital']
 #     #testq._gen_single_aggfltr_expr(where_vars, agg_fntn=True)
 #     queries=testq.gen_twin_aggfltr_queries(100, class_inputs['syn_data_name'], agg_fntn=agg_fntn)
-#     scored_queries=testq.get_agg_metrics(queries, hlngr_dropna=1)
+#     scored_queries=testq.get_agg_metrics(queries)
 #     with open('sql.html', 'w') as file_writer:
 #         print_twin_agg_queries(scored_queries, file_writer)
 #     if os.name=='posix':

@@ -361,6 +361,7 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
     - 'single_fltr': This will generate random FILTER queries for the dataset provided in 'real_file_path'. FILTER queries include WHERE clause.
     - 'twin_agg': This will generate random AGGREGATE twin queries (i.e. both queries have identical query parameters) for both the input real and synthetic datasets. For 'twin_agg' queries, the function returns the Hellinger and Euclidean distances whenever applicable. 
     - 'twin_fltr': This will generate random FILTER twin queries for both the input real and synthetic datasets.
+    - 'twin_aggfltr': This will generate random Conditioned Aggregate queries fo both input real and synthetic datasets.
     
     The function generates the necessary reports in a separate folder. It also returns a dictionary of all the generated queries, query parameters and distance scores, if applicable. The dictionary can be used for further analysis"""
 
@@ -436,7 +437,6 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
         output_id="single_agg"
         #agg_fntn=False if len(test_tq.CNT_VARS)==0 else random.randint(0,1)
         agg_fntn=False
-        hlngr_dropna=False
         queries=test_tq.gen_single_agg_queries(n_queries, agg_fntn=agg_fntn) #returned dictionary of non-matching lists
         with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
             print_single_agg_queries(queries, file_writer)
@@ -450,9 +450,8 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
         output_id="twin_agg"
         #agg_fntn=False if len(test_tq.CNT_VARS)==0 else random.randint(0,1)
         agg_fntn=True
-        hlngr_dropna=False
         queries=test_tq.gen_twin_agg_queries(n_queries, syn_name, agg_fntn=agg_fntn) #returned dictionary of non-matching lists
-        scored_queries=test_tq.get_agg_metrics(queries, hlngr_dropna=hlngr_dropna)
+        scored_queries=test_tq.get_agg_metrics(queries)
         with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
             print_twin_agg_queries(scored_queries, file_writer)
         if os.name=='posix':
@@ -466,9 +465,31 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
             fig.savefig(run_dir+'/ecldn_{}.png'.format(output_id))    
         print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))
         return scored_queries
+    
+    
+    elif query_type=='twin_aggfltr':
+        output_id="twin_aggfltr"
+        #agg_fntn=False if len(test_tq.CNT_VARS)==0 else random.randint(0,1)
+        agg_fntn=True
+        queries=test_tq.gen_twin_aggfltr_queries(n_queries, syn_name, agg_fntn=agg_fntn)
+        scored_queries=test_tq.get_agg_metrics(queries)
+
+        with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
+            print_twin_agg_queries(scored_queries, file_writer)
+        if os.name=='posix':
+            pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+        hlngr_stats=calc_stats(scored_queries['hlngr_dist'])
+        fig=plot_violin(np.array(scored_queries['hlngr_dist']),'Hellinger Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),hlngr_stats)
+        fig.savefig(run_dir+'/hlngr_{}.png'.format(output_id))
+        if agg_fntn:
+            ecldn_stats=calc_stats(scored_queries['ecldn_dist'])
+            fig=plot_violin(np.array(scored_queries['ecldn_dist']),'Euclidean Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),ecldn_stats)
+            fig.savefig(run_dir+'/ecldn_{}.png'.format(output_id))    
+        print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))  
+        return scored_queries
 
     else:
-        raise Exception("Please enter correct query type: 'single_fltr','twin_fltr', 'single_agg, or 'twin_agg' ")
+        raise Exception("Please enter correct query type: 'single_fltr','twin_fltr', 'single_agg, 'twin_agg' or 'twin_aggfltr' ")
 
 
 

@@ -14,7 +14,7 @@ class TABULAR_QUERY():
         self.CUR = db_conn.cursor()
         self.REAL_TBL_NAME = real_tbl_name
         self.VARS = list(metadata.keys())
-        self.HLNGR_DROPNA=1 #Drop non-matching records entries in the Hellinger pivot table. For Euclidean calac, we always drop non-matching records
+        self.HLNGR_DROPNA=True #Drop non-matching records entries in the Hellinger pivot table. For Euclidean calac, we always drop non-matching records
 
         self.CAT_VARS = [key for key, value in metadata.items(
         ) if value == 'nominal']  # Get all categorical (nominal) var names
@@ -1219,7 +1219,7 @@ class TABULAR_QUERY():
             res=np.nan
         return res
 
-    def get_agg_metrics(self, queries: dict, hlngr_dropna=False) -> dict:
+    def get_agg_metrics(self, queries: dict) -> dict:
         """ The function returns Hillinger distance and Euclidean distance (whenever applicable) for each real-syn query tuple in the input dictionary"""
         matched_queries = self._match_agg_queries(queries)
         matched_queries["hlngr_dist"] = []
