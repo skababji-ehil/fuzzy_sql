@@ -8,6 +8,7 @@ src/fuzzy_sql.egg-info/
 test_*.*
 toy_*.*
 reports/latex/
+.vscode/
 
 
 

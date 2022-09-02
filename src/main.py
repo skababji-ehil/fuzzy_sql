@@ -1,4 +1,4 @@
-from tabular_fntns import *
+from fuzzy_sql.tabular_fntns import *
 import os
 
 
@@ -20,7 +20,7 @@ if __name__=='__main__':
 # if __name__=='__main__':
 #     agg_fntn=True
 #     conn = sqlite3.connect('fuzzy_sql.db')
-#     class_inputs=setup_class_inputs(conn,'/home/samer/projects/fuzzy_sql/data/real/C1.csv','/home/samer/projects/fuzzy_sql/data/metadata/C1.json','/home/samer/projects/fuzzy_sql/data/synthetic/C1_syn_06.csv')
+#     class_inputs=_setup_class_inputs(conn,'/home/samer/projects/fuzzy_sql/data/real/C1.csv','/home/samer/projects/fuzzy_sql/data/metadata/C1.json','/home/samer/projects/fuzzy_sql/data/synthetic/C1_syn_06.csv')
 #     testq=TABULAR_QUERY(conn,class_inputs['real_data_name'], class_inputs['metadata_dict'])
 #     #where_vars=['age','education','income','capital']
 #     #testq._gen_single_aggfltr_expr(where_vars, agg_fntn=True)
