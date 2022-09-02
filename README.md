@@ -6,25 +6,24 @@ The package generate random SQL Statements to check the query response from tabu
 
 <!-- 1) From your terminal, install pre-requisite dependencies: 
 ```
-pip install scikit-learn pandas pdfkit seaborn
+pip install pandas scikit-learn seaborn pdfkit
 ```
 Note that the output report is provided in html format. For Linux machines, the report is provided in pdf as well. For that purpose, Linux users may need to install wkhtmltopdf package using:
 ```
 sudo apt install -y wkhtmltopdf
 ```
-Once the above is installed,  -->
-1) Install fuzzy-sql using:
+2) Once the above is installed, install fuzzy-sql using:
 
 ```
 pip install fuzzy-sql
-```
+``` -->
 
-2) From your_script.py, import the module fuzzy_sql using:
+1) From your_script.py, import the module fuzzy_sql using:
 ``` 
 from fuzzy_sql import fuzzy_sql
 ```
 
-3) Use the function fuzzy_sql.fuzz_tabular (...) to generate the random queries. The function constructs the database in your working directory and generates reports in a subfolder under your working directory. The function also  returns a dictionary with all generated queries for further analysis. Fro example, if your data is named X, pass the following arguments in sequence:
+2) Use the function fuzzy_sql.fuzz_tabular (...) to generate the random queries. The function constructs the database in your working directory and generates reports in a subfolder under your working directory. The function also  returns a dictionary with all generated queries for further analysis. Fro example, if your data is named X, pass the following arguments in sequence:
 * An integer representing the number of required random queries.
 * A string representing query type and can be one of four options: "single_agg", "single_fltr","twin_agg", twin_fltr", :twin_aggfltr". The prefixes 'single' and 'twin' refer to whether synthetic data is used in the query generation. For types starting with 'single', the path to synthetic data, if provided, will be ignored. Aggregate (agg) type refers to queries that include GROUP BY clause while Filter (fltr) type refers to queries with WHERE clause without any aggregation. An important type is "twin_aggfltr" where random conditioned (includes WHERE) aggregate (includes GROUP BY) queries are generated. 
 * Full file path of real data e.g. "path/to/file/X_real.csv". 
