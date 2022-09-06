@@ -1,4 +1,4 @@
-from fuzzy_sql.tabular_fntns import *
+from fuzzy_sql.fuzzy_sql import *
 import os
 
 
