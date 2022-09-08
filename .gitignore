@@ -1,15 +1,13 @@
 data/
+.runs/
 dist/
-runs/
-src/toy.*
 src/fuzzy_sql.egg-info/
 *.db
-/data/oncovid
-test_*.*
-toy_*.*
 reports/latex/
 .vscode/
-.runs/
+notebooks/*.tar
+notebooks/*.json
+notebooks/*.csv
 
 
 # Byte-compiled / optimized / DLL files
