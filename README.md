@@ -2,6 +2,12 @@
 
 The package generate random SQL Statements to check the query response from tabular synthetic data against that of tabular real data. Both datasets shall have the same number of columns and rows. 
 
+## Installation:
+```
+pip install fuzzy-sql
+```
+The package includes the necessary dependencies. They can also be installed manually using: pip install pandas scikit-learn seaborn   
+
 ## Usage:
 
 <!-- 1) From your terminal, install pre-requisite dependencies: 
@@ -43,7 +49,7 @@ Here is an example how to generate 10 queries for a single  dataset:
 ```
 queries=fuzzy_sql.fuzz_tabular(10,,"single_fltr","path/to/file/X_real.csv", "path/to/file/X_metadata.json")
 ```
-Below is another example to generate 100 aggregate queries simualeouldy applied to both real and synthetic input datatsets:
+Below is another example to generate 100 aggregate queries simultaneously applied to both real and synthetic input datatsets:
 
 ```
 queries=fuzzy_sql.fuzz_tabular(100,"twin_agg","path/to/file/X_real.csv", "path/to/file/X_metadata.json", "path/to/file/X_syn.csv")
@@ -51,4 +57,4 @@ queries=fuzzy_sql.fuzz_tabular(100,"twin_agg","path/to/file/X_real.csv", "path/t
 
 **Note**: Windows users may need to add 'r' before the path string they pass to the function. This will force treating windows backslashes as literal raw character. For instance, pass: r"C:\path\to\file\X_real.csv"
 
-The returned dictionary includes the queries and other information. You may check its keys by typing: queries.keys(). For further information, please refer to help documentation. 
+The returned dictionary includes the queries and other information. You may check its keys by typing: queries.keys(). Whenever applicable, an html report, a Hellinger and normalized Euclidean violin plots are also generated under a subfolder starting with the real data name saved in your current working directory. For further information, please refer to help documentation. 

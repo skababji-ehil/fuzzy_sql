@@ -1214,7 +1214,7 @@ class TABULAR_QUERY():
         p_q=(p-q).reshape(-1, 1)
         if len(p_q) !=0:
             pq_s = scaler.fit_transform((p-q).reshape(-1, 1))
-            res=np.linalg.norm(pq_s, 2)
+            res=np.linalg.norm(pq_s, 2)/len(pq_s)
         else:
             res=np.nan
         return res

@@ -8,7 +8,7 @@ import numpy as np
 import json
 import copy
 from sklearn.preprocessing import KBinsDiscretizer
-import pdfkit as pdf
+#import pdfkit as pdf
 import random
 import string
 
@@ -49,18 +49,18 @@ def find_syn_fnames(syn_data_dir: Path, real_names: list) -> dict:
     return syn_dict
 
 
-def load_csv(file_path: Path) -> list:
+def load_csv(file_path: Path) -> pd.DataFrame:
     df=pd.read_csv(file_path,encoding = "ISO-8859-1") 
     #remove any apostrophe from data
     df=df.replace({"'":""}, regex=True)
     return df
 
 def get_metadata(file_path: Path) -> dict:
-    """ The function reareal the input json file and returns a dictionary """
+    """ The function reads the input json file and returns a dictionary """
     metafile= open(file_path)
     return json.load(metafile)
 
-def make_table(real_name: list, real: list, db_conn):
+def make_table(real_name: str, real: pd.DataFrame, db_conn):
     """" The function converts input dataframe into a table using the input database cursor """
     cur=db_conn.cursor()
     cur.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name=(?) ",(real_name,)) #sqlite_master holds  the schema of the db including table names
@@ -127,8 +127,8 @@ def print_single_agg_queries(queries: dict, file_writer):
             
         file_writer.write("<p>===========================================</p>")
 
-
     return file_writer
+
 
 def print_twin_agg_queries(queries: dict, file_writer):
     all_real = queries['query_real']
@@ -410,8 +410,8 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
         queries=test_tq.gen_single_fltr_queries(n_queries, agg_fntn=agg_fntn)
         with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
             print_single_fltr_queries(queries, file_writer)
-        if os.name=='posix':
-            pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+        # if os.name=='posix':
+        #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
         print("Generated {} random queries and saved results in: {}".format(len(queries['query_real']), run_dir))
         return queries
 
@@ -427,8 +427,8 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
                 print_twin_fltr_queries1(scored_queries, file_writer)
             else:
                 print_twin_fltr_queries0(scored_queries, file_writer)
-        if os.name=='posix':
-            pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+        # if os.name=='posix':
+        #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
         print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))
         return scored_queries
 
@@ -440,8 +440,8 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
         queries=test_tq.gen_single_agg_queries(n_queries, agg_fntn=agg_fntn) #returned dictionary of non-matching lists
         with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
             print_single_agg_queries(queries, file_writer)
-        if os.name=='posix':
-            pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+        # if os.name=='posix':
+        #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
         print("Generated {} random queries and saved results in: {}".format(len(queries['query_real']), run_dir))
         return queries
 
@@ -454,8 +454,8 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
         scored_queries=test_tq.get_agg_metrics(queries)
         with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
             print_twin_agg_queries(scored_queries, file_writer)
-        if os.name=='posix':
-            pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+        # if os.name=='posix':
+        #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
         hlngr_stats=calc_stats(scored_queries['hlngr_dist'])
         fig=plot_violin(np.array(scored_queries['hlngr_dist']),'Hellinger Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),hlngr_stats)
         fig.savefig(run_dir+'/hlngr_{}.png'.format(output_id))
@@ -476,8 +476,8 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
 
         with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
             print_twin_agg_queries(scored_queries, file_writer)
-        if os.name=='posix':
-            pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+        # if os.name=='posix':
+        #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
         hlngr_stats=calc_stats(scored_queries['hlngr_dist'])
         fig=plot_violin(np.array(scored_queries['hlngr_dist']),'Hellinger Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),hlngr_stats)
         fig.savefig(run_dir+'/hlngr_{}.png'.format(output_id))
@@ -494,35 +494,5 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
 
 
 
-def _setup_class_inputs(conn,real_file_path, metadata_file_path, syn_file_path='None', ) -> dict:
-    class_inputs={}
 
-    if os.path.isfile(real_file_path):
-        real=load_csv(real_file_path)
-        real_name=Path(real_file_path).stem
-
-        make_table(real_name, real, conn)
-        class_inputs['real_data_name']=copy.deepcopy(real_name)
-        class_inputs['real_data']=copy.deepcopy(real)
-    else:
-        raise Exception('The file {} does not exist !'.format(real_file_path))
-
-    if os.path.isfile(metadata_file_path):
-        metadata=get_metadata(metadata_file_path)
-        class_inputs['metadata_dict']=copy.deepcopy(metadata)
-    else:
-        raise Exception('The file {} does not exist'.format(metadata_file_path))
-
-    if syn_file_path != 'None':
-        if os.path.isfile(syn_file_path):
-            syn=load_csv(syn_file_path)
-            syn_name=Path(syn_file_path).stem
-            # Load syn data into the database
-            make_table(syn_name, syn, conn)
-            class_inputs['syn_data_name']=copy.deepcopy(syn_name)
-            class_inputs['syn_data']=copy.deepcopy(syn)
-        else:
-            raise Exception('The file {}.csv does not exist!'.format(syn_file_path))
-
-    return class_inputs
 

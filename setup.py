@@ -11,14 +11,14 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="fuzzy-sql",
-    version="0.0.9",
+    version="0.0.10",
     description="A generator of random SQL SELECT queries mainly to compare responses from a real dataset against that from a synthetic dataset.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Samer Kababji",
     author_email="skababji@ehealthinformation.ca",
     classifiers=[
-        "Development Status :: 3 - Alpha", "Programming Language :: Python :: 3"
+        "Development Status :: 4 - Beta", "Programming Language :: Python :: 3","Operating System :: OS Independent","License :: OSI Approved :: MIT License"
     ],
     keywords="sql, synthetic, clinical trials, generative, testing, fuzzy, fuzzing",
     package_dir={"": "src"},
@@ -28,7 +28,6 @@ setup(
         "Jinja2",
         "seaborn",
         "scikit-learn",
-        "pdfkit"
     ],
     extras_require={
         "dev": ["jupyter"],

@@ -9,7 +9,7 @@ test_*.*
 toy_*.*
 reports/latex/
 .vscode/
-
+.runs/
 
 
 # Byte-compiled / optimized / DLL files
@@ -116,6 +116,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
+.env/
 .env
 .venv
 env/
