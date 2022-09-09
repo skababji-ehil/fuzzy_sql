@@ -95,3 +95,10 @@ SELECT relationship,race,MIN(`hours.per.week`), COUNT(*) FROM C1_syn_06  WHERE (
 
 
 SELECT occupation from C1 WHERE occupation<>'Sales'
+
+
+SELECT Class,MIN(HOMA), COUNT(*) FROM C4 WHERE (Adiponectin BETWEEN 7.780255 AND 9.16)  GROUP BY Class
+
+
+
+SELECT numcycle,wild,dfsstat5,bwl_obs,stage_g,racecat,fustat8,arm,sex,ps,MAX(futime8), COUNT(*) FROM n0147  WHERE (agecat IN ('40-69', '>= 70', '< 40')  OR  ps = '0')   OR (numcycle IN (nan, nan, nan, nan, nan, nan, nan, 8.0, 9.0, nan, 6.0, 4.0, 11.0, 7.0, 3.0, 5.0, nan, 10.0)  OR  dfsstat5 = '1')   AND  ((futime8 BETWEEN 1251 AND 583) AND sex LIKE 'm')   AND (dfstime5 >= 1154.0  AND  racecat <> 'w')   AND (fustat8 LIKE '0'  AND  nodes LIKE '2')   GROUP BY numcycle,wild,dfsstat5,bwl_obs,stage_g,racecat,fustat8,arm,sex,ps

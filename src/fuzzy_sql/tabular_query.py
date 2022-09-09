@@ -1,6 +1,7 @@
-from cmath import nan
+from cmath import isnan, nan
 from filecmp import cmp
 from multiprocessing.sharedctypes import Synchronized
+from queue import Empty
 import random
 import string
 import pandas as pd
@@ -22,6 +23,8 @@ class TABULAR_QUERY():
         ) if value == 'continuous']  # Get all continuous var names
         self.DT_VARS = [key for key, value in metadata.items(
         ) if value == 'date']  # Get all dated var names
+        
+        self.AGG_FNCTN=True if self.CNT_VARS else False
 
         # COUNT is always included in queries
         self.AGG_OPS={'AVG':0.5, 'SUM':0.3, 'MAX':0.1, 'MIN':0.1 }
@@ -50,21 +53,38 @@ class TABULAR_QUERY():
         # A dictionary that holds all possible values for each categorical variable
         self.CAT_VAL_BAG = {}
         for CAT_VAR in self.CAT_VARS:
-            self.CAT_VAL_BAG[CAT_VAR] = pd.read_sql_query("SELECT {} FROM {}".format(
-                CAT_VAR, self.REAL_TBL_NAME), db_conn).values.ravel()
+            this_var= pd.read_sql_query("SELECT `{}` FROM {}".format(CAT_VAR, self.REAL_TBL_NAME), db_conn).values.ravel()
+            this_var=[x for x in this_var if x==x] #drop nan
+            this_var = list(filter(None, this_var)) #drop None
+            # this_var=this_var.astype(str) #make sure it is string
+            # #this_var=np.unique(this_var) #drop duplicates
+            self.CAT_VAL_BAG[CAT_VAR] =this_var if len(this_var)!=0  else ['N/A']
+
 
         # A dictionary that holds all possible values for each continuous variable
         self.CNT_VAL_BAG = {}
         for CNT_VAR in self.CNT_VARS:
-            self.CNT_VAL_BAG[CNT_VAR] = pd.read_sql_query("SELECT {} FROM {}".format(
-                CNT_VAR, self.REAL_TBL_NAME), db_conn).values.ravel()
+            this_var = pd.read_sql_query("SELECT `{}` FROM {}".format(CNT_VAR, self.REAL_TBL_NAME), db_conn).values.ravel()
+            this_var=[x for x in this_var if x==x] #drop nan
+            this_var = list(filter(None, this_var)) #drop None
+            # this_var=this_var.astype(str) #make sure it is string
+            # #this_var=np.unique(this_var) #drop duplicates
+            self.CNT_VAL_BAG[CNT_VAR] =this_var if len(this_var)!=0 else ['N/A']
+
+
 
 
         # A dictionary that holds all possible values for each date variable
         self.DT_VAL_BAG = {}
         for DT_VAR in self.DT_VARS:
-            self.DT_VAL_BAG[DT_VAR] = pd.read_sql_query("SELECT {} FROM {}".format(
-                DT_VAR, self.REAL_TBL_NAME), db_conn).values.ravel()
+            this_var=pd.read_sql_query("SELECT `{}` FROM {}".format(DT_VAR, self.REAL_TBL_NAME), db_conn).values.ravel()
+            this_var=[x for x in this_var if x==x] #drop nan
+            this_var = list(filter(None, this_var)) #drop None
+            # this_var=this_var.astype(str) #make sure it is string
+            # #this_var=np.unique(this_var) #drop duplicates
+            self.DT_VAL_BAG[DT_VAR] =this_var if len(this_var)!=0 else ['N/A']
+
+
 
 
     def _make_agg_tmplts_c1(self, n: int) -> list:
@@ -104,38 +124,38 @@ class TABULAR_QUERY():
 
     def _make_fltr_tmplt2(self, cmp_op_name):
         if cmp_op_name == 'BETWEEN':
-            return "WHERE ({} {} {} AND {}) "
+            return "WHERE (`{}` {} {} AND {}) "
         else:
-            return "WHERE ({} {} {}) "
+            return "WHERE (`{}` {} {}) "
 
     def _make_fltr_tmplt3(self, cmp_op_name):
         if cmp_op_name == 'BETWEEN':
-            return " (({} {} {} AND {}) {} "
+            return " ((`{}` {} {} AND {}) {} "
         else:
-            return "({} {} {}  {}  "
+            return "(`{}` {} {}  {}  "
 
     def _make_fltr_tmplt4(self, cmp_op_name):
         if cmp_op_name == 'BETWEEN':
-            return " {} {} {} AND {})"
+            return " `{}` {} {} AND {})"
         else:
-            return "{} {} {})  "
+            return "`{}` {} {})  "
 
 #########################################################################################
 
     def _make_aggfltr_tmplt_start_c1(self, n: int) -> list:
         tmplts = []
         for k in range(n):
-            a = "SELECT {}"
-            b = [",{}"*i for i in range(n)]
-            c = ",{}({}), COUNT(*) FROM {} "
+            a = "SELECT `{}`"
+            b = [",`{}`"*i for i in range(n)]
+            c = ",{}(`{}`), COUNT(*) FROM {} "
             tmplts.append(a+b[k]+c)
         return tmplts
 
     def _make_aggfltr_tmplt_start_c0(self, n: int) -> list:
         tmplts = []
         for k in range(n):
-            a = "SELECT {}"
-            b = [",{}"*i for i in range(n)]
+            a = "SELECT `{}`"
+            b = [",`{}`"*i for i in range(n)]
             c = ", COUNT(*) FROM {} "
             tmplts.append(a+b[k]+c)
         return tmplts
@@ -144,8 +164,8 @@ class TABULAR_QUERY():
     def _make_aggfltr_tmplt_end(self, n: int) -> list:
         tmplts = []
         for k in range(n):
-            b = [",{}"*i for i in range(n)]
-            d = " GROUP BY {}"
+            b = [",`{}`"*i for i in range(n)]
+            d = " GROUP BY `{}`"
             tmplts.append(d+b[k])
         return tmplts
 
@@ -353,7 +373,10 @@ class TABULAR_QUERY():
         return new_vars
 
     def _add_quotes(self, str_val):
-        new_val = "'"+str_val+"'"
+        # if type(str_val) is not str:
+        #     new_val=str(str_val)
+        # else:
+        new_val = "'"+str(str_val)+"'"
         return new_val
 
     def _sort_vars_ops(self, vars: list):
@@ -421,27 +444,25 @@ class TABULAR_QUERY():
             # this is actually redundant condition as 'IN' is not defined for continuous variables
             if var in self.CNT_VARS:
                 classes = list(set(self.CNT_VAL_BAG[var]))
-                tpl_size = random.choice(list(range(1, len(classes))))
+                tpl_size = random.choice(list(range(1, 1+len(classes))))
                 args.append(tuple(np.random.choice(
-                    classes, size=tpl_size+1, replace=False)))
+                    classes, size=tpl_size+1, replace=True)))
             elif var in self.DT_VARS:
                 classes = list(set(self.DT_VAL_BAG[var]))
-                tpl_size = random.choice(list(range(1, len(classes))))
+                tpl_size = random.choice(list(range(1, 1+len(classes))))
                 args.append(tuple(np.random.choice(
-                    classes, size=tpl_size+1, replace=False)))
+                    classes, size=tpl_size+1, replace=True)))
             else:
                 classes = list(set(self.CAT_VAL_BAG[var]))
-                tpl_size = random.choice(list(range(1, len(classes))))
-                args.append(tuple(np.random.choice(
-                    classes, size=tpl_size+1, replace=False)))
+                tpl_size = random.choice(list(range(1, 1+len(classes))))
+                args.append(tuple(np.random.choice(classes, size=tpl_size+1, replace=True)))
         else:
             if var in self.CNT_VARS:
                 args.append(random.choice(self.CNT_VAL_BAG[var]))
             elif var in self.DT_VARS:
                 args.append(self._add_quotes(random.choice(self.DT_VAL_BAG[var])))
             else:
-                args.append(self._add_quotes(
-                    random.choice(self.CAT_VAL_BAG[var])))
+                args.append(self._add_quotes(random.choice(self.CAT_VAL_BAG[var])))
                     
         return args
 

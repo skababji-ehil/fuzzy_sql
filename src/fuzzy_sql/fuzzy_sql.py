@@ -15,18 +15,18 @@ import string
 from fuzzy_sql.tabular_query import TABULAR_QUERY
 
 
-import matplotlib.pylab as plt
-import seaborn as sns
-sns.set_style("ticks",{'axes.grid' : True})
+# import matplotlib.pylab as plt
+# import seaborn as sns
+# sns.set_style("ticks",{'axes.grid' : True})
 
-def plot_violin(history: array, xlabel, title, stats_dict):
-    fig, ax=plt.subplots(1,1,figsize=(12, 6))
-    sns.violinplot(x=history, ax=ax)
-    #ax.set_xlim(-0.2,1)
-    ax.set_xlabel(xlabel+" ( median: {} , mean: {} , std dev: {} ) ".format(round(stats_dict['median'],2), round(stats_dict['mean'],2),round(stats_dict['stddev'],2)))
-    #ax.set_xticks([0,0.2,0.4,0.6,0.8,1.0])
-    fig.suptitle(title, fontsize=12)
-    return fig
+# def plot_violin(history: array, xlabel, title, stats_dict):
+#     fig, ax=plt.subplots(1,1,figsize=(12, 6))
+#     sns.violinplot(x=history, ax=ax)
+#     #ax.set_xlim(-0.2,1)
+#     ax.set_xlabel(xlabel+" ( median: {} , mean: {} , std dev: {} ) ".format(round(stats_dict['median'],2), round(stats_dict['mean'],2),round(stats_dict['stddev'],2)))
+#     #ax.set_xticks([0,0.2,0.4,0.6,0.8,1.0])
+#     fig.suptitle(title, fontsize=12)
+#     return fig
 
 
 
@@ -50,9 +50,10 @@ def find_syn_fnames(syn_data_dir: Path, real_names: list) -> dict:
 
 
 def load_csv(file_path: Path) -> pd.DataFrame:
-    df=pd.read_csv(file_path,encoding = "ISO-8859-1") 
+    df=pd.read_csv(file_path, encoding='unicode-escape', dtype=str) 
+    #df=pd.read_csv(file_path,encoding = "ISO-8859-1") 
     #remove any apostrophe from data
-    df=df.replace({"'":""}, regex=True)
+    df=df.replace({"'":""}, regex=True) # if you omit this, you will encounter error when reading numeric classes e.g. '1' for Class variable in table C4
     return df
 
 def get_metadata(file_path: Path) -> dict:
@@ -471,21 +472,20 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
         output_id="twin_aggfltr"
         #agg_fntn=False if len(test_tq.CNT_VARS)==0 else random.randint(0,1)
         agg_fntn=True
-        queries=test_tq.gen_twin_aggfltr_queries(n_queries, syn_name, agg_fntn=agg_fntn)
+        queries=test_tq.gen_twin_aggfltr_queries(n_queries, syn_name, agg_fntn=test_tq.AGG_FNCTN)
         scored_queries=test_tq.get_agg_metrics(queries)
 
         with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
             print_twin_agg_queries(scored_queries, file_writer)
-        # if os.name=='posix':
-        #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
-        hlngr_stats=calc_stats(scored_queries['hlngr_dist'])
-        fig=plot_violin(np.array(scored_queries['hlngr_dist']),'Hellinger Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),hlngr_stats)
-        fig.savefig(run_dir+'/hlngr_{}.png'.format(output_id))
-        if agg_fntn:
-            ecldn_stats=calc_stats(scored_queries['ecldn_dist'])
-            fig=plot_violin(np.array(scored_queries['ecldn_dist']),'Euclidean Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),ecldn_stats)
-            fig.savefig(run_dir+'/ecldn_{}.png'.format(output_id))    
-        print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))  
+
+        # hlngr_stats=calc_stats(scored_queries['hlngr_dist'])
+        # fig=plot_violin(np.array(scored_queries['hlngr_dist']),'Hellinger Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),hlngr_stats)
+        # fig.savefig(run_dir+'/hlngr_{}.png'.format(output_id))
+        # if agg_fntn:
+        #     ecldn_stats=calc_stats(scored_queries['ecldn_dist'])
+        #     fig=plot_violin(np.array(scored_queries['ecldn_dist']),'Euclidean Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),ecldn_stats)
+        #     fig.savefig(run_dir+'/ecldn_{}.png'.format(output_id))    
+        # print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))  
         return scored_queries
 
     else:
