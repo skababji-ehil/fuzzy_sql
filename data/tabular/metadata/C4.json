@@ -1,0 +1,1 @@
+{"Age": "continuous", "BMI": "nominal", "Glucose": "continuous", "Insulin": "nominal", "HOMA": "nominal", "Leptin": "nominal", "Adiponectin": "nominal", "Resistin": "nominal", "MCP1": "nominal", "Class": "nominal"}

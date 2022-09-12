@@ -1,0 +1,8 @@
+{
+    "case_status":"continuous",
+    "age_group":"continuous",
+    "gender":"continuous",
+    "date_reported":"date",
+    "exposure":"continuous",
+    "health_region":"nominal"
+}

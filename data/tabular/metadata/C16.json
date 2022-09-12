@@ -1,0 +1,22 @@
+{
+    "Quality": "nominal",
+    "PreScreen": "nominal",
+    "MA1": "continuous",
+    "MA2": "continuous",
+    "MA3": "continuous",
+    "MA4": "continuous",
+    "MA5": "continuous",
+    "MA6": "continuous",
+    "MA7": "continuous",
+    "Exu1": "continuous",
+    "Exu2": "continuous",
+    "Exu3": "continuous",
+    "Exu4": "continuous",
+    "Exu5": "continuous",
+    "Exu6": "continuous",
+    "Exu7": "continuous",
+    "Euc_Dist": "continuous",
+    "Diameter_Optic_Disc": "continuous",
+    "AM_FM": "nominal",
+    "Class": "nominal"
+}

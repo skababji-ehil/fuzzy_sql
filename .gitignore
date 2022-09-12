@@ -1,4 +1,4 @@
-data/
+
 .runs/
 dist/
 src/fuzzy_sql.egg-info/

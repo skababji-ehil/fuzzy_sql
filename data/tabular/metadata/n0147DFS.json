@@ -1,0 +1,12 @@
+{
+    "rDFStime.month": "continuous",
+    "rnewDFS": "nominal",
+    "rnewage": "nominal",
+    "rnewsex": "nominal",
+    "rnewTstage": "nominal",
+    "rnewLN": "nominal",
+    "rnewhisto": "nominal",
+    "rnewECOG.Performance": "nominal",
+    "rnewbmi.cat": "nominal",
+    "rnewOBS": "nominal"
+}

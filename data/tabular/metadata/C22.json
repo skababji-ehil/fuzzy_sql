@@ -1,0 +1,18 @@
+{
+    "age": "nominal",
+    "sex": "nominal",
+    "bone": "nominal",
+    "bone_marrow": "nominal",
+    "lung": "nominal",
+    "pleura": "nominal",
+    "peritoneum": "nominal",
+    "liver": "nominal",
+    "brain": "nominal",
+    "skin": "nominal",
+    "neck": "nominal",
+    "supraclavicular": "nominal",
+    "axillar": "nominal",
+    "mediastinum": "nominal",
+    "abdominal": "nominal",
+    "Class": "nominal"
+}

@@ -1,0 +1,12 @@
+{
+    "IO": "date",
+    "PA": "continuous",
+    "HFS": "continuous",
+    "DA": "continuous",
+    "Area": "continuous",
+    "A_DA": "continuous",
+    "MaxIP": "continuous",
+    "DR": "continuous",
+    "P": "continuous",
+    "Class": "nominal"
+}

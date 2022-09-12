@@ -1,0 +1,7 @@
+{
+    "var":"continuous",
+    "skew":"continuous",
+    "curtosis":"continuous",
+    "entropy":"continuous",
+    "class":"nominal"
+}

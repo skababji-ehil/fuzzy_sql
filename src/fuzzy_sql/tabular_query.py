@@ -1247,8 +1247,8 @@ class TABULAR_QUERY():
         matched_queries["ecldn_dist"] = []
         real_queries = matched_queries['query_real']
         syn_queries = matched_queries['query_syn']
-        query_params = matched_queries['query_params']
-        for query_real, query_syn, query_params in zip(real_queries, syn_queries, query_params):
+        params = matched_queries['query_params']
+        for query_real, query_syn, query_params in zip(real_queries, syn_queries, params):
             hlngr_pivot = self._make_hlngr_pivot(query_real, query_syn)
             hlngr_dist = self._calc_hlngr_dist(hlngr_pivot)
             matched_queries["hlngr_dist"].append(hlngr_dist)

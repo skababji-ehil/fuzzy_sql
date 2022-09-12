@@ -89,9 +89,14 @@ def calc_stats(history_arr):
     #history_arr =history_arr[~np.isnan(history_arr)]
     hist=list(history_arr)
     hist=[x for x in hist if ~np.isnan(x)]
-    mean=np.mean(hist)
-    median=np.median(hist)
-    stddev=np.sqrt(np.var(hist))
+    if len(hist)!=0:
+        mean=np.mean(hist)
+        median=np.median(hist)
+        stddev=np.sqrt(np.var(hist))
+    else:
+        mean=np.nan
+        median=np.nan
+        stddev=np.nan
     return {'mean':mean, 'median':median, 'stddev':stddev}
 
 
@@ -471,7 +476,6 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
     elif query_type=='twin_aggfltr':
         output_id="twin_aggfltr"
         #agg_fntn=False if len(test_tq.CNT_VARS)==0 else random.randint(0,1)
-        agg_fntn=True
         queries=test_tq.gen_twin_aggfltr_queries(n_queries, syn_name, agg_fntn=test_tq.AGG_FNCTN)
         scored_queries=test_tq.get_agg_metrics(queries)
 

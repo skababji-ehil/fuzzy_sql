@@ -1,0 +1,13 @@
+{
+    "gender": "nominal",
+    "age": "continuous",
+    "hypertension": "nominal",
+    "heart_disease": "nominal",
+    "ever_married": "nominal",
+    "work_type": "nominal",
+    "Residence_type": "nominal",
+    "avg_glucose_level": "nominal",
+    "bmi": "continuous",
+    "smoking_status": "nominal",
+    "stroke": "nominal"
+}
