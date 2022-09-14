@@ -1,0 +1,39 @@
+{
+    "base":{
+        "PNUM_R":"ordinal",
+        "AGE":"discrete",
+        "DIED":"nominal",
+        "DNR":"nominal",
+        "FEMALE":"nominal",
+        "HOSPBRTH":"nominal",
+        "Homeless":"nominal",
+        "HISPANIC":"nominal",	
+        "NEOMAT":"nominal",
+        "PL_CBSA":"nominal",
+        "MEDINCST":"nominal",
+        "PL_RUCA4":"nominal",
+        "PL_UIC20":"nominal",	
+        "PL_UR_CA":"nominal",
+        "PL_RUCC2":"nominal",
+        "RACE":"nominal",
+        "PL_NCHS2":"nominal"
+    },
+    "long":{
+        "PNUM_R":"ordinal",
+    	"Date":"discrete",
+        "LOS":"discrete",
+        "MDC":"discrete",
+        "NDX":"discrete",
+        "NECODE":"discrete",
+        "NPR":"discrete",
+        "TOTCHG":"discrete",
+        "PROCTYPE":"discrete",
+        "DX1":"discrete",
+        "ASCHED":"discrete",
+        "AWEEKEND":"discrete",
+        "DRGVER":"discrete",
+        "HCUP_ED":"discrete",
+    },
+    
+    "key":"PNUM_R"
+}
