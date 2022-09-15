@@ -15,18 +15,18 @@ import string
 from fuzzy_sql.tabular_query import TABULAR_QUERY
 
 
-# import matplotlib.pylab as plt
-# import seaborn as sns
-# sns.set_style("ticks",{'axes.grid' : True})
+import matplotlib.pylab as plt
+import seaborn as sns
+sns.set_style("ticks",{'axes.grid' : True})
 
-# def plot_violin(history: array, xlabel, title, stats_dict):
-#     fig, ax=plt.subplots(1,1,figsize=(12, 6))
-#     sns.violinplot(x=history, ax=ax)
-#     #ax.set_xlim(-0.2,1)
-#     ax.set_xlabel(xlabel+" ( median: {} , mean: {} , std dev: {} ) ".format(round(stats_dict['median'],2), round(stats_dict['mean'],2),round(stats_dict['stddev'],2)))
-#     #ax.set_xticks([0,0.2,0.4,0.6,0.8,1.0])
-#     fig.suptitle(title, fontsize=12)
-#     return fig
+def plot_violin(history: array, xlabel, title, stats_dict):
+    fig, ax=plt.subplots(1,1,figsize=(12, 6))
+    sns.violinplot(x=history, ax=ax)
+    #ax.set_xlim(-0.2,1)
+    ax.set_xlabel(xlabel+" ( median: {} , mean: {} , std dev: {} ) ".format(round(stats_dict['median'],2), round(stats_dict['mean'],2),round(stats_dict['stddev'],2)))
+    #ax.set_xticks([0,0.2,0.4,0.6,0.8,1.0])
+    fig.suptitle(title, fontsize=12)
+    return fig
 
 
 
@@ -357,7 +357,7 @@ def print_twin_fltr_queries1(queries: dict, file_writer):
 
 
 
-def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file_path, syn_file_path='None', ) -> dict:
+def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file_path, syn_file_path='None', run_folder='None') -> dict:
     """ The function setups a database and generates 'n_queries' number of random SELECT statements for the single input dataset provided in 'real_file_path'. The input file shall be tabular and in csv format. Make sure to input the full path including the file name and its extension. For Windows users, add 'r' before the path string. For instance, r"C:\path\to\file\file.csv". This ensure that backslashes are treated properly.
 
     In addition to the dataset, you need to provide its variable description in a separate json file 'metadata_file_path'. Variables can be either 'nominal' (i.e. categorical), 'continuous' or 'date'. The json file has the format:{ "name_of_var1":"type_of var1", "name_of_var1":"type_of var2",...}. Note that the names of the variables shall be identical to the names provided in the corresponding csv files i.e. column headers.
@@ -405,7 +405,11 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
     utc_timestamp = utc_time.timestamp()
     run_id=int(utc_timestamp)
     run_dir=real_name+'_'+str(run_id)
+    if run_folder != 'None':
+        run_dir=os.path.join(run_folder, run_dir)
     os.mkdir(run_dir)
+
+    
     test_tq=TABULAR_QUERY(conn, real_name, metadata)
 
     if query_type=='single_fltr':
@@ -475,21 +479,21 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
     
     elif query_type=='twin_aggfltr':
         output_id="twin_aggfltr"
-        #agg_fntn=False if len(test_tq.CNT_VARS)==0 else random.randint(0,1)
+        agg_fntn=False if len(test_tq.CNT_VARS)==0 else random.randint(0,1)
         queries=test_tq.gen_twin_aggfltr_queries(n_queries, syn_name, agg_fntn=test_tq.AGG_FNCTN)
         scored_queries=test_tq.get_agg_metrics(queries)
 
         with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
             print_twin_agg_queries(scored_queries, file_writer)
 
-        # hlngr_stats=calc_stats(scored_queries['hlngr_dist'])
-        # fig=plot_violin(np.array(scored_queries['hlngr_dist']),'Hellinger Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),hlngr_stats)
-        # fig.savefig(run_dir+'/hlngr_{}.png'.format(output_id))
-        # if agg_fntn:
-        #     ecldn_stats=calc_stats(scored_queries['ecldn_dist'])
-        #     fig=plot_violin(np.array(scored_queries['ecldn_dist']),'Euclidean Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),ecldn_stats)
-        #     fig.savefig(run_dir+'/ecldn_{}.png'.format(output_id))    
-        # print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))  
+        hlngr_stats=calc_stats(scored_queries['hlngr_dist'])
+        fig=plot_violin(np.array(scored_queries['hlngr_dist']),'Hellinger Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),hlngr_stats)
+        fig.savefig(run_dir+'/hlngr_{}.png'.format(output_id))
+        if agg_fntn:
+            ecldn_stats=calc_stats(scored_queries['ecldn_dist'])
+            fig=plot_violin(np.array(scored_queries['ecldn_dist']),'Euclidean Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),ecldn_stats)
+            fig.savefig(run_dir+'/ecldn_{}.png'.format(output_id))    
+        print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))  
         return scored_queries
 
     else:

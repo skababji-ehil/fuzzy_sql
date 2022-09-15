@@ -93,10 +93,10 @@ class TABULAR_QUERY():
         This function needs at least one continuous variable to be present in the dataset"""
         tmplts = []
         for k in range(n):
-            a = "SELECT {}"
-            b = [",{}"*i for i in range(n)]
-            c = ",{}({}), COUNT(*) FROM {} "
-            d = "GROUP BY {}"
+            a = "SELECT `{}`"
+            b = [",`{}`"*i for i in range(n)]
+            c = ",{}(`{}`), COUNT(*) FROM {} "
+            d = "GROUP BY `{}`"
             tmplts.append(a+b[k]+c+d+b[k])
         return tmplts
 
@@ -106,10 +106,10 @@ class TABULAR_QUERY():
         This function can be used if there is NO continuous variable in the dataset"""
         tmplts = []
         for k in range(n):
-            a = "SELECT {}"
-            b = [",{}"*i for i in range(n)]
+            a = "SELECT `{}`"
+            b = [",`{}`"*i for i in range(n)]
             c = ", COUNT(*) FROM {} "
-            d = "GROUP BY {}"
+            d = "GROUP BY `{}`"
             tmplts.append(a+b[k]+c+d+b[k])
         return tmplts
 
@@ -117,7 +117,7 @@ class TABULAR_QUERY():
         return [item for sublist in l for item in sublist]
 
     def _make_fltr_tmplt1_c1(self):  # where template1 case 1 with AGG function
-        return "SELECT {}({}), COUNT(*) FROM {} "
+        return "SELECT {}(`{}`), COUNT(*) FROM {} "
 
     def _make_fltr_tmplt1_c0(self):  # where template1 case 0 without AGG function
         return "SELECT * FROM {} "
@@ -1280,6 +1280,8 @@ class TABULAR_QUERY():
                 hits.append(len(in_both))
                 misses.append(len(real)-len(in_both))
             else:
+                real=real.astype(float)
+                syn=syn.astype(float)
                 diffs.append(np.nan_to_num(np.abs(real-syn).values.ravel()))
                 
         if params['query_type']=='fltr_0':
