@@ -1,8 +1,0 @@
-{
-    "PatientID": "continuous",
-    "Gender": "nominal",
-    "BirthYear": "date",
-    "Age": "continuous",
-    "DaysSinceLastService": "continuous",
-    "LengthOfStay": "continuous"
-}

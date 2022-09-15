@@ -1,9 +1,0 @@
-{
-    "Survived": "nominal",
-    "Pclass": "nominal",
-    "Sex": "nominal",
-    "SibSp": "nominal",
-    "Parch": "nominal",
-    "Fare": "continuous",
-    "Embarked": "nominal"
-}
