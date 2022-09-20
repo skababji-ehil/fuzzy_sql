@@ -357,7 +357,7 @@ def print_twin_fltr_queries1(queries: dict, file_writer):
 
 
 
-def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file_path, syn_file_path='None', run_folder='None') -> dict:
+def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file_path, syn_file_path='None', run_folder='None', printme=False) -> dict:
     """ The function setups a database and generates 'n_queries' number of random SELECT statements for the single input dataset provided in 'real_file_path'. The input file shall be tabular and in csv format. Make sure to input the full path including the file name and its extension. For Windows users, add 'r' before the path string. For instance, r"C:\path\to\file\file.csv". This ensure that backslashes are treated properly.
 
     In addition to the dataset, you need to provide its variable description in a separate json file 'metadata_file_path'. Variables can be either 'nominal' (i.e. categorical), 'continuous' or 'date'. The json file has the format:{ "name_of_var1":"type_of var1", "name_of_var1":"type_of var2",...}. Note that the names of the variables shall be identical to the names provided in the corresponding csv files i.e. column headers.
@@ -403,11 +403,12 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
     dt = datetime.datetime.now(datetime.timezone.utc)
     utc_time = dt.replace(tzinfo=datetime.timezone.utc)
     utc_timestamp = utc_time.timestamp()
-    run_id=int(utc_timestamp)
-    run_dir=real_name+'_'+str(run_id)
-    if run_folder != 'None':
-        run_dir=os.path.join(run_folder, run_dir)
-    os.mkdir(run_dir)
+    if printme:
+        run_id=int(utc_timestamp)
+        run_dir=real_name+'_'+str(run_id)
+        if run_folder != 'None':
+            run_dir=os.path.join(run_folder, run_dir)
+        os.mkdir(run_dir)
 
     
     test_tq=TABULAR_QUERY(conn, real_name, metadata)
@@ -418,11 +419,14 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
         #agg_fntn=False if len(test_tq.CNT_VARS)==0 else random.randint(0,1)
         agg_fntn=False
         queries=test_tq.gen_single_fltr_queries(n_queries, agg_fntn=agg_fntn)
-        with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
-            print_single_fltr_queries(queries, file_writer)
-        # if os.name=='posix':
-        #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
-        print("Generated {} random queries and saved results in: {}".format(len(queries['query_real']), run_dir))
+
+        if printme:
+            with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
+                print_single_fltr_queries(queries, file_writer)
+            # if os.name=='posix':
+            #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+            print("Generated {} random queries and saved results in: {}".format(len(queries['query_real']), run_dir))
+        
         return queries
 
     elif query_type=='twin_fltr':
@@ -432,14 +436,16 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
         agg_fntn=True
         queries=test_tq.gen_twin_fltr_queries(n_queries, syn_name, agg_fntn=agg_fntn)
         scored_queries=test_tq.get_fltr_metrics(queries)
-        with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
-            if agg_fntn:
-                print_twin_fltr_queries1(scored_queries, file_writer)
-            else:
-                print_twin_fltr_queries0(scored_queries, file_writer)
-        # if os.name=='posix':
-        #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
-        print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))
+        if printme:
+            with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
+                if agg_fntn:
+                    print_twin_fltr_queries1(scored_queries, file_writer)
+                else:
+                    print_twin_fltr_queries0(scored_queries, file_writer)
+            # if os.name=='posix':
+            #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+            print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))
+        
         return scored_queries
 
     elif query_type=='single_agg':
@@ -448,11 +454,13 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
         #agg_fntn=False if len(test_tq.CNT_VARS)==0 else random.randint(0,1)
         agg_fntn=False
         queries=test_tq.gen_single_agg_queries(n_queries, agg_fntn=agg_fntn) #returned dictionary of non-matching lists
-        with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
-            print_single_agg_queries(queries, file_writer)
-        # if os.name=='posix':
-        #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
-        print("Generated {} random queries and saved results in: {}".format(len(queries['query_real']), run_dir))
+        if printme:
+            with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
+                print_single_agg_queries(queries, file_writer)
+            # if os.name=='posix':
+            #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+            print("Generated {} random queries and saved results in: {}".format(len(queries['query_real']), run_dir))
+        
         return queries
 
     elif query_type=='twin_agg':
@@ -462,18 +470,20 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
         agg_fntn=True
         queries=test_tq.gen_twin_agg_queries(n_queries, syn_name, agg_fntn=agg_fntn) #returned dictionary of non-matching lists
         scored_queries=test_tq.get_agg_metrics(queries)
-        with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
-            print_twin_agg_queries(scored_queries, file_writer)
-        # if os.name=='posix':
-        #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
         hlngr_stats=calc_stats(scored_queries['hlngr_dist'])
-        fig=plot_violin(np.array(scored_queries['hlngr_dist']),'Hellinger Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),hlngr_stats)
-        fig.savefig(run_dir+'/hlngr_{}.png'.format(output_id))
-        if agg_fntn:
-            ecldn_stats=calc_stats(scored_queries['ecldn_dist'])
-            fig=plot_violin(np.array(scored_queries['ecldn_dist']),'Euclidean Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),ecldn_stats)
-            fig.savefig(run_dir+'/ecldn_{}.png'.format(output_id))    
-        print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))
+        if printme:
+            with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
+                print_twin_agg_queries(scored_queries, file_writer)
+            # if os.name=='posix':
+            #     pdf.from_file(run_dir+'/sql_{}.html'.format(output_id),run_dir+'/sql_{}.pdf'.format(output_id))
+            fig=plot_violin(np.array(scored_queries['hlngr_dist']),'Hellinger Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),hlngr_stats)
+            fig.savefig(run_dir+'/hlngr_{}.png'.format(output_id))
+            if agg_fntn:
+                ecldn_stats=calc_stats(scored_queries['ecldn_dist'])
+                fig=plot_violin(np.array(scored_queries['ecldn_dist']),'Euclidean Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),ecldn_stats)
+                fig.savefig(run_dir+'/ecldn_{}.png'.format(output_id))    
+            print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))
+        
         return scored_queries
     
     
@@ -483,17 +493,25 @@ def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file
         queries=test_tq.gen_twin_aggfltr_queries(n_queries, syn_name, agg_fntn=test_tq.AGG_FNCTN)
         scored_queries=test_tq.get_agg_metrics(queries)
 
-        with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
-            print_twin_agg_queries(scored_queries, file_writer)
+        if printme:
+            with open(run_dir+'/sql_{}.html'.format(output_id), 'w') as file_writer:
+                print_twin_agg_queries(scored_queries, file_writer)
 
         hlngr_stats=calc_stats(scored_queries['hlngr_dist'])
-        fig=plot_violin(np.array(scored_queries['hlngr_dist']),'Hellinger Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),hlngr_stats)
-        fig.savefig(run_dir+'/hlngr_{}.png'.format(output_id))
+
+        if printme:
+            fig=plot_violin(np.array(scored_queries['hlngr_dist']),'Hellinger Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),hlngr_stats)
+            fig.savefig(run_dir+'/hlngr_{}.png'.format(output_id))
+            print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))  
+
+        
+        
         if agg_fntn:
             ecldn_stats=calc_stats(scored_queries['ecldn_dist'])
-            fig=plot_violin(np.array(scored_queries['ecldn_dist']),'Euclidean Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),ecldn_stats)
-            fig.savefig(run_dir+'/ecldn_{}.png'.format(output_id))    
-        print("Generated {} random twin queries and saved results in: {}".format(len(scored_queries['query_real']), run_dir))  
+            if printme:
+                fig=plot_violin(np.array(scored_queries['ecldn_dist']),'Euclidean Dist.','Real-Synthetic Query Comparison for {} Dataset'.format(real_name),ecldn_stats)
+                fig.savefig(run_dir+'/ecldn_{}.png'.format(output_id)) 
+
         return scored_queries
 
     else:
