@@ -2,16 +2,16 @@
   <head><title>Hellinger Distance for Original Real/Synthetic Datasets</title></head>
   <link rel="stylesheet" type="text/css" href="df_style.css"/>
   <body>
-    <H3>Hellinger Distance for Original Datasets (No Queries)</H3>
+    <H4>Hellinger Distance for Original Datasets (No Queries)</H4>
     <table border="1" class="dataframe mystyle">
   <thead>
     <tr style="text-align: center;">
       <th></th>
-      <th>Dataset</th>
-      <th>No. of Syn</th>
-      <th>Mean</th>
-      <th>Median</th>
-      <th>Std Dev</th>
+      <th>real_name</th>
+      <th>no_syn</th>
+      <th>hlngr_mean</th>
+      <th>hlngr_median</th>
+      <th>hlngr_stddev</th>
     </tr>
   </thead>
   <tbody>
@@ -195,9 +195,9 @@
       <th>22</th>
       <td>C4</td>
       <td>21</td>
-      <td>0.503</td>
-      <td>0.502</td>
-      <td>0.003</td>
+      <td>0.026</td>
+      <td>0.018</td>
+      <td>0.022</td>
     </tr>
     <tr>
       <th>23</th>
@@ -337,9 +337,9 @@
     </tr>
   </tbody>
 </table>
-    <p>
-      No. of Syn is the number of Synthetic datasets used to generate the statistics i.e. sample size.<br>
-      If no synthetic dataset set is available, statistics are shown as NaN
-    </p>
+    <ul>
+      <li>'no_syn' is the number of synthetic datasets used to generate the statistics i.e. the sample size.</li>
+      <li>If no synthetic dataset set is available, statistics are shown as NaN</li>
+    </ul>
   </body>
 </html>

@@ -5,6 +5,9 @@
     font-family: Arial;
     border-collapse: collapse; 
     border: 1px solid silver;
+    margin-left: auto;
+    margin-right: auto;
+    
 }
 
 .mystyle td, th {
@@ -21,3 +24,11 @@
     cursor: pointer;
 }
 
+
+ul li {
+    font-size: 7px;
+}
+
+H4 { 
+    text-align: center
+}

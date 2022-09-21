@@ -1,0 +1,63 @@
+<html>
+  <head><title>Hellinger Distance Summary for random queries of real and synthetic Datasets</title></head>
+  <link rel="stylesheet" type="text/css" href="df_style.css"/>
+  <body>
+    <H4>Hellinger Distance Summary using Random Queries</H4>
+    <table border="1" class="dataframe mystyle">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>no_queries</th>
+      <th>no_syn</th>
+      <th>hlngr_mean</th>
+      <th>hlngr_median</th>
+      <th>hlngr_stddev</th>
+      <th>ecldn_mean</th>
+      <th>ecldn_median</th>
+      <th>ecldn_stddev</th>
+    </tr>
+    <tr>
+      <th>real_name</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>C1</th>
+      <td>3.0</td>
+      <td>22</td>
+      <td>0.240427</td>
+      <td>0.249651</td>
+      <td>0.057781</td>
+      <td>0.121050</td>
+      <td>0.075170</td>
+      <td>0.109661</td>
+    </tr>
+    <tr>
+      <th>C10</th>
+      <td>3.0</td>
+      <td>21</td>
+      <td>0.052151</td>
+      <td>0.048031</td>
+      <td>0.016723</td>
+      <td>0.667823</td>
+      <td>0.690271</td>
+      <td>0.048582</td>
+    </tr>
+  </tbody>
+</table>
+    <ul>
+      <li>'no_syn' is the number of synthetic datasets used to generate the statistics i.e. the sample size.</li>
+      <li>'no_queries' is the number of queries executed per synthetic dataset, so the total number of queries executed for a specific real datasets equals to: no_queries x no_syn</li>
+      <li>If no continuous variable is present in the input datasets, Euclidean distance statistics are shown as NaN.</li>
+      <li>If no synthetic dataset is available, statistics are shown as NaN</li>
+    </ul>
+  </body>
+</html>
