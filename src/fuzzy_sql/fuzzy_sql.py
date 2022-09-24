@@ -355,21 +355,24 @@ def print_twin_fltr_queries1(queries: dict, file_writer):
     
 
 
+import string
 
-
-def fuzz_tabular(n_queries: int, query_type:string,real_file_path, metadata_file_path, syn_file_path='None', run_folder='None', printme=False) -> dict:
-    """ The function setups a database and generates 'n_queries' number of random SELECT statements for the single input dataset provided in 'real_file_path'. The input file shall be tabular and in csv format. Make sure to input the full path including the file name and its extension. For Windows users, add 'r' before the path string. For instance, r"C:\path\to\file\file.csv". This ensure that backslashes are treated properly.
-
-    In addition to the dataset, you need to provide its variable description in a separate json file 'metadata_file_path'. Variables can be either 'nominal' (i.e. categorical), 'continuous' or 'date'. The json file has the format:{ "name_of_var1":"type_of var1", "name_of_var1":"type_of var2",...}. Note that the names of the variables shall be identical to the names provided in the corresponding csv files i.e. column headers.
+def fuzz_tabular(n_queries, query_type,real_file_path, metadata_file_path, syn_file_path='None', run_folder='None', printme=False):
+    """ 
     
-    The function also generates random queries for both real and synthetic datasets (i.e. twin datasets). The 'query_type' can be one of the following:
-    - 'single_agg': This will generate random AGGREGATE queries for the dataset provided in 'real_file_path'. Aggregate queries include GROUP BY clause.
-    - 'single_fltr': This will generate random FILTER queries for the dataset provided in 'real_file_path'. FILTER queries include WHERE clause.
-    - 'twin_agg': This will generate random AGGREGATE twin queries (i.e. both queries have identical query parameters) for both the input real and synthetic datasets. For 'twin_agg' queries, the function returns the Hellinger and Euclidean distances whenever applicable. 
-    - 'twin_fltr': This will generate random FILTER twin queries for both the input real and synthetic datasets.
-    - 'twin_aggfltr': This will generate random Conditioned Aggregate queries fo both input real and synthetic datasets.
-    
-    The function generates the necessary reports in a separate folder. It also returns a dictionary of all the generated queries, query parameters and distance scores, if applicable. The dictionary can be used for further analysis"""
+    The function generates random queries for the input tabular datasets.
+
+    :param int n_queries: The number of random queries to be generated 
+    :param str query_type: The type of queries to be generated and can be 'single_agg', single_fltr', 'twin_agg', 'twin_fltr', or 'twin_aggfltr'
+    :param path real_file_path: The full path to the real data csv file including the file extension. 
+    :param path metadata_file_path: The full path to the metadata json file including the file extension. 
+    :param path syn_file_path: The full path to the synthetic data csv file including the file extension or 'None' if random queries are desired for single dataset.
+    :param str run_folder: The full path for the your output folder or 'None', which will save the output reports to the current folder.
+    :param logical printme: Set it to True if an html report is desired. The report lists random records of all the generated queries.
+    :return: A dictionary of all generated random queries. 
+    :rtype: dictionary
+
+    """
 
     assert n_queries == int(n_queries), "n_queries must be integer"
 
