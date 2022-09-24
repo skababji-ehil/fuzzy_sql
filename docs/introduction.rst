@@ -74,7 +74,7 @@ Similar queries are constructed for :math:`\mathcal{T^s}`.
 Filter Queries
 ~~~~~~~~~~~~~~
 
-If :math:`\mathbb{A}^c = \phi`, a filter query assumes the form:
+If :math:`\mathbb{A}^c = \phi`, a filter query takes the form:
 
 .. math::
    :nowrap:
@@ -82,12 +82,74 @@ If :math:`\mathbb{A}^c = \phi`, a filter query assumes the form:
     \begin{flalign}
     \text{SELECT} \quad  & * &&\\\nonumber
     \text{FROM}   \quad  & \mathcal{T}^r &&\\\nonumber
-    \text{WHERE}  \quad  & f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))) &&\\\nonumber
-                         & [f_s(LO) \quad (f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))) \quad f_s(LO) \quad f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))))] &&
+    \text{WHERE}  \quad  & [f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d )))] &&\\\nonumber
+                         & [f_s(LO)] &&\\\nonumber
+                         & [(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))) &&\\\nonumber
+                         & f_s(LO) \quad f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))))] &&\\\nonumber
+                         & \cdots
+    \end{flalign}
+
+The WHERE clause comprises three basic expressions denoted by :math:`[\quad ]`. The set length of the randomly selected query variables has an impact on these expressions. For instance, if :math:`|f_m(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d)|=2`, the first and second expressions and dropped and the SELECT statement will reduce to:
+
+.. math::
+   :nowrap:
+
+    \begin{flalign}
+    \text{SELECT} \quad  & * &&\\\nonumber
+    \text{FROM}   \quad  & \mathcal{T}^r &&\\\nonumber
+    \text{WHERE}  \quad  & [(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))) &&\\\nonumber
+                         & f_s(LO) \quad f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))))]
     \end{flalign}
 
 
+If :math:`\mathbb{A}^c \ne \phi`, a filter query takes the form:
+
+.. math::
+   :nowrap:
+
+    \begin{flalign}
+    \text{SELECT} \quad  & f_s(AG)(f_s(\mathbb{A}^c)) \text{, COUNT(*)} &&\\\nonumber
+    \text{FROM}   \quad  & \mathcal{T}^r &&\\\nonumber
+    \text{WHERE}  \quad  & [f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d )))] &&\\\nonumber
+                         & [f_s(LO)] &&\\\nonumber
+                         & [(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))) &&\\\nonumber
+                         & f_s(LO) \quad f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))))] &&\\\nonumber
+                         & \cdots
+    \end{flalign}
 
 
 Filter-Aggregate Queries
 ~~~~~~~~~~~~~~~~~~~~~~~~
+Filter-Aggregate queries are the most important for comparing real and synthetic datasets. The query is constructed by combining the above two forms. Hence, if :math:`\mathbb{A}^c = \phi`, a filter-aggregate query takes the form: 
+
+.. math::
+    :nowrap:
+
+    \begin{flalign}
+    \text{SELECT} \quad & f_m(\mathbb{A}^n) \text{, COUNT(*)} &&\\\nonumber
+    \text{FROM} \quad & \mathcal{T}^r &&\\\nonumber
+    \text{WHERE}  \quad  & [f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d )))] &&\\\nonumber
+                        & [f_s(LO)] &&\\\nonumber
+                        & [(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))) &&\\\nonumber
+                        & f_s(LO) \quad f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))))] &&\\\nonumber
+                        & \cdots &&\\\nonumber
+    \text{GROUP BY} \quad & f_m(\mathbb{A}^n)
+    \end{flalign}
+
+
+and if :math:`\mathbb{A}^c \ne \phi`, a filter-aggregate query takes the form:
+
+.. math::
+    :nowrap:
+
+    \begin{flalign}
+    \text{SELECT} \quad & f_m(\mathbb{A}^n), f_s(AG)(f_s(\mathbb{A}^c)) \text{, COUNT(*)} &&\\\nonumber
+    \text{FROM}   \quad & \mathcal{T}^r &&\\\nonumber
+    \text{WHERE}  \quad  & [f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d )))] &&\\\nonumber
+                        & [f_s(LO)] &&\\\nonumber
+                        & [(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))) &&\\\nonumber
+                        & f_s(LO) \quad f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))))] &&\\\nonumber
+                        & \cdots &&\\\nonumber
+    \text{GROUP BY} \quad & f_m(\mathbb{A}^n)
+    \end{flalign}
+
