@@ -153,3 +153,53 @@ and if :math:`\mathbb{A}^c \ne \phi`, a filter-aggregate query takes the form:
     \text{GROUP BY} \quad & f_m(\mathbb{A}^n)
     \end{flalign}
 
+Metrics for Tabular Datasets
+----------------------------
+
+.. _Hellinger Distance for Datasets:
+
+Hellinger Distance for Datasets
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Hellinger distance may be used to measure the quality of synthetic data. First we consider the calculation of the Hellinger distance between the real and the synthetic tabular datasets :math:`\mathcal{T}^r` and :math:`\mathcal{T}^s` respectively. Define:
+
+:math:`\mathbb{A}=\{A_1, \cdots,A_i, \cdots, A_{|\mathbb{A}|}\}` is the set of *nominal* variables in both :math:`\mathcal{T}^r` and :math:`\mathcal{T}^s` where :math:`|\mathbb{A}|` indicates the number of these variables.
+
+:math:`o^j_{A_i}` is the number of occurrences (i.e. counts) of the :math:`j^{th}` class for the nominal variable :math:`A_i` in :math:`\mathcal{T}^r`. The discrete probability of the :math:`j^{th}` class can be calculated as:
+
+.. math:: 
+
+    r^j_{A_i}=\frac{o^j_{A_i}}{\sum\limits_{\forall j} o^j_{A_i}}
+
+
+For instance, consider the *nominal* variable :math:`A_1=\text{"income"}` with two classes '<=50k' and '>50k'. Then the first class may have :math:`o^1_{A_1}=1200` occurrences and the second may have :math:`o^2_{A_1}=2000` occurrences with discrete probabilities of :math:`r^1_{A_1}=0.375` and :math:`r^2_{A_1}=0.625` respectively. 
+
+Similarly, for the synthetic data :math:`\mathcal{T}^s` we can calculate the discrete probabilities :math:`s^j_{A_i}` 
+
+The Hellinger distance for the nominal variable :math:`A_i`  is calculated as:
+
+.. math:: 
+
+    \mathcal{H}^{A_i}=\frac{1}{\sqrt{2}}\left(\sum\limits_{\forall j}\left(\sqrt{r^j_{A_i}}-\sqrt{s^j_{A_i}}\right)^2\right)^{1 / 2}
+
+The Hellinger distance between :math:`\mathcal{T}^r` and :math:`\mathcal{T}^s` can be calculated  by taking the mean across all *nominal* variables:
+
+.. math:: 
+    :label: eq_hlngr_T
+
+    \mathcal{H}^{\mathcal{T}}=\frac{1}{|\mathbb{A}|} \sum_{i=1}^{|\mathbb{A}|} \mathcal{H}^{A_i}
+
+Hellinger Distance for Queries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In *aggregate* queries, grouping is done by randomly selected *nominal* variables. In this sense, measuring the Hellinger distance for the  datasets as explained above is just a special case where grouping is done by a single nominal variable at a time. So, for :math:`|\mathbb{A}|` number of *nominal* variables in the original datasets, we may execute :math:`|\mathbb{A}|` number of queries with each query grouped by a single variable. Then by averaging the Hellinger distances of these queries, we reach the same results in :eq:`eq_hlngr_T`
+
+If grouping is done by more than a single variable, it is as we are defining a new nominal variable :math:`A^q` where :math:`A^q` may be any combination of two or more dataset variables :math:`A^i \quad \forall A^i \in \mathbb{A}`. The query will result in specific number of classes for :math:`A^q`. Using the subscript :math:`j` to indicate the :math:`j^{th}` class of :math:`A^q`, we calculate the Hellinger distance for the query by:
+
+.. math:: 
+
+    \mathcal{H}^{\mathcal{Q}}=\frac{1}{\sqrt{2}}\left(\sum\limits_{\forall j}\left(\sqrt{r^j_{A^q}}-\sqrt{s^j_{A^q}}\right)^2\right)^{1 / 2}
+
+Both discrete probabilities :math:`r` and :math:`s` were defined earlier in  :ref:`hellinger distance for datasets`.
+
+For instance, consider an aggregate query grouped by the two nominal variables :math:`A_1=\text{"income"}` and :math:`A_2=\text{"marital status"}` with each having two distinct classes. The query will result in the variable :math:`A^q` having four distinct classes with a discrete probability :math:`r_{A^q}^j` for each resulting class :math:`j`.
