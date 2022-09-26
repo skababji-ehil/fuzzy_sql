@@ -53,6 +53,7 @@ If :math:`\mathbb{A}^c = \phi`, an aggregate query takes the form:
     :nowrap:
 
     \begin{flalign}
+    \nonumber
     \text{SELECT} \quad & f_m(\mathbb{A}^n) \text{, COUNT(*)} &&\\\nonumber
     \text{FROM} \quad & \mathcal{T}^r &&\\\nonumber
     \text{GROUP BY} \quad & f_m(\mathbb{A}^n)
@@ -64,6 +65,7 @@ However, if :math:`\mathbb{A}^c \ne \phi`, an aggregate query takes the form:
     :nowrap:
 
     \begin{flalign}
+    \nonumber
     \text{SELECT} \quad & f_m(\mathbb{A}^n), f_s(AG)(f_s(\mathbb{A}^c)) \text{, COUNT(*)} &&\\\nonumber
     \text{FROM} \quad & \mathcal{T}^r &&\\\nonumber
     \text{GROUP BY} \quad & f_m(\mathbb{A}^n)
@@ -80,6 +82,7 @@ If :math:`\mathbb{A}^c = \phi`, a filter query takes the form:
    :nowrap:
 
     \begin{flalign}
+    \nonumber
     \text{SELECT} \quad  & * &&\\\nonumber
     \text{FROM}   \quad  & \mathcal{T}^r &&\\\nonumber
     \text{WHERE}  \quad  & [f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d )))] &&\\\nonumber
@@ -95,6 +98,7 @@ The WHERE clause comprises three basic expressions denoted by :math:`[\quad ]`. 
    :nowrap:
 
     \begin{flalign}
+    \nonumber
     \text{SELECT} \quad  & * &&\\\nonumber
     \text{FROM}   \quad  & \mathcal{T}^r &&\\\nonumber
     \text{WHERE}  \quad  & [(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d ))) &&\\\nonumber
@@ -108,6 +112,7 @@ If :math:`\mathbb{A}^c \ne \phi`, a filter query takes the form:
    :nowrap:
 
     \begin{flalign}
+    \nonumber
     \text{SELECT} \quad  & f_s(AG)(f_s(\mathbb{A}^c)) \text{, COUNT(*)} &&\\\nonumber
     \text{FROM}   \quad  & \mathcal{T}^r &&\\\nonumber
     \text{WHERE}  \quad  & [f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d )))] &&\\\nonumber
@@ -126,6 +131,7 @@ Filter-Aggregate queries are the most important for comparing real and synthetic
     :nowrap:
 
     \begin{flalign}
+    \nonumber
     \text{SELECT} \quad & f_m(\mathbb{A}^n) \text{, COUNT(*)} &&\\\nonumber
     \text{FROM} \quad & \mathcal{T}^r &&\\\nonumber
     \text{WHERE}  \quad  & [f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d )))] &&\\\nonumber
@@ -143,6 +149,7 @@ and if :math:`\mathbb{A}^c \ne \phi`, a filter-aggregate query takes the form:
     :nowrap:
 
     \begin{flalign}
+    \nonumber
     \text{SELECT} \quad & f_m(\mathbb{A}^n), f_s(AG)(f_s(\mathbb{A}^c)) \text{, COUNT(*)} &&\\\nonumber
     \text{FROM}   \quad & \mathcal{T}^r &&\\\nonumber
     \text{WHERE}  \quad  & [f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d) \quad f_s(CO) \quad f_s(V(f_s(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d )))] &&\\\nonumber
@@ -189,6 +196,8 @@ The Hellinger distance between :math:`\mathcal{T}^r` and :math:`\mathcal{T}^s` c
 
     \mathcal{H}^{\mathcal{T}}=\frac{1}{|\mathbb{A}|} \sum_{i=1}^{|\mathbb{A}|} \mathcal{H}^{A_i}
 
+.. _Hellinger Distance for Queries:
+
 Hellinger Distance for Queries
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -203,3 +212,37 @@ If grouping is done by more than a single variable, it is as we are defining a n
 Both discrete probabilities :math:`r` and :math:`s` were defined earlier in  :ref:`hellinger distance for datasets`.
 
 For instance, consider an aggregate query grouped by the two nominal variables :math:`A_1=\text{"income"}` and :math:`A_2=\text{"marital status"}` with each having two distinct classes. The query will result in the variable :math:`A^q` having four distinct classes with a discrete probability :math:`r_{A^q}^j` for each resulting class :math:`j`.
+
+Euclidean Distance for Queries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Once the *aggregate* query is executed, the variable :math:`A^q`, as defined in :ref:`Hellinger Distance for Queries`, will result in the classes: :math:`1,2..j..J`.  If the data includes a continuous variable :math:`A^c`, an aggregate function, say AGG, may be applied to that variable. For each class :math:`j`, an aggregation value :math:`[AGG(A^c)]_j` of the continuous variable can be calculated. For instance, let :math:`A^q` be a combination of two nominal variables :math:`A_1=\text{"income"}` and :math:`A_2=\text{"marital status"}`. Let :math:`A^c=\text{"age"}` be a continuous variable, then for each of the four distinct classes, we can calculate the :math:`\text{AVG}(\text{age})`. Define:
+
+:math:`v^r_j` is the aggregate value (e.g. :math:`[\text{AVG}(\text{age})]_j`) corresponding to the :math:`j^{th}` class of an arbitrary continuos variable :math:`A^c` in :math:`\mathcal{T}^r`.
+
+:math:`v^s_j` is the aggregate value corresponding to the :math:`j^{th}` class of the same continuos variable :math:`A^c` in :math:`\mathcal{T}^s` 
+
+From the above components, we can find the difference components:
+
+:math:`d_j=v^r_j-v^s_j \quad \forall j`
+
+We further find the mean and standard deviation across all the classes:
+
+:math:`\mu^d=\frac{1}{J} \sum\limits_{j=1}^J d_j`
+
+:math:`\sigma^d=\sqrt{\frac{1}{J}\sum\limits_{j=1}^J (d_j-\mu^d)^2}`
+
+and we compute the standardized aggregate values:
+
+:math:`z_j =\frac{d_j-\mu^d}{\sigma^d}`
+
+Finally, we compute the norm and normalize it to reflect the normalized Euclidean distance between the real and synthetic queries :
+
+:math:`\mathcal{E}^\mathcal{Q}=\frac{\|z_j\|}{J}`
+
+Norzmiling the distance by the number of resulting classes for the random query enables us to average the Euclidean distance across multiple queries since each of them may result in different number of classes. 
+
+
+
+
+
