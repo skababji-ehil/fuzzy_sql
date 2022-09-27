@@ -11,7 +11,41 @@ from sklearn.preprocessing import StandardScaler
 
 
 class TABULAR_QUERY():
+    """This is a class used for generating random SELECT queries for a table residing  in sqlite database.
+        
+        Once called, various query parameters (listed below) are constructed typically in forms of dictionaries. The value entries of the dictionaries represent discrete probabilities for better model versatility. However, these probabilities can be modified only by accessing the constructor.  
+        
+        AGG_OPS: Aggregation functions
+
+        LOGIC_OPS: Logic Operations
+
+        NOT_OP_STATE: NOT operation state i.e. used or not used.
+
+        CAT_OPS: Value comparison operations for nominal variables.
+
+        CNT_OPS: Value comparison operations for continuous variables.
+
+        CAT_VAL_BAG: A bag of possible values for nominal variables.
+
+        CNT_VAL_BAG: A bag of possible values for continuous variables.
+
+        DT_VAL_BAG: A bag of possible values for date variables.
+
+    :param db_conn: A connection to the database that contains the table to be subjected to random queries. 
+    :type db_conn: connection object created using sqlite3.connect()
+
+    :param real_tbl_name: The name of the table to be randomly queried.
+    :type real_tbl_name: String
+
+    :param metadata: A dictionary that includes table's variable names (i.e. column names) as keys and types of variables as values. THey types shall be restricted to: 'continuous', 'data' and 'nominal'. Any table shall have at least one nominal variable.
+    :type metadata: Dictionary
+
+    """
+
     def __init__(self, db_conn, real_tbl_name: str, metadata: dict) -> None:
+
+        """ Constructor method. 
+        """
         self.CUR = db_conn.cursor()
         self.REAL_TBL_NAME = real_tbl_name
         self.VARS = list(metadata.keys())

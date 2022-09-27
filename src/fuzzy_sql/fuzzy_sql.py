@@ -358,9 +358,7 @@ def print_twin_fltr_queries1(queries: dict, file_writer):
 import string
 
 def fuzz_tabular(n_queries, query_type,real_file_path, metadata_file_path, syn_file_path='None', run_folder='None', printme=False):
-    """ 
-    
-    The function generates random queries for the input tabular datasets.
+    """The function generates random queries for the input tabular datasets.
 
     :param int n_queries: The number of random queries to be generated 
     :param str query_type: The type of queries to be generated and can be 'single_agg', single_fltr', 'twin_agg', 'twin_fltr', or 'twin_aggfltr'
