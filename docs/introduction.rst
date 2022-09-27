@@ -64,7 +64,7 @@ Random samples are drawn from the above sets to construct the three major querie
 
 :math:`f_s: S_m \rightarrow S_s` where :math:`f_s` is a sampling function that maps any set :math:`S_m` into a single element set :math:`S_s`. For instance, the set :math:`AG` may be mapped by :math:`f_s` into :math:`\{AVG\}`
 
-:math:`f_m: S_{m1} \rightarrow S_{m2}` where :math:`f_m` is a sampling function that maps any set :math:`S_{m1}` into a multiple element set :math:`S_{m2}`. For instance, the set :math:`\mathbb{A^n}` may be mapped by :math:`f_m` into :math:`\{A^n_1, A^n_{|\mathbb{A^n}|}\}`
+:math:`f_m: S_{m1} \rightarrow S_{m2}` where :math:`f_m` is a sampling function that maps any set :math:`S_{m1}` into a multiple element set :math:`S_{m2}`. For instance, the set :math:`\mathbb{A}^n` may be mapped by :math:`f_m` into :math:`\{A^n_1, A^n_{|\mathbb{A}^n|}\}`
 
 Aggregate Queries
 ~~~~~~~~~~~~~~~~~
@@ -113,7 +113,7 @@ If :math:`\mathbb{A}^c = \phi`, a filter query takes the form:
                          & \cdots
     \end{flalign}
 
-The WHERE clause comprises three basic expressions denoted by :math:`[\quad ]`. The set length of the randomly selected query variables has an impact on these expressions. For instance, if :math:`|f_m(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d)|=2`, the first and second expressions and dropped and the SELECT statement will reduce to:
+The WHERE clause comprises three basic expressions denoted by :math:`[\quad ]`. The set length of the randomly selected query variables has an impact on these expressions. For instance, if :math:`|f_m(\mathbb{A}^n \cup \mathbb{A}^c \cup \mathbb{A}^d)|=2`, the first and second expressions are dropped and the SELECT statement will reduce to:
 
 .. math::
    :nowrap:
@@ -224,7 +224,7 @@ Hellinger Distance for Queries
 
 In *aggregate* queries, grouping is done by randomly selected *nominal* variables. In this sense, measuring the Hellinger distance for the  datasets as explained above is just a special case where grouping is done by a single nominal variable at a time. So, for :math:`|\mathbb{A}|` number of *nominal* variables in the original datasets, we may execute :math:`|\mathbb{A}|` number of queries with each query grouped by a single variable. Then by averaging the Hellinger distances of these queries, we reach the same results in :eq:`eq_hlngr_T`
 
-If grouping is done by more than a single variable, it is as we are defining a new nominal variable :math:`A^q` where :math:`A^q` may be any combination of two or more dataset variables :math:`A^i \quad \forall A^i \in \mathbb{A}`. The query will result in specific number of classes for :math:`A^q`. Using the subscript :math:`j` to indicate the :math:`j^{th}` class of :math:`A^q`, we calculate the Hellinger distance for the query by:
+If grouping is done by more than a single variable, it is as we are defining a new nominal variable :math:`A^q` where :math:`A^q` may be any combination of two or more dataset variables :math:`A^i \quad \forall A^i \in \mathbb{A}`. The query will result in specific number of classes for :math:`A^q`. Using the superscript :math:`j` to indicate the :math:`j^{th}` class of :math:`A^q`, we calculate the Hellinger distance for the query by:
 
 .. math:: 
 
