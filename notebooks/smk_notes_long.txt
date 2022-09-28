@@ -1,0 +1,69 @@
+
+SELECT cities.cityname, MIN(users.age)
+FROM cities
+JOIN users
+  ON cities.id = users.city_id
+GROUP BY cities.cityname
+
+==========================================================
+Filter Queries
+**************
+SELECT (variable from parent), (variable from child)
+FROM (parent table)
+JOIN (child table nam)
+    ON (parent key name = child key name)
+GROUP BY (variable from parent in the select above) 
+
+
+===========================================================
+Aggregate Queries (aggregation allowed by Nominal+Parent variable only)
+******************
+SELECT (variable from parent), agg_fntn(variable from child)
+FROM (parent table)
+JOIN (child table nam)
+    ON (parent key name = child key name)
+GROUP BY (variable from parent in the select above) 
+
+
+SELECT (variable from parent), agg_fntn(variable from child)
+FROM (parent table)
+LEFT JOIN (child table nam)
+    ON (parent key name = child key name)
+GROUP BY
+
+===============================================================
+Filter-Aggregate Queries [FILTER BEFORE JOIN using ON] 
+******************************************************
+
+SELECT (variable from parent), agg_fntn(variable from child)
+FROM (parent table)
+JOIN (child table name)
+    ON (parent key name = child key name)
+    AND (variable from parent or child [cmp_op] specific value )
+    ...
+GROUP BY (variable from parent in the select above) 
+
+Filter-Aggregate Queries [FILTER AFTER JOIN USING HAVING]
+**********************************************
+SELECT (variable from parent), agg_fntn(variable from child)
+FROM (parent table)
+JOIN (child table name)
+    ON (parent key name = child key name)
+GROUP BY (variable from parent in the select above) 
+HAVING [agg_fntn]variable from parent or child [cmp_op] specific value
+
+
+Filter-Aggregate Queries [FILTER AFTER JOIN using WHERE] 
+********************************************************
+SELECT (variable from parent), agg_fntn(variable from child)
+FROM (parent table)
+JOIN (child table name)
+    ON (parent key name = child key name)
+WHERE [agg_fntn]variable from parent or child [cmp_op] specific value
+GROUP BY (variable from parent in the select above) 
+
+
+We will build
+aggregate using ON foreign key and GROUP BY
+filter using ON .. AND
+filter-aggregate using On ..AND and GROUP BY

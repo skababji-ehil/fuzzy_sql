@@ -23,6 +23,7 @@ extensions = [
     'sphinx.ext.doctest',
     'sphinx.ext.autodoc',
     'sphinxcontrib.bibtex',
+    'sphinx.ext.napoleon',
 ]
 
 bibtex_bibfiles = ['refs.bib']

@@ -50,10 +50,18 @@ def find_syn_fnames(syn_data_dir: Path, real_names: list) -> dict:
 
 
 def load_csv(file_path: Path) -> pd.DataFrame:
+    """Reads the input csv file.
+    
+    Args:
+        file_path: The input file full path including the file name and csv extension.
+
+    Returns:
+        The pandas dataframe in 'unicode-escape' encoding. Any "`" is deleted in the data. 
+    """
     df=pd.read_csv(file_path, encoding='unicode-escape', dtype=str) 
     #df=pd.read_csv(file_path,encoding = "ISO-8859-1") 
     #remove any apostrophe from data
-    df=df.replace({"'":""}, regex=True) # if you omit this, you will encounter error when reading numeric classes e.g. '1' for Class variable in table C4
+    df=df.replace({"'":""}, regex=True) # In order not to encounter error when reading numeric classes e.g. '1' for Class variable in table C4
     return df
 
 def get_metadata(file_path: Path) -> dict:
@@ -61,15 +69,21 @@ def get_metadata(file_path: Path) -> dict:
     metafile= open(file_path)
     return json.load(metafile)
 
-def make_table(real_name: str, real: pd.DataFrame, db_conn):
-    """" The function converts input dataframe into a table using the input database cursor """
+def make_table(table_name: str, df: pd.DataFrame, db_conn: object):
+    """Imports the input dataframe into a database table.
+    
+    Args:
+        table_name: The intended name of the table in the database.
+        df: The input data
+        db_conn: Database (sqlite3) connection object
+    """
     cur=db_conn.cursor()
-    cur.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name=(?) ",(real_name,)) #sqlite_master holds  the schema of the db including table names
+    cur.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name=(?) ",(table_name,)) #sqlite_master holds  the schema of the db including table names
     if cur.fetchone()[0]==0 : # If table does not exist (ie returned count is zero), then import the table into db from pandas
-        real.to_sql(real_name, db_conn, index=False)
-        print(f'Table {real_name} is created in the database')
+        df.to_sql(table_name, db_conn, index=False)
+        print(f'Table {table_name} is created in the database')
     else:
-        print (f'Table {real_name} already exists in the database')
+        print (f'Table {table_name} already exists in the database')
 
 
 def discretize_data( data_org: pd.DataFrame, metadata_org: dict, n_bins=10):
