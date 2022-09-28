@@ -31,9 +31,9 @@ For tabular data, we define two basic types of SELECT queries, namely, 'filter' 
 If the input data includes continuous variables, various 'aggregate functions' may be randomly applied in addition to counting the resulting number of records. These functions are limited to AVG, SUM, MIN and MAX. If the input doe snot include any continuous variable, only the COUNT aggregate function is applied. The types of each variable are typically defined by the user and inputted along with the real and synthetic datasets.   
 
 
-Query Templates for Tabular Datasets
-------------------------------------
-Without loss of generality, and to simplify the mathematical constructs, we herein ignore the logical operation 'NOT' and the value comparison operations  BETWEEN, LIKE and IN. We further consider that the same set of value comparison operations is applicable to all types of variables. In practice, a distinction in their applicability is made. Further, all the aforementioned operations are considered. Define:
+Tabular Data Templates
+----------------------
+Without loss of generality, and to simplify the mathematical constructs, we herein ignore the logical operation 'NOT' and the value comparison operations  BETWEEN, LIKE and IN. We further consider that the same set of value comparison operations is applicable to all types of variables. In practice, a distinction in their applicability is made and all the aforementioned operations are considered. Define:
 
 :math:`\mathcal{T}^r` : Database table for real data.
 
@@ -180,6 +180,12 @@ and if :math:`\mathbb{A}^c \ne \phi`, a filter-aggregate query takes the form:
                         & \cdots &&\\\nonumber
     \text{GROUP BY} \quad & f_m(\mathbb{A}^n)
     \end{flalign}
+
+
+Longitudinal Data Templates
+---------------------------
+Write here definitions of tables and relations...
+
 
 Metrics for Tabular Datasets
 ----------------------------

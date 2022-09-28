@@ -22,7 +22,7 @@ Below is another example to generate 100 aggregate queries simultaneously applie
 
 **Note**: Windows users may need to add 'r' before the path string they pass to the function. This will force treating windows backslashes as literal raw character. For instance, pass: ``r"C:\path\to\file\X_real.csv"``
 
-tabular_query()
+TABULAR_QUERY()
 ---------------
 .. autoclass:: fuzzy_sql.tabular_query.TABULAR_QUERY
 
