@@ -8,7 +8,7 @@ GROUP BY cities.cityname
 ==========================================================
 Filter Queries
 **************
-SELECT (variable from parent), (variable from child)
+SELECT (variable from parent), (variable from child), * <- can be anything here, so use *
 FROM (parent table)
 JOIN (child table nam)
     ON (parent key name = child key name)
@@ -16,13 +16,13 @@ GROUP BY (variable from parent in the select above)
 
 
 ===========================================================
-Aggregate Queries (aggregation allowed by Nominal+Parent variable only)
+Aggregate Queries (aggregation is allowed by Nominal+Parent variable only, SO JOINING WILL MAKE NO DIFFERENCE)
 ******************
 SELECT (variable from parent), agg_fntn(variable from child)
 FROM (parent table)
 JOIN (child table nam)
     ON (parent key name = child key name)
-GROUP BY (variable from parent in the select above) 
+GROUP BY (variable from parent in the select above) <- can be only nominal variables from the parent table, the more you have here the more records you expect
 
 
 SELECT (variable from parent), agg_fntn(variable from child)
