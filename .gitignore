@@ -1,3 +1,4 @@
+# Sphinx documentation
 docs/_build/*
 !docs/_build/latex
 docs/_build/latex/*
@@ -6,6 +7,7 @@ docs/_static
 docs/_templates
 docs/make.bat
 docs/Makefile
+
 
 
 .runs/
@@ -90,8 +92,7 @@ instance/
 # Scrapy stuff:
 .scrapy
 
-# Sphinx documentation
-docs/_build/
+
 
 # PyBuilder
 target/
