@@ -4,7 +4,7 @@ The package generate random SQL Statements to check the query response from tabu
 
 ## Installation:
 ```
-pip install fuzzy-sql
+pip install git+ssh://git@github.com/skababji-ehil/fuzzy_sql.git#egg=fuzzy_sql
 ```
 The package includes the necessary dependencies. They can also be installed manually using: pip install pandas scikit-learn seaborn   
 

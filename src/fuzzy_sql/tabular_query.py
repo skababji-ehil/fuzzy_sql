@@ -953,7 +953,7 @@ class TABULAR_QUERY():
         return query_real_df, query_syn_df, query_params
 
     def _gen_det_twin_agg_query_c0(self, def_cat_vars: list,syn_tbl_name) -> pd.DataFrame:
-        """ The function generates a specific query defined by the input list of categorical variables for both the real and its corresponding 
+        """ The function generates a specific (deterministic)  query defined by the input list of categorical variables for both the real and its corresponding 
         synthetic data with the table names given in real_tbl_name and syn_tbl_name respectively. The tables are assumed to be available 
         in the database with given cursor 'cur'. The function returns both queries for real and syn tables. 
         The generated query do not include any aggregation of continuous variables."""
