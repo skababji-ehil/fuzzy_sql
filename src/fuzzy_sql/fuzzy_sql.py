@@ -62,7 +62,6 @@ def load_csv(file_path: Path) -> pd.DataFrame:
     #df=pd.read_csv(file_path,encoding = "ISO-8859-1") 
     #remove any apostrophe from data
     df=df.replace({"'":""}, regex=True) # In order not to encounter error when reading numeric classes e.g. '1' for Class variable in table C4
-    df.columns=[col.replace(".","_") for col in df.columns] #replace dots in variable names by _ to avoid conflicts in sql naming 
     return df
 
 def get_metadata(file_path: Path) -> dict:
