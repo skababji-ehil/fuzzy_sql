@@ -532,6 +532,42 @@ def fuzz_tabular(n_queries, query_type,real_file_path, metadata_file_path, syn_f
     else:
         raise Exception("Please enter correct query type: 'single_fltr','twin_fltr', 'single_agg, 'twin_agg' or 'twin_aggfltr' ")
 
+##########################################################################################################################################################
+
+def long_load_csv(file_path: Path) -> pd.DataFrame:
+    """Reads the input csv file as strings. Any dot "." in variable names will be replaced into underscore "_"
+    
+    Args:
+        file_path: The input file full path including the file name and csv extension.
+
+    Returns:
+        The pandas dataframe in 'unicode-escape' encoding. Any "`" is deleted in the data. 
+    """
+    df=pd.read_csv(file_path, encoding='unicode-escape', dtype=str) 
+    #df=pd.read_csv(file_path,encoding = "ISO-8859-1") 
+    #remove any apostrophe from data
+    df=df.replace({"'":""}, regex=True) # In order not to encounter error when reading numeric classes e.g. '1' for Class variable in table C4
+    df.columns=[col.replace(".","_") for col in df.columns] #replace dots in variable names by _ to avoid conflicts in sql naming 
+    return df
+
+
+def assign_dtype(df, dict):
+    #Assigns dtypes for variables in input pandas dataframe based on the type identified in the input dictionary
+    assert bool(set(df.columns).intersection(set(dict.keys())))
+    out_dict={}
+    for key in dict:
+        if dict[key] in ['quantitative','continuous','interval','ratio']:
+            out_dict[key]='float64'
+        elif dict[key] in ['date','time','datetime']:
+            out_dict[key]='datetime64'
+        else:
+            out_dict[key]='category'
+    
+    for col in df.columns:
+        df[col]=df[col].astype(out_dict[col])
+
+    return df
+
 
 
 
