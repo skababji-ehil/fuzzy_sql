@@ -78,6 +78,8 @@ class LONG_QUERY():
             vals=df[var].values
             vals=[x for x in vals if x==x] #drop nan
             vals=list(filter(None, vals)) #drop None
+            if var in self.CAT_VARS['parent']+self.CAT_VARS['child']:
+                vals=["'"+str(x)+"'" for x in vals if "'" not in x or '"' not in x] # for the values of categorical variables, add quote to avoid errors in SQL statement
             val_bags[var]=vals if len(vals)!=0 else ['N/A']
         return val_bags
 
@@ -107,7 +109,7 @@ class LONG_QUERY():
         return mixed_vars
 
     def _change_tbl_name(self, in_lst: list,in_parent_name: str, out_parent_name: str, in_child_name: str, out_child_name: str)-> list:
-        # replaces the table names of teh real dataset by the table names of the synthetic datasets.
+        # replaces the table names of the real dataset by the table names of the synthetic datasets.
         out_lst=[var.replace(in_parent_name,out_parent_name ) for var in in_lst] 
         out_lst=[var.replace(in_child_name,out_child_name ) for var in out_lst] 
         return out_lst
@@ -186,7 +188,7 @@ class LONG_QUERY():
         log_ops=[]
         for long_var_name in picked_vars: #This loop will find the a proper random value comparison operation and proper random value for all the picked variables
             #var=long_var_name[long_var_name.find(".")+1:]
-            x=long_var_name.split(".") #Note is assumed that variable names do NOT include any "."
+            x=long_var_name.split(".") #Note: it is assumed that variable names do NOT include any "."
             var_tbl=x[0]
             var=x[1]
             var_tbl_rank='parent' if var_tbl==self.PARENT_NAME else 'child'
@@ -201,6 +203,11 @@ class LONG_QUERY():
                     possible_no_of_in_terms=np.arange(2,len(self.CAT_VAL_BAGS[var_tbl_rank][var]))
                     no_of_in_terms=np.min([np.random.choice(possible_no_of_in_terms),self.max_no_in_terms]) if self.max_no_in_terms != 0 else np.random.choice(possible_no_of_in_terms)
                     vals=np.random.choice(self.CAT_VAL_BAGS[var_tbl_rank][var], size=no_of_in_terms)
+                    for i,x in enumerate(vals): #This will eliminate double quotes in the list of values used in th eIN clause
+                        try:
+                            vals[i]=eval(x)
+                        except:
+                            continue
                     if picked_cmp_op=='IN':
                         term =f" {selected_long_var_name} IN {tuple(vals)} "
                     else:
@@ -227,11 +234,11 @@ class LONG_QUERY():
             elif var in all_dt_vars:
                 picked_cmp_op=np.random.choice(list(self.ATTRS['DT_OPS'].keys()),p=list(self.ATTRS['DT_OPS'].values()))
                 if picked_cmp_op=='BETWEEN':
-                    pass
+                    pass #To complete
                 elif picked_cmp_op=='IN':
-                    pass
+                    pass #To complete
                 else:
-                    pass
+                    pass#To complete
             else:
                 raise Exception(f"Can not find {var} in the lists of all variables!!")
             
@@ -270,9 +277,9 @@ class LONG_QUERY():
         assert len(ext_real)==len(ext_syn)
         matched_rnd_query['query_real']=ext_real
         matched_rnd_query['query_syn']=ext_syn
-        matched_rnd_query['query_desc']=grpby_vars=rnd_query['query_desc']
-        matched_rnd_query['query_desc']['n_rows_real']=len(ext_real)
-        matched_rnd_query['query_desc']['n_rows_syn']=len(ext_syn)
+        matched_rnd_query['query_desc']=rnd_query['query_desc']
+        # matched_rnd_query['query_desc']['n_rows_real']=len(ext_real)
+        # matched_rnd_query['query_desc']['n_rows_syn']=len(ext_syn)
 
         return matched_rnd_query
 
@@ -288,10 +295,13 @@ class LONG_QUERY():
         cnt_idx=-1 if  desc['aggfntn'] == 'None' else -2 #decide the column back index of COUNT header
         assert real.iloc[:,:cnt_idx].equals(syn.iloc[:,:cnt_idx]), "Real and Synthetic tables should be matched!"
 
-        real_probs=real.iloc[:,-1]/sum(real.iloc[:,-1])
-        syn_probs=syn.iloc[:,-1]/sum(syn.iloc[:,-1])
-        hlngr_dist=np.sqrt(np.sum((np.sqrt(real_probs)-np.sqrt(syn_probs))**2))/np.sqrt(2)
-        scored_rnd_query['query_hlngr_score']=hlngr_dist
+        if len(real)!=0: 
+            real_probs=real.iloc[:,-1]/sum(real.iloc[:,-1])
+            syn_probs=syn.iloc[:,-1]/sum(syn.iloc[:,-1])
+            hlngr_dist=np.sqrt(np.sum((np.sqrt(real_probs)-np.sqrt(syn_probs))**2))/np.sqrt(2)
+            scored_rnd_query['query_hlngr_score']=hlngr_dist
+        else: 
+            scored_rnd_query['query_hlngr_score']=np.nan
 
         if cnt_idx==-2:
             pivot=np.concatenate([[real.iloc[:,-2],syn.iloc[:,-2],real.iloc[:,-1],syn.iloc[:,-1]]], axis=1).T
@@ -343,6 +353,8 @@ class LONG_QUERY():
             "type":"single_agg",
             "agg_fntn":"None",
             "grpby_vars": grpby_vars,
+            "parent_name":self.PARENT_NAME,
+            "child_name":self.CHILD_NAME,
             "sql":single_expr,
             "n_rows":query.shape[0],
             "n_cols":query.shape[1]
@@ -364,9 +376,13 @@ class LONG_QUERY():
             "type":"twin_agg",
             "agg_fntn":"None",
             "grpby_vars": grpby_vars,
+            "parent_name_real":self.PARENT_NAME,
+            "child_name_real":self.CHILD_NAME,
             "sql_real":real_expr,
             "n_cols_real":query_real.shape[1],
             "n_rows_real":query_real.shape[0],
+            "parent_name_syn":twin_parent_name,
+            "child_name_syn":twin_child_name,
             "sql_syn":syn_expr,
             "n_cols_syn":query_syn.shape[1],
             "n_rows_syn":query_syn.shape[0],
@@ -406,6 +422,8 @@ class LONG_QUERY():
             "type":"single_agg",
             "aggfntn":f"{agg_fntn_tpl[0]}({agg_fntn_tpl[1]})",
             "grpby_vars": grpby_vars,
+            "parent_name":self.PARENT_NAME,
+            "child_name":self.CHILD_NAME,
             "sql":expr,
             "n_rows":query.shape[0],
             "n_cols":query.shape[1]
@@ -431,9 +449,13 @@ class LONG_QUERY():
             "type":"twin_agg",
             "aggfntn":f"{real_aggfntn_tpl[0]}({real_aggfntn_tpl[1]})",
             "grpby_vars": grpby_vars,
+            "parent_name_real":self.PARENT_NAME,
+            "child_name_real":self.CHILD_NAME,
             "sql_real":real_expr,
             "n_cols_real":query_real.shape[1],
             "n_rows_real":query_real.shape[0],
+            "parent_name_syn":twintbl_parent_name,
+            "child_name_syn":twintbl_child_name,
             "sql_syn":syn_expr,
             "n_cols_syn":query_syn.shape[1],
             "n_rows_syn":query_syn.shape[0],
@@ -469,6 +491,8 @@ class LONG_QUERY():
         dic['query_desc']={
             "type":"single_fltr",
             "aggfntn":"None",
+            "parent_name":self.PARENT_NAME,
+            "child_name":self.CHILD_NAME,
             "sql":single_expr,
             "n_rows":query.shape[0],
             "n_cols":query.shape[1]
@@ -490,9 +514,13 @@ class LONG_QUERY():
         dic['query_desc']={
             "type":"twin_fltr",
             "aggfntn":"None",
+            "parent_name_real":self.PARENT_NAME,
+            "child_name_real":self.CHILD_NAME,
             "sql_real":real_expr,
             "n_cols_real":query_real.shape[1],
             "n_rows_real":query_real.shape[0],
+            "parent_name_syn":twin_parent_name,
+            "child_name_syn":twin_child_name,
             "sql_syn":syn_expr,
             "n_cols_syn":query_syn.shape[1],
             "n_rows_syn":query_syn.shape[0],
@@ -538,6 +566,8 @@ class LONG_QUERY():
             "type":"single_aggfltr",
             "aggfntn":"None",
             "grpby_vars": grpby_vars,
+            "parent_name":self.PARENT_NAME,
+            "child_name":self.CHILD_NAME,
             "sql":single_expr,
             "n_rows":query.shape[0],
             "n_cols":query.shape[1]
@@ -555,6 +585,7 @@ class LONG_QUERY():
         syn_where_terms=self._change_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
         
         real_expr=self._build_aggfltr_expr(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,real_grp_lst, real_where_terms,log_ops)
+        print(real_expr+'\n')
         syn_expr=self._build_aggfltr_expr(twin_parent_name, twin_child_name, self.FKEY_NAME,syn_grp_lst, syn_where_terms,log_ops)
 
         query_real=self.make_query(self.CUR, real_expr)
@@ -567,9 +598,13 @@ class LONG_QUERY():
             "type":"twin_aggfltr",
             "aggfntn":"None",
             "grpby_vars": grpby_vars,
+            "parent_name_real":self.PARENT_NAME,
+            "child_name_real":self.CHILD_NAME,
             "sql_real":real_expr,
             "n_cols_real":query_real.shape[1],
             "n_rows_real":query_real.shape[0],
+            "parent_name_syn":twin_parent_name,
+            "child_name_syn":twin_child_name,
             "sql_syn":syn_expr,
             "n_cols_syn":query_syn.shape[1],
             "n_rows_syn":query_syn.shape[0],
@@ -617,6 +652,8 @@ class LONG_QUERY():
             "type":"single_aggfltr",
             "aggfntn":f"{agg_fntn_tpl[0]}({agg_fntn_tpl[1]})",
             "grpby_vars": grpby_vars,
+            "parent_name":self.PARENT_NAME,
+            "child_name":self.CHILD_NAME,
             "sql":single_expr,
             "n_rows":query.shape[0],
             "n_cols":query.shape[1]
@@ -650,9 +687,13 @@ class LONG_QUERY():
             "type":"twin_aggfltr",
             "aggfntn":f"{real_agg_fntn_tpl[0]}({real_agg_fntn_tpl[1]})",
             "grpby_vars": grpby_vars,
+            "parent_name_real":self.PARENT_NAME,
+            "child_name_real":self.CHILD_NAME,
             "sql_real":real_expr,
             "n_cols_real":query_real.shape[1],
             "n_rows_real":query_real.shape[0],
+            "parent_name_syn":twin_parent_name,
+            "child_name_syn":twin_child_name,
             "sql_syn":syn_expr,
             "n_cols_syn":query_syn.shape[1],
             "n_rows_syn":query_syn.shape[0],
