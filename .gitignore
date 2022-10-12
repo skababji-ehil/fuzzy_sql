@@ -8,7 +8,10 @@ docs/_templates
 docs/make.bat
 docs/Makefile
 
+db/*
+!db/*.sql
 
+.smk/
 
 .runs/
 dist/

@@ -295,7 +295,7 @@ class LONG_QUERY():
         cnt_idx=-1 if  desc['aggfntn'] == 'None' else -2 #decide the column back index of COUNT header
         assert real.iloc[:,:cnt_idx].equals(syn.iloc[:,:cnt_idx]), "Real and Synthetic tables should be matched!"
 
-        if len(real)!=0: 
+        if len(real)!=0 and len(syn)!=0: 
             real_probs=real.iloc[:,-1]/sum(real.iloc[:,-1])
             syn_probs=syn.iloc[:,-1]/sum(syn.iloc[:,-1])
             hlngr_dist=np.sqrt(np.sum((np.sqrt(real_probs)-np.sqrt(syn_probs))**2))/np.sqrt(2)

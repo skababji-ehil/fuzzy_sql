@@ -371,7 +371,7 @@ def print_twin_fltr_queries1(queries: dict, file_writer):
 
 import string
 
-def fuzz_tabular(n_queries, query_type,real_file_path, metadata_file_path, syn_file_path='None', run_folder='None', printme=False):
+def fuzz_tabular(n_queries, query_type,real_file_path, metadata_file_path, syn_file_path='None', run_folder='None', printme=False, db_path='fuzzy_sql.db'):
     """The function generates random queries for the input tabular datasets.
 
     :param int n_queries: The number of random queries to be generated 
@@ -392,7 +392,7 @@ def fuzz_tabular(n_queries, query_type,real_file_path, metadata_file_path, syn_f
         real=load_csv(real_file_path)
         real_name=Path(real_file_path).stem
         # Create database and load real data into it
-        conn = sqlite3.connect('fuzzy_sql.db')
+        conn = sqlite3.connect(db_path)
         make_table(real_name, real, conn)
     else:
         raise Exception('The file {} does not exist !'.format(real_file_path))
