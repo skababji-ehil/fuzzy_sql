@@ -84,7 +84,7 @@ def make_table(table_name: str, df: pd.DataFrame, db_conn: object):
         print(f'Table {table_name} is created in the database')
     else:
         print (f'Table {table_name} already exists in the database')
-
+        
 
 def discretize_data( data_org: pd.DataFrame, metadata_org: dict, n_bins=10):
     data=copy.deepcopy(data_org)
