@@ -70,13 +70,21 @@ def get_metadata(file_path: Path) -> dict:
     return json.load(metafile)
 
 def make_table(table_name: str, df: pd.DataFrame, db_conn: object):
-    """Imports the input dataframe into a database table.
+    """Imports the input dataframe into a database table. All dots in the variable names will be replaced by underscores.
     
     Args:
         table_name: The intended name of the table in the database.
         df: The input data
         db_conn: Database (sqlite3) connection object
     """
+
+    #replace any dot in the column names by underscore 
+    for i, var in enumerate(list(df.columns)):
+        if "." in var:
+            df.rename(columns={var:var.replace(".","_")}, inplace=True)
+        else:
+            continue
+
     cur=db_conn.cursor()
     cur.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name=(?) ",(table_name,)) #sqlite_master holds  the schema of the db including table names
     if cur.fetchone()[0]==0 : # If table does not exist (ie returned count is zero), then import the table into db from pandas
@@ -570,6 +578,6 @@ def assign_dtype(df, dict):
 
 
 
-
+################################################################# GEN RND_QUERY FUNCTIONS START ##############################
 
 
