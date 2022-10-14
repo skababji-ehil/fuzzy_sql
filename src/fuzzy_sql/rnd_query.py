@@ -1,4 +1,5 @@
 import copy
+from http.client import MOVED_PERMANENTLY
 import numpy as np
 import pandas as pd
 import random
@@ -18,67 +19,95 @@ class RND_QUERY():
             params: A dictionary that includes the set of parameters that are necessary for generating the random queries. 
             seed: If set to True, generated random queries become deterministic. 
         """
+        assert len(tbl_names_lst)==len(set(tbl_names_lst)), "You can not have tables with the same name"
         assert len(tbl_names_lst)==len(metadata_lst),"Each input table name shall have its own metadata dictionary."
+
+       
 
         self.SEED=seed
         self.seed_no=141
 
         self.CUR = db_conn.cursor()
 
+    
+        ## SMK ## self.SOLE_GRP, self.ROOT_GRP, self.CHILD_GRP, self.PARENT_GRP=self._classify_tables(tbl_names_lst,metadata_lst) 
+        _, _, self.CHILD_NAME_LST, self.PARENT_NAME_LST=self._classify_tables(tbl_names_lst,metadata_lst) 
 
-        self.SOLE_GRP, self.ROOT_GRP, self.CHILD_GRP, self.PARENT_GRP=self._classify_tables(tbl_names_lst,metadata_lst) 
         
         
-        
-        print('smk')
         # self.PARENT_NAME = parent_tbl_name #RP = Real Parent
         # self.CHILD_NAME = child_tbl_name #RC = Real Child
         # self.metadata=copy.deepcopy(metadata)
         
         #Fetch Real data (both parent and child)
-        self.PARENT_DF=pd.read_sql_query(f'SELECT * FROM {self.PARENT_NAME}', db_conn) #Real Parent Dataframe
-        self.CHILD_DF=pd.read_sql_query(f'SELECT * FROM {self.CHILD_NAME}', db_conn) #Real Child Dataframe
+        # self.PARENT_DF=pd.read_sql_query(f'SELECT * FROM {self.PARENT_NAME}', db_conn) #Real Parent Dataframe
+        # self.CHILD_DF=pd.read_sql_query(f'SELECT * FROM {self.CHILD_NAME}', db_conn) #Real Child Dataframe
 
 
-        #Get foreign key name
-        self.FKEY_NAME=self.metadata['key']
+        # #Get foreign key name
+        # self.FKEY_NAME=self.metadata['key']
 
-        #Delete foreign key from child variables to avoid repetition of variable in various expression
-        del self.metadata['child'][self.FKEY_NAME]
+        # #Delete foreign key from child variables to avoid repetition of variable in various expression
+        # del self.metadata['child'][self.FKEY_NAME]
+
+        self.TBL_NAME_LST=tbl_names_lst
+
+        #Specify valid variable types of our purpose
+        mod_metadata_lst=[]
+        for metadata_i in metadata_lst:
+            mod_metadata_lst.append(self._classify_vars(metadata_i))
+
+        self.METADATA_LST=mod_metadata_lst #A list of dictionaries for each table
 
 
-        #Segregate variables into lists based on their types
-        self.CAT_VARS={} #Parent Categorical Variables
-        self.CNT_VARS={}
-        self.DT_VARS={}
-        self.CAT_VARS['parent']=[key for key, value in self.metadata['parent'].items() if value in ['qualitative','categorical','nominal','discrete','ordinal','dichotomous']]
-        self.CAT_VARS['child']=[key for key, value in self.metadata['child'].items() if value in ['qualitative','categorical','nominal','discrete','ordinal','dichotomous']]
-        self.CNT_VARS['parent']=[key for key, value in self.metadata['parent'].items() if value in ['quantitative','continuous','interval','ratio']]
-        self.CNT_VARS['child']=[key for key, value in self.metadata['child'].items() if value in ['quantitative','continuous','interval','ratio']]
-        self.DT_VARS['parent']=[key for key, value in self.metadata['parent'].items() if value in ['date','time','datetime']]
-        self.DT_VARS['child']=[key for key, value in self.metadata['child'].items() if value in ['date','time','datetime']]
+        # self.CAT_VARS={} #Parent Categorical Variables
+        # self.CNT_VARS={}
+        # self.DT_VARS={}
+        # self.CAT_VARS['parent']=[key for key, value in self.metadata['parent'].items() if value in ['qualitative','categorical','nominal','discrete','ordinal','dichotomous']]
+        # self.CAT_VARS['child']=[key for key, value in self.metadata['child'].items() if value in ['qualitative','categorical','nominal','discrete','ordinal','dichotomous']]
+        # self.CNT_VARS['parent']=[key for key, value in self.metadata['parent'].items() if value in ['quantitative','continuous','interval','ratio']]
+        # self.CNT_VARS['child']=[key for key, value in self.metadata['child'].items() if value in ['quantitative','continuous','interval','ratio']]
+        # self.DT_VARS['parent']=[key for key, value in self.metadata['parent'].items() if value in ['date','time','datetime']]
+        # self.DT_VARS['child']=[key for key, value in self.metadata['child'].items() if value in ['date','time','datetime']]
 
 
 
         # Aggregate function applies only when there is at least one continuous variable 
-        self.AGG_FNCTN=True if len(self.CNT_VARS['parent'])!=0 or len(self.CNT_VARS['child'])!=0 else False
+        # self.AGG_FNCTN=True if len(self.CNT_VARS['parent'])!=0 or len(self.CNT_VARS['child'])!=0 else False
+
+
 
         # Define random query attributes
         self.ATTRS=params #General attributes that can be set by the user
-
-
-        # Generate dictionaries of bags for various variables
-        self.CAT_VAL_BAGS={}
-        self.CNT_VAL_BAGS={}
-        self.DT_VAL_BAGS={}
-        self.CAT_VAL_BAGS['parent']=self._make_bags(self.PARENT_DF[self.CAT_VARS['parent']])
-        self.CNT_VAL_BAGS['parent']=self._make_bags(self.PARENT_DF[self.CNT_VARS['parent']])
-        self.DT_VAL_BAGS['parent']=self._make_bags(self.PARENT_DF[self.DT_VARS['parent']])
-        self.CAT_VAL_BAGS['child']=self._make_bags(self.CHILD_DF[self.CAT_VARS['child']])
-        self.CNT_VAL_BAGS['child']=self._make_bags(self.CHILD_DF[self.CNT_VARS['child']])
-        self.DT_VAL_BAGS['child']=self._make_bags(self.CHILD_DF[self.DT_VARS['child']])
         
-        self.max_no_in_terms=5 #Maximum number of n terms (set it to 0 if you do not want to impose any limit)
+
+        #Construct list of  dataframes for value bags
+        mod_tbl_lst=[]
+        for tbl_name in tbl_names_lst:
+            df=pd.read_sql_query(f'SELECT * FROM {tbl_name}', db_conn)
+            mod_tbl_lst.append(df)  
+
+        self.TBL_LST=mod_tbl_lst
+
+        for i, tbl_name in enumerate(self.TBL_NAME_LST):
+            for j,_ in enumerate(metadata_lst[i]['var']):
+                this_bag=self._make_val_bag(tbl_name, metadata_lst[i]['var'][j][0])
+
+        print('smk')
+        # # Generate dictionaries of bags for various variables
+        # self.CAT_VAL_BAGS={}
+        # self.CNT_VAL_BAGS={}
+        # self.DT_VAL_BAGS={}
+        # self.CAT_VAL_BAGS['parent']=self._make_bags(self.PARENT_DF[self.CAT_VARS['parent']])
+        # self.CNT_VAL_BAGS['parent']=self._make_bags(self.PARENT_DF[self.CNT_VARS['parent']])
+        # self.DT_VAL_BAGS['parent']=self._make_bags(self.PARENT_DF[self.DT_VARS['parent']])
+        # self.CAT_VAL_BAGS['child']=self._make_bags(self.CHILD_DF[self.CAT_VARS['child']])
+        # self.CNT_VAL_BAGS['child']=self._make_bags(self.CHILD_DF[self.CNT_VARS['child']])
+        # self.DT_VAL_BAGS['child']=self._make_bags(self.CHILD_DF[self.DT_VARS['child']])
+        
+        self.max_no_in_terms=5 #Maximum number of terms for 'in' clause (set it to 0 if you do not want to impose any limit)
+
+###################################################################
 
     def _classify_tables(self,tbl_names_lst,metadata_lst):
         sole_grp=[]
@@ -95,20 +124,61 @@ class RND_QUERY():
             else:
                 child_grp.append(tbl)
                 parent_tbls=[x[0] for x in metadata_lst[i]['parent_ref']]
-                parent_grp.append(*parent_tbls)
+                parent_grp.append(parent_tbls)
 
+        parent_grp=list(set([y for x in parent_grp for y in x]))
         return sole_grp,root_grp,child_grp,parent_grp
 
-    def _make_bags(self,df:pd.DataFrame)-> dict:
-        val_bags={}
-        for var in df.columns:
-            vals=df[var].values
-            vals=[x for x in vals if x==x] #drop nan
-            vals=list(filter(None, vals)) #drop None
-            if var in self.CAT_VARS['parent']+self.CAT_VARS['child']:
-                vals=["'"+str(x)+"'" for x in vals if "'" not in x or '"' not in x] # for the values of categorical variables, add quote to avoid errors in SQL statement
-            val_bags[var]=vals if len(vals)!=0 else ['N/A']
-        return val_bags
+
+    def _classify_vars(self,metadata: dict) -> dict:
+        mod_metadata=copy.deepcopy(metadata)
+        for i, var_tpl in enumerate(mod_metadata['var']):
+            if var_tpl[1] in ['quantitative','continuous','interval','ratio', 'REAL']:
+                mod_metadata['var'][i].append("CNT")
+            elif var_tpl[1] in ['qualitative','categorical','nominal','discrete','ordinal','dichotomous', 'TEXT', 'INTEGER']:
+                mod_metadata['var'][i].append("CAT")
+            elif var_tpl[1] in ['date','time','datetime']:
+                mod_metadata['var'][i].append("DT")
+            else:
+                raise Exception(f"Variable type {var_tpl[1]} in metadata file is not recognized!")
+
+        return mod_metadata
+
+    def _fetch_var_type(self, table_name: str, var_name:str) -> str:
+        # This function fetches the input variable type from the metadata and returns it
+        i=self.TBL_NAME_LST.index(table_name) #find table index
+        metadata=self.METADATA_LST[i] #get corresponding metadata dictionary for the table
+        var_tpl_lst=metadata['var']
+        for j,var_tpl in enumerate(var_tpl_lst):#search for variable in metadata tuples and return it type
+            if var_tpl[0]==var_name:
+                return var_tpl_lst[j][2]
+
+
+    def _make_val_bag(self,table_name:str, var_name: str) -> list:
+        i=self.TBL_NAME_LST.index(table_name)
+        df=self.TBL_LST[i]
+        vals=df[var_name].values
+        vals=[x for x in vals if x==x] #drop nan
+        vals=list(filter(None, vals)) #drop None
+        var_type=self._fetch_var_type(table_name, var_name)
+        if var_type=='CAT':
+            print(table_name,var_name)
+            vals=["'"+str(x)+"'" for x in vals if "'" not in x or '"' not in x] # for the values of categorical variables, add quote to avoid errors in SQL statement
+        vals=vals if len(vals)!=0 else ['N/A']
+        return vals
+
+
+############################################################################################
+    # def _make_bags(self,df:pd.DataFrame)-> dict:
+    #     val_bags={}
+    #     for var in df.columns:
+    #         vals=df[var].values
+    #         vals=[x for x in vals if x==x] #drop nan
+    #         vals=list(filter(None, vals)) #drop None
+    #         if var in self.CAT_VARS['parent']+self.CAT_VARS['child']:
+    #             vals=["'"+str(x)+"'" for x in vals if "'" not in x or '"' not in x] # for the values of categorical variables, add quote to avoid errors in SQL statement
+    #         val_bags[var]=vals if len(vals)!=0 else ['N/A']
+    #     return val_bags
 
     def make_query(self,cur: object, query_exp: str)-> pd.DataFrame:
         cur.execute(query_exp)

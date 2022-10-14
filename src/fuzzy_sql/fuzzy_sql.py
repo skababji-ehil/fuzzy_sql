@@ -1,4 +1,5 @@
 from array import array
+from curses import meta
 from pathlib import Path
 import os
 import datetime
@@ -540,7 +541,7 @@ def fuzz_tabular(n_queries, query_type,real_file_path, metadata_file_path, syn_f
     else:
         raise Exception("Please enter correct query type: 'single_fltr','twin_fltr', 'single_agg, 'twin_agg' or 'twin_aggfltr' ")
 
-##########################################################################################################################################################
+########################################################################Functions for longitudinal single child development ##################################################################################
 
 def long_load_csv(file_path: Path) -> pd.DataFrame:
     """Reads the input csv file as strings. Any dot "." in variable names will be replaced into underscore "_"
@@ -581,3 +582,83 @@ def assign_dtype(df, dict):
 ################################################################# GEN RND_QUERY FUNCTIONS START ##############################
 
 
+
+def prep_data_for_db(csv_table_path: Path, optional_table_name:'None', gen_metadata=False, metadata_dir='None') -> tuple:
+    """Reads the input csv file and prepare it for importation into sqlite db for fuzzy-sql analysis. 
+    The file name (without extension) will be used as a table name in the database.
+    All values are imported as strings. 
+    Any "'" found in the values (e.g. '1')  is deleted.
+    Any variable (columns) that include dots in their names will be replaced by underscores.
+    
+    Args:
+        csv_table_path: The input file full path including the file name and csv extension.
+        optional_table_name: This is an optional name of the table when imported into the database. The default 'None' will use the csv file name (without extension) as the table's name.
+        gen_metadata: A boolean to generate metadata dictionary with default keys/values. Some values shall be manually entered.
+        metadata_dir: The directory where the metadata file shall be saved. No metadata file is saved if the default value of 'None' is used. 
+
+    Returns:
+        The pandas dataframe in 'unicode-escape' encoding.  
+        The corresponding metadata dictionary. The dictionary is saved to the chosen path.
+    """
+
+    df=pd.read_csv(csv_table_path, encoding='unicode-escape', dtype=str) 
+    #df=pd.read_csv(file_path,encoding = "ISO-8859-1") 
+    #remove any apostrophe from data
+    df=df.replace({"'":""}, regex=True) # In order not to encounter error when reading numeric classes e.g. '1' for Class variable in table C4
+
+    #replace any dot in the column names by underscore 
+    for i, var in enumerate(list(df.columns)):
+        if "." in var:
+            df.rename(columns={var:var.replace(".","_")}, inplace=True)
+        else:
+            continue
+    
+    if gen_metadata:
+        if optional_table_name=='None':
+            tbl_name=os.path.basename(csv_table_path)
+            tbl_name=os.path.splitext(tbl_name)[0]
+        else:
+            tbl_name=optional_table_name
+
+        metadata={}
+        metadata['tbl_name']=tbl_name
+        metadata['tbl_key_name']='Enter string, tuple of strings for concatenated key. Enter Null if table is not linked in relation'
+        metadata['parent_ref']='Enter related parent table name and parent key in tuples. Parent key can be a tuple of variable names for concatenated keys. Enter Null if table is teh root'
+
+        var_name_lst=list(df.dtypes.index)
+        var_type_lst=df.dtypes.values
+        var_tpls=[[var, str(type)] for var, type in zip(var_name_lst,var_type_lst)]
+        metadata['var']=var_tpls
+    
+    else:
+        metadata={}
+
+    if metadata_dir != 'None' and gen_metadata==True :
+        fname=os.path.join(metadata_dir,tbl_name+".json")
+        if os.path.isfile(fname):
+            ans=input('Do you really want to replace the existing JSON metadata file? (y/n)')
+            if ans=='n':
+                return df, metadata
+        with open(fname, "w") as outfile:
+            json.dump(metadata, outfile)
+
+    return df, metadata
+
+
+def import_df_into_db(table_name: str, df: pd.DataFrame, db_conn: object):
+    """Imports the input dataframe into an sqlite database table. The data will NOT be imported if it already exists in the database.
+    
+    Args:
+        table_name: The intended name of the table in the database.
+        df: The input data
+        db_conn: Database (sqlite3) connection object
+    """
+
+    cur=db_conn.cursor()
+    cur.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name=(?) ",(table_name,)) #sqlite_master holds  the schema of the db including table names
+    if cur.fetchone()[0]==0 : # If table does not exist (ie returned count is zero), then import the table into db from pandas
+        df.to_sql(table_name, db_conn, index=False)
+        print(f'Table {table_name} is created in the database')
+    else:
+        print (f'Table {table_name} already exists in the database')
+        
