@@ -583,7 +583,7 @@ def assign_dtype(df, dict):
 
 
 
-def prep_data_for_db(csv_table_path: Path, optional_table_name:'None', gen_metadata=False, metadata_dir='None') -> tuple:
+def prep_data_for_db(csv_table_path: Path, optional_table_name='None', gen_metadata=False, metadata_dir='None') -> tuple:
     """Reads the input csv file and prepare it for importation into sqlite db for fuzzy-sql analysis. 
     The file name (without extension) will be used as a table name in the database.
     All values are imported as strings. 
