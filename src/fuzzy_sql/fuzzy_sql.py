@@ -583,7 +583,7 @@ def assign_dtype(df, dict):
 
 
 
-def prep_data_for_db(csv_table_path: Path, optional_table_name='None', gen_metadata=False, metadata_dir='None') -> tuple:
+def prep_data_for_db(csv_table_path: Path, optional_table_name='None', gen_metadata=False, metadata_dir='None', nrows=None) -> tuple:
     """Reads the input csv file and prepare it for importation into sqlite db for fuzzy-sql analysis. 
     The file name (without extension) will be used as a table name in the database.
     All values are imported as strings. 
@@ -601,7 +601,7 @@ def prep_data_for_db(csv_table_path: Path, optional_table_name='None', gen_metad
         The corresponding metadata dictionary. The dictionary is saved to the chosen path.
     """
 
-    df=pd.read_csv(csv_table_path, encoding='unicode-escape', dtype=str) 
+    df=pd.read_csv(csv_table_path, encoding='unicode-escape', dtype=str, nrows=nrows) 
     #df=pd.read_csv(file_path,encoding = "ISO-8859-1") 
     #remove any apostrophe from data
     df=df.replace({"'":""}, regex=True) # In order not to encounter error when reading numeric classes e.g. '1' for Class variable in table C4

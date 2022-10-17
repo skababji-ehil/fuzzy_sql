@@ -31,7 +31,7 @@ class RND_QUERY():
 
     
         ## SMK ## self.SOLE_GRP, self.ROOT_GRP, self.CHILD_GRP, self.PARENT_GRP=self._classify_tables(tbl_names_lst,metadata_lst) 
-        _, _, self.CHILD_NAME_LST, self.PARENT_NAME_LST=self._classify_tables(tbl_names_lst,metadata_lst) 
+        self.SOLE_NAME_LST, _, self.CHILD_NAME_LST, self.PARENT_NAME_LST=self._classify_tables(tbl_names_lst,metadata_lst) 
 
         
         
@@ -52,7 +52,7 @@ class RND_QUERY():
 
         self.TBL_NAME_LST=tbl_names_lst
 
-        #Specify valid variable types of our purpose
+        #Add to var tuples a valid variable types (ie. CNT, CAT  or DT))
         mod_metadata_lst=[]
         for metadata_i in metadata_lst:
             mod_metadata_lst.append(self._classify_vars(metadata_i))
@@ -89,11 +89,15 @@ class RND_QUERY():
 
         self.TBL_LST=mod_tbl_lst
 
+        self.VAL_LST=[]
         for i, tbl_name in enumerate(self.TBL_NAME_LST):
-            for j,_ in enumerate(metadata_lst[i]['var']):
-                this_bag=self._make_val_bag(tbl_name, metadata_lst[i]['var'][j][0])
-
-        print('smk')
+            val_dict={}
+            val_dict['tbl_name']=tbl_name
+            for j,var_tpl in enumerate(metadata_lst[i]['var']):
+                val_dict[var_tpl[0]]=self._make_val_bag(tbl_name, metadata_lst[i]['var'][j][0])
+            self.VAL_LST.append(val_dict)
+        
+        print('smk2')
         # # Generate dictionaries of bags for various variables
         # self.CAT_VAL_BAGS={}
         # self.CNT_VAL_BAGS={}
@@ -105,9 +109,17 @@ class RND_QUERY():
         # self.CNT_VAL_BAGS['child']=self._make_bags(self.CHILD_DF[self.CNT_VARS['child']])
         # self.DT_VAL_BAGS['child']=self._make_bags(self.CHILD_DF[self.DT_VARS['child']])
         
+        self.min_join_clauses=1 #set it larger than one to enforce join clause 
         self.max_no_in_terms=5 #Maximum number of terms for 'in' clause (set it to 0 if you do not want to impose any limit)
 
 ###################################################################
+
+    def _get_tbl_index(self,tbl_name):
+        #lookup table index in METADATA_LST
+        for i,metadata in enumerate(self.METADATA_LST):
+            if metadata['tbl_name']==tbl_name:
+                return i
+
 
     def _classify_tables(self,tbl_names_lst,metadata_lst):
         sole_grp=[]
@@ -145,7 +157,7 @@ class RND_QUERY():
         return mod_metadata
 
     def _fetch_var_type(self, table_name: str, var_name:str) -> str:
-        # This function fetches the input variable type from the metadata and returns it
+        # This function fetches the input variable type (CAT, CNT or DT) from the metadata and returns it
         i=self.TBL_NAME_LST.index(table_name) #find table index
         metadata=self.METADATA_LST[i] #get corresponding metadata dictionary for the table
         var_tpl_lst=metadata['var']
@@ -162,12 +174,104 @@ class RND_QUERY():
         vals=list(filter(None, vals)) #drop None
         var_type=self._fetch_var_type(table_name, var_name)
         if var_type=='CAT':
-            print(table_name,var_name)
+            #print(table_name,var_name)
             vals=["'"+str(x)+"'" for x in vals if "'" not in x or '"' not in x] # for the values of categorical variables, add quote to avoid errors in SQL statement
         vals=vals if len(vals)!=0 else ['N/A']
         return vals
 
 
+    def _get_vars_by_type(self,var_type, tbl_name, drop_key):
+        # Returns variables by type (i.e CAT, CNT or DT) for the input table by referring to the corresponding metadata
+        for i,metadata in enumerate(self.METADATA_LST):#lookup table index in METADATA_LST
+            if metadata['tbl_name']==tbl_name:
+                tbl_idx=i
+                break
+        fetched_vars=[]
+        var_tpls=self.METADATA_LST[tbl_idx]['var']
+        for tpl in var_tpls:
+            if tpl[2]==var_type:
+                fetched_vars.append(tpl[0])
+        if drop_key:
+            if self.METADATA_LST[tbl_idx]['tbl_key_name'] in fetched_vars:
+                fetched_vars.remove(self.METADATA_LST[tbl_idx]['tbl_key_name'])  
+        return fetched_vars
+
+    def _get_tbl_childs(self,tbl_name):
+        #search thru all tables and check if tbl_name exists in parenet 
+        tbl_childs=[]
+        for i,metadata in enumerate(self.METADATA_LST):#lookup table index in METADATA_LST
+            if metadata['parent_ref']=='Null':
+                continue
+            parents=[prnt_tpl[0] for prnt_tpl in metadata['parent_ref']]
+            if tbl_name in parents:
+                tbl_childs.append(metadata['tbl_name'])
+        return list(set(tbl_childs))
+    
+    def _prepend_tbl_name(self,tbl_name,vars_lst):
+        # Returns teh input var names but prepended with the input table
+        var_names=[tbl_name+'.'+x for x in vars_lst]
+        return var_names
+
+
+
+    def _get_from_join_expr(self)-> str:
+        if self.SEED:
+            np.random.seed(self.seed_no)
+            random.seed(self.seed_no)
+
+        if len(self.SOLE_NAME_LST) !=0:
+            assert len(self.SOLE_NAME_LST)==1,"For tabular fuzzing, you can not have more than one table passed to the class."
+            return f" FROM {self.SOLE_NAME_LST[0]} "
+        else:
+            from_tbl=random.sample(self.PARENT_NAME_LST,1)[0] # randomly select one parent 
+            join_tbls=self._get_tbl_childs(from_tbl)
+            picked_no_joins=random.randint(self.min_join_clauses,len(join_tbls)+1)
+            join_tbl_lst=random.sample(join_tbls,picked_no_joins) #randomly select a number of child tables 
+            expr1=f" FROM {from_tbl}"
+            expr2=""
+            for j in range(picked_no_joins):
+                expr2+=f" JOIN {join_tbl_lst[j]} ON {self.METADATA_LST[self._get_tbl_index(from_tbl)]['tbl_key_name']}={self.METADATA_LST[self._get_tbl_index(join_tbl_lst[j])]['tbl_key_name']} "
+            return expr1+expr2
+
+
+
+    def _get_rnd_groupby_lst(self, drop_fkey=True)-> list:
+        #returned randomly picked cat vars including the concatenated table name of the real data (ie that is defined in the class)
+        #Note: You can group by CAT_VARS whether from parent or child or both
+        if self.SEED:
+            np.random.seed(self.seed_no)
+            random.seed(self.seed_no)
+        all_cat_vars=[]
+        for tbl_name in self.TBL_NAME_LST: #All table types (ie parent and child) can be used in agg queries as long as they have CAT vars
+            if drop_fkey:
+                cat_vars=self._get_vars_by_type('CAT',tbl_name,drop_key=True)
+            else:
+                cat_vars=self._get_vars_by_type('CAT',tbl_name, drop_key=False)
+            cat_vars=self._prepend_tbl_name(tbl_name,cat_vars)
+            all_cat_vars.append(cat_vars)
+        all_cat_vars=[var for vars in all_cat_vars for var in vars] #flatten
+
+        if len(all_cat_vars)==1:
+            raise Exception("The only available categorical variable is the JOIN key. Add more categorical variables or set drop_fkey to False in _get_rnd_groupby_lst")
+
+        # all_cat_vars=self._mix_vars((self.PARENT_NAME,self.CAT_VARS['parent']),(self.CHILD_NAME,self.CAT_VARS['child']))
+
+        # parent_cat_vars=[self.PARENT_NAME+'.'+x for x in self.CAT_VARS['parent']]
+        # child_cat_vars=[self.CHILD_NAME+'.'+x for x in self.CAT_VARS['child']]
+        # all_cat_vars=parent_cat_vars +child_cat_vars
+        n_vars_bag=np.arange(1, 1+len(all_cat_vars)) 
+        if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
+            n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
+            # n_var_probs= np.zeros_like(n_vars_bag)
+            # n_var_probs[0]=1
+            n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
+        else:
+            n_vars=np.random.choice(n_vars_bag)
+        picked_vars = random.sample(all_cat_vars, n_vars)
+        return picked_vars
+
+
+#################  PREVIOUS METHODS BELOW THIS LINE #############################
 ############################################################################################
     # def _make_bags(self,df:pd.DataFrame)-> dict:
     #     val_bags={}
@@ -196,14 +300,14 @@ class RND_QUERY():
     #     else:
     #         raise Exception(f"{var_name} not found in parent or child tables!")
 
-    def _mix_vars(self,*args):
-        #accepts variable length of arguments as tuples where each tuple consists of the table name and some variables that belong to that table
-        # returns mixed variables in one list but each variable is concatenated with its respective table name
-        mixed_vars=[]
-        for arg in args:
-            vars=[arg[0]+'.'+x for x in arg[1]]
-            mixed_vars+=vars
-        return mixed_vars
+    # def _mix_vars(self,*args):
+    #     #accepts variable length of arguments as tuples where each tuple consists of the table name and some variables that belong to that table
+    #     # returns mixed variables in one list but each variable is concatenated with its respective table name
+    #     mixed_vars=[]
+    #     for arg in args:
+    #         vars=[arg[0]+'.'+x for x in arg[1]]
+    #         mixed_vars+=vars
+    #     return mixed_vars
 
     def _change_tbl_name(self, in_lst: list,in_parent_name: str, out_parent_name: str, in_child_name: str, out_child_name: str)-> list:
         # replaces the table names of the real dataset by the table names of the synthetic datasets.
@@ -218,30 +322,7 @@ class RND_QUERY():
             vars_out.append(split[1])
         return vars_out
 
-    def _get_rnd_groupby_lst(self, drop_fkey=True)-> list:
-        #returned randomly picked cat vars including the concatenated table name of the real data (ie that is defined in teh class)
-        #Note: You can group by CAT_VARS whether from parent or child or both
-        if self.SEED:
-            np.random.seed(self.seed_no)
-            random.seed(self.seed_no)
-        all_cat_vars=self._mix_vars((self.PARENT_NAME,self.CAT_VARS['parent']),(self.CHILD_NAME,self.CAT_VARS['child']))
-        if drop_fkey:
-            all_cat_vars=[x for x in  all_cat_vars if  self.FKEY_NAME not in  x]
-            if len(all_cat_vars)==1:
-                raise Exception("Only join key is available as categorical variable. Add more categorical variables or set drop_fkey to False in _get_rnd_groupby_lst")
-        # parent_cat_vars=[self.PARENT_NAME+'.'+x for x in self.CAT_VARS['parent']]
-        # child_cat_vars=[self.CHILD_NAME+'.'+x for x in self.CAT_VARS['child']]
-        # all_cat_vars=parent_cat_vars +child_cat_vars
-        n_vars_bag=np.arange(1, 1+len(all_cat_vars)) 
-        if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
-            n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
-            # n_var_probs= np.zeros_like(n_vars_bag)
-            # n_var_probs[0]=1
-            n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
-        else:
-            n_vars=np.random.choice(n_vars_bag)
-        picked_vars = random.sample(all_cat_vars, n_vars)
-        return picked_vars
+
 
 
     def _get_rnd_aggfntn_tpl(self) -> tuple:
@@ -441,6 +522,7 @@ class RND_QUERY():
     
     def make_single_agg_query(self) -> dict:
         dic={}
+        from_tbl, join_tbl_lst=self._get_from_join_expr()
         single_grp_lst=self._get_rnd_groupby_lst()
         single_expr=self._build_agg_expr(self.PARENT_NAME, self.CHILD_NAME,self.FKEY_NAME, single_grp_lst)
         query=self.make_query(self.CUR, single_expr)
