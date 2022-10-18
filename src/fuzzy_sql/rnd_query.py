@@ -26,7 +26,8 @@ class RND_QUERY():
 
         self.SEED=seed
         self.seed_no=141
-
+        
+        self.DB_CONN=db_conn
         self.CUR = db_conn.cursor()
 
     
@@ -243,7 +244,6 @@ class RND_QUERY():
             from_tbl=random.sample(self.PARENT_NAME_LST,1)[0] # randomly select one parent 
             join_tbls=self._get_tbl_childs(from_tbl)
             picked_no_joins=random.randint(self.min_join_clauses,len(join_tbls)) 
-            print(join_tbls, picked_no_joins)
             join_tbl_lst=random.sample(join_tbls,picked_no_joins) #randomly select a number of child tables 
             expr1=f" FROM {from_tbl} "
             expr2=""
@@ -322,6 +322,13 @@ class RND_QUERY():
         return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst
 
     
+    def make_query(self,cur: object, query_exp: str)-> pd.DataFrame:
+        cur.execute(query_exp)
+        query = cur.fetchall()
+        query=pd.DataFrame(query, columns=[description[0] for description in cur.description])
+        return query
+
+
     def make_single_agg_query(self) -> dict:
         dic={}
         single_expr,groupby_lst,from_tbl, join_tbl_lst=self._compile_agg_expr()
@@ -333,10 +340,84 @@ class RND_QUERY():
             "agg_fntn":"None",
             "grpby_vars": groupby_lst,
             "from_tbl_name":from_tbl,
-            "join_tbl_lst":join_tbl_lst,
+            "join_tbl_name_lst":join_tbl_lst,
             "sql":single_expr,
             "n_rows":query.shape[0],
             "n_cols":query.shape[1]
+        }
+        return dic
+
+    def _validate_syn_lst(self,syn_tbl_name_lst):
+        assert len(syn_tbl_name_lst)==len(self.TBL_NAME_LST), "The number of the synthetic data tables does not match the number of the real data tables!"
+
+        for i, (real_name,syn_name) in enumerate(zip(self.TBL_NAME_LST, syn_tbl_name_lst)):
+            real=self.TBL_LST[i]
+            try:
+                syn=pd.read_sql_query(f'SELECT * FROM {syn_name}', self.DB_CONN)
+                assert real.shape==syn.shape,f"The synesthetic table {syn_name} does not have the same shape of the real table {real_name}! Please make sure that the real and synthetic lists are ordered properly."
+            except:
+                raise Exception(f"Table {syn_name} does not exist in database!")
+            try:
+                assert list(real.columns).sort() == list(syn.columns).sort()
+            except:
+                raise Exception(f"Table {syn_name} and {real_name} do not have identical variable names!")
+        
+        self.SYN_TBL_NAME_LST=syn_tbl_name_lst
+
+
+    def _expr_replace_tbl_name(self, expr: str)-> str:
+        # replaces the table names of the real dataset by the table names of the synthetic datasets.
+        real_name_lst=self.TBL_NAME_LST
+        syn_name_lst=self.SYN_TBL_NAME_LST
+        new_expr=copy.deepcopy(expr)
+        for real_name, syn_name in zip(real_name_lst,syn_name_lst):
+            new_expr=new_expr.replace(real_name,syn_name)
+        return new_expr
+
+
+
+    def _drop_tbl_name(self,vars_in: list) ->list:
+        vars_out=[]
+        for var in vars_in:
+            split=var.split(".")
+            vars_out.append(split[1])
+        return vars_out
+
+
+    def make_twin_agg_query(self, syn_tbl_name_lst):
+        self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
+        real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst=self._compile_agg_expr()
+        if real_join_tbl_lst != 'Null':
+            groupby_lst=self._drop_tbl_name(real_groupby_lst)
+        else:
+            groupby_lst=real_groupby_lst
+        syn_expr=self._expr_replace_tbl_name(real_expr)
+        syn_from_tbl=syn_tbl_name_lst[self._get_tbl_index(real_from_tbl)]
+        
+        if real_join_tbl_lst != 'Null':
+            syn_join_tbl_lst=[syn_tbl_name_lst[self._get_tbl_index(real_tbl_name)] for real_tbl_name in real_join_tbl_lst]
+        else:
+            syn_join_tbl_lst='Null'
+        dic={}
+        query_real=self.make_query(self.CUR, real_expr)
+        query_syn=self.make_query(self.CUR, syn_expr)
+        #grpby_vars=self._drop_tbl_name(real_grp_lst)
+        dic['query_real']=query_real
+        dic['query_syn']=query_syn
+        dic['query_desc']={
+            "type":"twin_agg",
+            "agg_fntn":"None",
+            "grpby_vars": groupby_lst,
+            "from_tbl_name_real":real_from_tbl,
+            "join_tbl_name_lst_real":real_join_tbl_lst,
+            "sql_real":real_expr,
+            "n_cols_real":query_real.shape[1],
+            "n_rows_real":query_real.shape[0],
+            "from_tbl_name_syn":syn_from_tbl,
+            "join_tbl_name_lst_syn":syn_join_tbl_lst,
+            "sql_syn":syn_expr,
+            "n_cols_syn":query_syn.shape[1],
+            "n_rows_syn":query_syn.shape[0],
         }
         return dic
 
@@ -353,11 +434,7 @@ class RND_QUERY():
     #         val_bags[var]=vals if len(vals)!=0 else ['N/A']
     #     return val_bags
 
-    def make_query(self,cur: object, query_exp: str)-> pd.DataFrame:
-        cur.execute(query_exp)
-        query = cur.fetchall()
-        query=pd.DataFrame(query, columns=[description[0] for description in cur.description])
-        return query
+
 
     # def _get_var_idx(self, var_name):
     #     if var_name in self.PARENT_DF.columns: #search in parent
@@ -378,18 +455,18 @@ class RND_QUERY():
     #         mixed_vars+=vars
     #     return mixed_vars
 
-    def _change_tbl_name(self, in_lst: list,in_parent_name: str, out_parent_name: str, in_child_name: str, out_child_name: str)-> list:
-        # replaces the table names of the real dataset by the table names of the synthetic datasets.
-        out_lst=[var.replace(in_parent_name,out_parent_name ) for var in in_lst] 
-        out_lst=[var.replace(in_child_name,out_child_name ) for var in out_lst] 
-        return out_lst
+    # def _change_tbl_name(self, in_lst: list,in_parent_name: str, out_parent_name: str, in_child_name: str, out_child_name: str)-> list:
+    #     # replaces the table names of the real dataset by the table names of the synthetic datasets.
+    #     out_lst=[var.replace(in_parent_name,out_parent_name ) for var in in_lst] 
+    #     out_lst=[var.replace(in_child_name,out_child_name ) for var in out_lst] 
+    #     return out_lst
 
-    def _drop_tbl_name(self,vars_in: list) ->list:
-        vars_out=[]
-        for var in vars_in:
-            split=var.split(".")
-            vars_out.append(split[1])
-        return vars_out
+    # def _drop_tbl_name(self,vars_in: list) ->list:
+    #     vars_out=[]
+    #     for var in vars_in:
+    #         split=var.split(".")
+    #         vars_out.append(split[1])
+    #     return vars_out
 
 
 
@@ -581,33 +658,7 @@ class RND_QUERY():
 
 
 
-    def make_twin_agg_query(self, twin_parent_name, twin_child_name):
-        dic={}
-        real_grp_lst =self._get_rnd_groupby_lst()
-        syn_grp_lst=self._change_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
-        real_expr=self._compile_agg_expr(self.PARENT_NAME, self.CHILD_NAME,self.FKEY_NAME, real_grp_lst)
-        syn_expr=self._compile_agg_expr(twin_parent_name, twin_child_name,self.FKEY_NAME, syn_grp_lst)
-        query_real=self.make_query(self.CUR, real_expr)
-        query_syn=self.make_query(self.CUR, syn_expr)
-        grpby_vars=self._drop_tbl_name(real_grp_lst)
-        dic['query_real']=query_real
-        dic['query_syn']=query_syn
-        dic['query_desc']={
-            "type":"twin_agg",
-            "agg_fntn":"None",
-            "grpby_vars": grpby_vars,
-            "parent_name_real":self.PARENT_NAME,
-            "child_name_real":self.CHILD_NAME,
-            "sql_real":real_expr,
-            "n_cols_real":query_real.shape[1],
-            "n_rows_real":query_real.shape[0],
-            "parent_name_syn":twin_parent_name,
-            "child_name_syn":twin_child_name,
-            "sql_syn":syn_expr,
-            "n_cols_syn":query_syn.shape[1],
-            "n_rows_syn":query_syn.shape[0],
-        }
-        return dic
+
 
     def make_mltpl_twin_agg_query(self, n_queries, twin_parent_name, twin_child_name ):
         queries = []
@@ -653,9 +704,9 @@ class RND_QUERY():
     def make_twin_agg_query_w_aggfntn(self,twintbl_parent_name,twintbl_child_name):
         dic={}
         real_groupby_lst=self._get_rnd_groupby_lst()
-        syn_groupby_lst=self._change_tbl_name(real_groupby_lst, self.PARENT_NAME,twintbl_parent_name, self.CHILD_NAME, twintbl_child_name)
+        syn_groupby_lst=self._expr_replace_tbl_name(real_groupby_lst, self.PARENT_NAME,twintbl_parent_name, self.CHILD_NAME, twintbl_child_name)
         real_aggfntn_tpl=self._get_rnd_aggfntn_tpl()
-        syn_aggfntn_tpl=self._change_tbl_name(real_aggfntn_tpl, self.PARENT_NAME,twintbl_parent_name, self.CHILD_NAME, twintbl_child_name)
+        syn_aggfntn_tpl=self._expr_replace_tbl_name(real_aggfntn_tpl, self.PARENT_NAME,twintbl_parent_name, self.CHILD_NAME, twintbl_child_name)
         real_expr=self._build_agg_expr_w_aggfntn(self.PARENT_NAME,self.CHILD_NAME,self.FKEY_NAME,real_aggfntn_tpl, real_groupby_lst)
         syn_expr=self._build_agg_expr_w_aggfntn(twintbl_parent_name,twintbl_child_name,self.FKEY_NAME,syn_aggfntn_tpl, syn_groupby_lst)
         query_real=self.make_query(self.CUR, real_expr)
@@ -722,7 +773,7 @@ class RND_QUERY():
     def make_twin_fltr_query(self, twin_parent_name: str, twin_child_name:str) -> dict:
         dic={}
         real_where_terms, log_ops =self._get_rnd_where_lst()
-        syn_where_terms=self._change_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
+        syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
         real_expr=self._build_fltr_expr(self.PARENT_NAME, self.CHILD_NAME,self.FKEY_NAME, real_where_terms, log_ops)
         syn_expr=self._build_fltr_expr(twin_parent_name, twin_child_name,self.FKEY_NAME, syn_where_terms,log_ops)
         query_real=self.make_query(self.CUR, real_expr)
@@ -799,10 +850,10 @@ class RND_QUERY():
         dic={}
         
         real_grp_lst =self._get_rnd_groupby_lst()
-        syn_grp_lst=self._change_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
+        syn_grp_lst=self._expr_replace_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
 
         real_where_terms, log_ops =self._get_rnd_where_lst()
-        syn_where_terms=self._change_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
+        syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
         
         real_expr=self._build_aggfltr_expr(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,real_grp_lst, real_where_terms,log_ops)
         print(real_expr+'\n')
@@ -885,13 +936,13 @@ class RND_QUERY():
     def make_twin_aggfltr_query_w_aggfntn(self, twin_parent_name: str, twin_child_name:str) -> dict:
         dic={}
         real_agg_fntn_tpl=self._get_rnd_aggfntn_tpl()
-        syn_agg_fntn_tpl=tuple(self._change_tbl_name(real_agg_fntn_tpl, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name))
+        syn_agg_fntn_tpl=tuple(self._expr_replace_tbl_name(real_agg_fntn_tpl, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name))
 
         real_grp_lst =self._get_rnd_groupby_lst()
-        syn_grp_lst=self._change_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
+        syn_grp_lst=self._expr_replace_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
 
         real_where_terms, log_ops =self._get_rnd_where_lst()
-        syn_where_terms=self._change_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
+        syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
 
         real_expr=self._build_aggfltr_expr_w_aggfntn(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,real_agg_fntn_tpl,real_grp_lst, real_where_terms,log_ops )
         syn_expr=self._build_aggfltr_expr_w_aggfntn(twin_parent_name, twin_child_name, self.FKEY_NAME,syn_agg_fntn_tpl,syn_grp_lst, syn_where_terms,log_ops )
