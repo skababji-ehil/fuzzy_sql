@@ -212,64 +212,133 @@ class RND_QUERY():
         var_names=[tbl_name+'.'+x for x in vars_lst]
         return var_names
 
+    def _get_join_on_sub_expr(self,tbl1,tbl2):
+        #This method deals with both individual and composite keys but it is not tested yet using any composite keys
+        tbl1_key_lst=self.METADATA_LST[self._get_tbl_index(tbl1)]['tbl_key_name']
+        tbl2_key_lst=self.METADATA_LST[self._get_tbl_index(tbl2)]['tbl_key_name']
+        assert len(tbl1_key_lst) !=0, "Joining key is not defined!"
+        assert len(tbl1_key_lst)==len(tbl2_key_lst),"Both connected tables shall have the same number of joining keys"
+        tbl1_key_lst=self._prepend_tbl_name(tbl1,tbl1_key_lst)
+        tbl2_key_lst=self._prepend_tbl_name(tbl2,tbl2_key_lst)
+        if len(tbl1_key_lst)==1:
+            expr=f" ON {tbl1_key_lst[0]}={tbl2_key_lst[0]} "
+        else:
+            expr=" ON "
+            for i, (tbl1_key, tbl2_key) in enumerate(zip(tbl1_key_lst,tbl2_key_lst)):
+                expr+= f"{tbl1_key} = {tbl2_key}"
+                if i < len(tbl1_key_lst)-1:
+                    expr+=" AND "
+        return expr
 
 
-    def _get_from_join_expr(self)-> str:
+    def _make_rnd_from_expr(self)-> str:
         if self.SEED:
             np.random.seed(self.seed_no)
             random.seed(self.seed_no)
 
         if len(self.SOLE_NAME_LST) !=0:
             assert len(self.SOLE_NAME_LST)==1,"For tabular fuzzing, you can not have more than one table passed to the class."
-            return f" FROM {self.SOLE_NAME_LST[0]} "
+            return f" FROM {self.SOLE_NAME_LST[0]} ", self.SOLE_NAME_LST[0],"Null"
         else:
             from_tbl=random.sample(self.PARENT_NAME_LST,1)[0] # randomly select one parent 
             join_tbls=self._get_tbl_childs(from_tbl)
-            picked_no_joins=random.randint(self.min_join_clauses,len(join_tbls)+1)
+            picked_no_joins=random.randint(self.min_join_clauses,len(join_tbls)) 
+            print(join_tbls, picked_no_joins)
             join_tbl_lst=random.sample(join_tbls,picked_no_joins) #randomly select a number of child tables 
-            expr1=f" FROM {from_tbl}"
+            expr1=f" FROM {from_tbl} "
             expr2=""
             for j in range(picked_no_joins):
-                expr2+=f" JOIN {join_tbl_lst[j]} ON {self.METADATA_LST[self._get_tbl_index(from_tbl)]['tbl_key_name']}={self.METADATA_LST[self._get_tbl_index(join_tbl_lst[j])]['tbl_key_name']} "
-            return expr1+expr2
+                expr2+=f" JOIN {join_tbl_lst[j]} "+self._get_join_on_sub_expr(from_tbl,join_tbl_lst[j])
+            return expr1+expr2, from_tbl, join_tbl_lst
 
 
 
-    def _get_rnd_groupby_lst(self, drop_fkey=True)-> list:
+    def _get_rnd_groupby_lst(self,from_tbl, join_tbl_lst, drop_fkey=True)-> list:
         #returned randomly picked cat vars including the concatenated table name of the real data (ie that is defined in the class)
         #Note: You can group by CAT_VARS whether from parent or child or both
         if self.SEED:
             np.random.seed(self.seed_no)
             random.seed(self.seed_no)
         all_cat_vars=[]
-        for tbl_name in self.TBL_NAME_LST: #All table types (ie parent and child) can be used in agg queries as long as they have CAT vars
-            if drop_fkey:
-                cat_vars=self._get_vars_by_type('CAT',tbl_name,drop_key=True)
+
+
+        if join_tbl_lst != 'Null':
+            join_tbl_lst.append(from_tbl)#possible group-by list includes only from_tbl and join_tbl lists
+            for tbl_name in join_tbl_lst: #All table types (ie parent and child) can be used in agg queries as long as they have CAT vars
+                if drop_fkey:
+                    cat_vars=self._get_vars_by_type('CAT',tbl_name,drop_key=True)
+                else:
+                    cat_vars=self._get_vars_by_type('CAT',tbl_name, drop_key=False)
+                cat_vars=self._prepend_tbl_name(tbl_name,cat_vars)
+                all_cat_vars.append(cat_vars)
+            all_cat_vars=[var for vars in all_cat_vars for var in vars] #flatten
+
+            if len(all_cat_vars)==1:
+                raise Exception("The only available categorical variable is the JOIN key. Add more categorical variables or set drop_fkey to False in _get_rnd_groupby_lst")
+
+            # all_cat_vars=self._mix_vars((self.PARENT_NAME,self.CAT_VARS['parent']),(self.CHILD_NAME,self.CAT_VARS['child']))
+
+            # parent_cat_vars=[self.PARENT_NAME+'.'+x for x in self.CAT_VARS['parent']]
+            # child_cat_vars=[self.CHILD_NAME+'.'+x for x in self.CAT_VARS['child']]
+            # all_cat_vars=parent_cat_vars +child_cat_vars
+            n_vars_bag=np.arange(1, 1+len(all_cat_vars)) 
+            if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
+                n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
+                # n_var_probs= np.zeros_like(n_vars_bag)
+                # n_var_probs[0]=1
+                n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
             else:
-                cat_vars=self._get_vars_by_type('CAT',tbl_name, drop_key=False)
-            cat_vars=self._prepend_tbl_name(tbl_name,cat_vars)
-            all_cat_vars.append(cat_vars)
-        all_cat_vars=[var for vars in all_cat_vars for var in vars] #flatten
+                n_vars=np.random.choice(n_vars_bag)
+            picked_vars = random.sample(all_cat_vars, n_vars)
 
-        if len(all_cat_vars)==1:
-            raise Exception("The only available categorical variable is the JOIN key. Add more categorical variables or set drop_fkey to False in _get_rnd_groupby_lst")
+        else: #If there is only one sole table (ie tabular case)
+                if drop_fkey:
+                    cat_vars=self._get_vars_by_type('CAT',from_tbl,drop_key=True)
+                else:
+                    cat_vars=self._get_vars_by_type('CAT',from_tbl, drop_key=False)
+                n_vars_bag=np.arange(1, 1+len(cat_vars)) 
+                if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
+                    n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
+                    # n_var_probs= np.zeros_like(n_vars_bag)
+                    # n_var_probs[0]=1
+                    n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
+                else:
+                    n_vars=np.random.choice(n_vars_bag)
+                picked_vars = random.sample(cat_vars, n_vars)
 
-        # all_cat_vars=self._mix_vars((self.PARENT_NAME,self.CAT_VARS['parent']),(self.CHILD_NAME,self.CAT_VARS['child']))
-
-        # parent_cat_vars=[self.PARENT_NAME+'.'+x for x in self.CAT_VARS['parent']]
-        # child_cat_vars=[self.CHILD_NAME+'.'+x for x in self.CAT_VARS['child']]
-        # all_cat_vars=parent_cat_vars +child_cat_vars
-        n_vars_bag=np.arange(1, 1+len(all_cat_vars)) 
-        if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
-            n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
-            # n_var_probs= np.zeros_like(n_vars_bag)
-            # n_var_probs[0]=1
-            n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
-        else:
-            n_vars=np.random.choice(n_vars_bag)
-        picked_vars = random.sample(all_cat_vars, n_vars)
         return picked_vars
 
+
+
+    def _compile_agg_expr(self) -> str:
+        from_expr, from_table,join_tbl_lst=self._make_rnd_from_expr() #from table is the table right after the from clause which can be either a sole or parent table  
+        groupby_lst=self._get_rnd_groupby_lst(from_table,join_tbl_lst)
+        expr2_1=' GROUP BY '
+        expr2_2=f'{groupby_lst}'
+        expr2_2=expr2_2.replace("[","")
+        expr2_2=expr2_2.replace("]","")
+        expr2_2=expr2_2.replace("'","")
+        expr1=f'SELECT {expr2_2}, COUNT(*) '+ from_expr
+        return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst
+
+    
+    def make_single_agg_query(self) -> dict:
+        dic={}
+        single_expr,groupby_lst,from_tbl, join_tbl_lst=self._compile_agg_expr()
+        query=self.make_query(self.CUR, single_expr)
+        # grpby_vars=self._drop_tbl_name(groupby_lst)
+        dic['query']=query
+        dic['query_desc']={
+            "type":"single_agg",
+            "agg_fntn":"None",
+            "grpby_vars": groupby_lst,
+            "from_tbl_name":from_tbl,
+            "join_tbl_lst":join_tbl_lst,
+            "sql":single_expr,
+            "n_rows":query.shape[0],
+            "n_cols":query.shape[1]
+        }
+        return dic
 
 #################  PREVIOUS METHODS BELOW THIS LINE #############################
 ############################################################################################
@@ -510,42 +579,14 @@ class RND_QUERY():
 
 #########################################################################
 
-    def _build_agg_expr(self,  pname: str, cname: str, fkey: str, groupby_lst: list) -> str:
-        expr2_1=' GROUP BY '
-        expr2_2=f'{groupby_lst}'
-        expr2_2=expr2_2.replace("[","")
-        expr2_2=expr2_2.replace("]","")
-        expr2_2=expr2_2.replace("'","")
-        expr1=f'SELECT {expr2_2}, COUNT(*) FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey}'
-        return expr1+expr2_1+expr2_2
 
-    
-    def make_single_agg_query(self) -> dict:
-        dic={}
-        from_tbl, join_tbl_lst=self._get_from_join_expr()
-        single_grp_lst=self._get_rnd_groupby_lst()
-        single_expr=self._build_agg_expr(self.PARENT_NAME, self.CHILD_NAME,self.FKEY_NAME, single_grp_lst)
-        query=self.make_query(self.CUR, single_expr)
-        grpby_vars=self._drop_tbl_name(single_grp_lst)
-        dic['query']=query
-        dic['query_desc']={
-            "type":"single_agg",
-            "agg_fntn":"None",
-            "grpby_vars": grpby_vars,
-            "parent_name":self.PARENT_NAME,
-            "child_name":self.CHILD_NAME,
-            "sql":single_expr,
-            "n_rows":query.shape[0],
-            "n_cols":query.shape[1]
-        }
-        return dic
 
     def make_twin_agg_query(self, twin_parent_name, twin_child_name):
         dic={}
         real_grp_lst =self._get_rnd_groupby_lst()
         syn_grp_lst=self._change_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
-        real_expr=self._build_agg_expr(self.PARENT_NAME, self.CHILD_NAME,self.FKEY_NAME, real_grp_lst)
-        syn_expr=self._build_agg_expr(twin_parent_name, twin_child_name,self.FKEY_NAME, syn_grp_lst)
+        real_expr=self._compile_agg_expr(self.PARENT_NAME, self.CHILD_NAME,self.FKEY_NAME, real_grp_lst)
+        syn_expr=self._compile_agg_expr(twin_parent_name, twin_child_name,self.FKEY_NAME, syn_grp_lst)
         query_real=self.make_query(self.CUR, real_expr)
         query_syn=self.make_query(self.CUR, syn_expr)
         grpby_vars=self._drop_tbl_name(real_grp_lst)
