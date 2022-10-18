@@ -60,7 +60,6 @@ class RND_QUERY():
 
         self.METADATA_LST=mod_metadata_lst #A list of dictionaries for each table
 
-
         # self.CAT_VARS={} #Parent Categorical Variables
         # self.CNT_VARS={}
         # self.DT_VARS={}
@@ -98,7 +97,6 @@ class RND_QUERY():
                 val_dict[var_tpl[0]]=self._make_val_bag(tbl_name, metadata_lst[i]['var'][j][0])
             self.VAL_LST.append(val_dict)
         
-        print('smk2')
         # # Generate dictionaries of bags for various variables
         # self.CAT_VAL_BAGS={}
         # self.CNT_VAL_BAGS={}
@@ -112,6 +110,7 @@ class RND_QUERY():
         
         self.min_join_clauses=1 #set it larger than one to enforce join clause 
         self.max_no_in_terms=5 #Maximum number of terms for 'in' clause (set it to 0 if you do not want to impose any limit)
+    
 
 ###################################################################
 
@@ -308,9 +307,32 @@ class RND_QUERY():
 
         return picked_vars
 
+    def _get_rnd_agg_fntn_terms(self,from_tbl,join_tbl_lst)-> tuple:
+        if self.SEED:
+            np.random.seed(self.seed_no)
+            random.seed(self.seed_no)
+        all_cnt_vars=[]
+        if join_tbl_lst != 'Null':
+            join_tbl_lst.append(from_tbl)#possible list for agg_fntn operand includes only from_tbl and join_tbl lists
+            for tbl_name in join_tbl_lst: 
+                cnt_vars=self._get_vars_by_type('CNT',tbl_name,drop_key=False) #drop_key is not used for continuous variable since key is usually categorical variable 
+                assert len(cnt_vars)!=0, "No continuous variable is available to use it with an Aggregate Function. Please set agg_fnt to False."
+                cnt_vars=self._prepend_tbl_name(tbl_name,cnt_vars)
+                all_cnt_vars.append(cnt_vars)
+            all_cnt_vars=[var for vars in all_cnt_vars for var in vars] #flatten
+            picked_cnt_var = np.random.choice(all_cnt_vars)
+        else: #If there is only one sole table (ie tabular case)
+            cnt_vars=self._get_vars_by_type('CNT',from_tbl, drop_key=False)
+            picked_cnt_var=np.random.choice(cnt_vars)
+        picked_log_op=np.random.choice(list(self.ATTRS['AGG_OPS'].keys()), p=list(self.ATTRS['AGG_OPS'].values()))
+        return picked_log_op,picked_cnt_var
+
+        
 
 
-    def _compile_agg_expr(self) -> str:
+
+
+    def _compile_agg_expr(self,agg_fntn) -> str:
         from_expr, from_table,join_tbl_lst=self._make_rnd_from_expr() #from table is the table right after the from clause which can be either a sole or parent table  
         groupby_lst=self._get_rnd_groupby_lst(from_table,join_tbl_lst)
         expr2_1=' GROUP BY '
@@ -318,8 +340,14 @@ class RND_QUERY():
         expr2_2=expr2_2.replace("[","")
         expr2_2=expr2_2.replace("]","")
         expr2_2=expr2_2.replace("'","")
-        expr1=f'SELECT {expr2_2}, COUNT(*) '+ from_expr
-        return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst
+        if agg_fntn:
+            log_op,cnt_var=self._get_rnd_agg_fntn_terms(from_table,join_tbl_lst)
+            expr1=f'SELECT {expr2_2}, COUNT(*), {log_op}({cnt_var}) '+ from_expr
+            return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst, (log_op, cnt_var)
+        else:
+            expr1=f'SELECT {expr2_2}, COUNT(*) '+ from_expr
+            return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst, 'Null'
+    
 
     
     def make_query(self,cur: object, query_exp: str)-> pd.DataFrame:
@@ -329,9 +357,9 @@ class RND_QUERY():
         return query
 
 
-    def make_single_agg_query(self) -> dict:
+    def make_single_agg_query(self, agg_fntn) -> dict:
         dic={}
-        single_expr,groupby_lst,from_tbl, join_tbl_lst=self._compile_agg_expr()
+        single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self._compile_agg_expr(agg_fntn)
         query=self.make_query(self.CUR, single_expr)
         # grpby_vars=self._drop_tbl_name(groupby_lst)
         dic['query']=query
@@ -375,7 +403,6 @@ class RND_QUERY():
         return new_expr
 
 
-
     def _drop_tbl_name(self,vars_in: list) ->list:
         vars_out=[]
         for var in vars_in:
@@ -384,9 +411,9 @@ class RND_QUERY():
         return vars_out
 
 
-    def make_twin_agg_query(self, syn_tbl_name_lst):
+    def make_twin_agg_query(self, syn_tbl_name_lst, agg_fntn):
         self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
-        real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst=self._compile_agg_expr()
+        real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst,agg_fntn_terms=self._compile_agg_expr(agg_fntn)
         if real_join_tbl_lst != 'Null':
             groupby_lst=self._drop_tbl_name(real_groupby_lst)
         else:
