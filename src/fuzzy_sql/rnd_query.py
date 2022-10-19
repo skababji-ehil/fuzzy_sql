@@ -1,5 +1,6 @@
 import copy
 from http.client import MOVED_PERMANENTLY
+from matplotlib.pyplot import table
 import numpy as np
 import pandas as pd
 import random
@@ -56,7 +57,7 @@ class RND_QUERY():
         #Add to var tuples a valid variable types (ie. CNT, CAT  or DT))
         mod_metadata_lst=[]
         for metadata_i in metadata_lst:
-            mod_metadata_lst.append(self._classify_vars(metadata_i))
+            mod_metadata_lst.append(self._map_vars(metadata_i))
 
         self.METADATA_LST=mod_metadata_lst #A list of dictionaries for each table
 
@@ -112,7 +113,7 @@ class RND_QUERY():
         self.max_no_in_terms=5 #Maximum number of terms for 'in' clause (set it to 0 if you do not want to impose any limit)
     
 
-###################################################################
+########################################## METHODS SERVING TABLES  #########################
 
     def _get_tbl_index(self,tbl_name):
         #lookup table index in METADATA_LST
@@ -142,47 +143,7 @@ class RND_QUERY():
         return sole_grp,root_grp,child_grp,parent_grp
 
 
-    def _classify_vars(self,metadata: dict) -> dict:
-        mod_metadata=copy.deepcopy(metadata)
-        for i, var_tpl in enumerate(mod_metadata['var']):
-            if var_tpl[1] in ['quantitative','continuous','interval','ratio', 'REAL']:
-                mod_metadata['var'][i].append("CNT")
-            elif var_tpl[1] in ['qualitative','categorical','nominal','discrete','ordinal','dichotomous', 'TEXT', 'INTEGER']:
-                mod_metadata['var'][i].append("CAT")
-            elif var_tpl[1] in ['date','time','datetime']:
-                mod_metadata['var'][i].append("DT")
-            elif var_tpl[1] in ['ignore','IGNORE']:
-                mod_metadata['var'][i].append("IGN")
-            else:
-                raise Exception(f"Variable type {var_tpl[1]} in metadata file is not recognized!")
-
-        return mod_metadata
-
-    def _fetch_var_type(self, table_name: str, var_name:str) -> str:
-        # This function fetches the input variable type (CAT, CNT or DT) from the metadata and returns it
-        i=self.TBL_NAME_LST.index(table_name) #find table index
-        metadata=self.METADATA_LST[i] #get corresponding metadata dictionary for the table
-        var_tpl_lst=metadata['var']
-        for j,var_tpl in enumerate(var_tpl_lst):#search for variable in metadata tuples and return it type
-            if var_tpl[0]==var_name:
-                return var_tpl_lst[j][2]
-
-
-    def _make_val_bag(self,table_name:str, var_name: str) -> list:
-        i=self.TBL_NAME_LST.index(table_name)
-        df=self.TBL_LST[i]
-        vals=df[var_name].values
-        vals=[x for x in vals if x==x] #drop nan
-        vals=list(filter(None, vals)) #drop None
-        var_type=self._fetch_var_type(table_name, var_name)
-        if var_type=='CAT':
-            #print(table_name,var_name)
-            vals=["'"+str(x)+"'" for x in vals if "'" not in x or '"' not in x] # for the values of categorical variables, add quote to avoid errors in SQL statement
-        vals=vals if len(vals)!=0 else ['N/A']
-        return vals
-
-
-    def _get_vars_by_type(self,var_type, tbl_name, drop_key):
+    def _get_tbl_vars_by_type(self,var_type, tbl_name, drop_key):
         # Returns variables by type (i.e CAT, CNT or DT) for the input table by referring to the corresponding metadata
         for i,metadata in enumerate(self.METADATA_LST):#lookup table index in METADATA_LST
             if metadata['tbl_name']==tbl_name:
@@ -213,6 +174,101 @@ class RND_QUERY():
         # Returns teh input var names but prepended with the input table
         var_names=[tbl_name+'.'+x for x in vars_lst]
         return var_names
+
+    def _drop_tbl_name(self,vars_in: list) ->list:
+        vars_out=[]
+        for var in vars_in:
+            split=var.split(".")
+            vars_out.append(split[1])
+        return vars_out
+
+    def _expr_replace_tbl_name(self, expr: str)-> str:
+        # replaces the table names of the real dataset by the table names of the synthetic datasets.
+        real_name_lst=self.TBL_NAME_LST
+        syn_name_lst=self.SYN_TBL_NAME_LST
+        new_expr=copy.deepcopy(expr)
+        for real_name, syn_name in zip(real_name_lst,syn_name_lst):
+            new_expr=new_expr.replace(real_name,syn_name)
+        return new_expr
+
+
+##################################### METHODS SERVING VARS #######################################
+    
+    
+    def _map_vars(self,metadata: dict) -> dict:
+        mod_metadata=copy.deepcopy(metadata)
+        for i, var_tpl in enumerate(mod_metadata['var']):
+            if var_tpl[1] in ['quantitative','continuous','interval','ratio', 'REAL']:
+                mod_metadata['var'][i].append("CNT")
+            elif var_tpl[1] in ['qualitative','categorical','nominal','discrete','ordinal','dichotomous', 'TEXT', 'INTEGER']:
+                mod_metadata['var'][i].append("CAT")
+            elif var_tpl[1] in ['date','time','datetime']:
+                mod_metadata['var'][i].append("DT")
+            elif var_tpl[1] in ['ignore','IGNORE']:
+                mod_metadata['var'][i].append("IGN")
+            else:
+                raise Exception(f"Variable type {var_tpl[1]} in metadata file is not recognized!")
+        return mod_metadata
+
+
+    def _get_var_type(self, table_name: str, var_name:str) -> str:
+        # This function gets the input variable type (CAT, CNT or DT) from the metadata and returns it
+        i=self.TBL_NAME_LST.index(table_name) #find table index
+        metadata=self.METADATA_LST[i] #get corresponding metadata dictionary for the table
+        var_tpl_lst=metadata['var']
+        for j,var_tpl in enumerate(var_tpl_lst):#search for variable in metadata tuples and return it type
+            if var_tpl[0]==var_name:
+                return var_tpl_lst[j][2]
+
+
+    def _make_val_bag(self,table_name:str, var_name: str) -> list:
+        i=self.TBL_NAME_LST.index(table_name)
+        df=self.TBL_LST[i]
+        vals=df[var_name].values
+        vals=[x for x in vals if x==x] #drop nan
+        vals=list(filter(None, vals)) #drop None
+        var_type=self._get_var_type(table_name, var_name)
+        if var_type=='CAT':
+            #print(table_name,var_name)
+            vals=["'"+str(x)+"'" for x in vals if "'" not in x or '"' not in x] # for the values of categorical variables, add quote to avoid errors in SQL statement
+        vals=vals if len(vals)!=0 else ['N/A']
+        return vals
+
+
+#######################################  OTHER METHODS #################################### 
+  
+
+    def make_query(self,cur: object, query_exp: str)-> pd.DataFrame:
+        cur.execute(query_exp)
+        query = cur.fetchall()
+        query=pd.DataFrame(query, columns=[description[0] for description in cur.description])
+        return query
+
+
+    def _validate_syn_lst(self,syn_tbl_name_lst):
+        assert len(syn_tbl_name_lst)==len(self.TBL_NAME_LST), "The number of the synthetic data tables does not match the number of the real data tables!"
+
+        for i, (real_name,syn_name) in enumerate(zip(self.TBL_NAME_LST, syn_tbl_name_lst)):
+            real=self.TBL_LST[i]
+            try:
+                syn=pd.read_sql_query(f'SELECT * FROM {syn_name}', self.DB_CONN)
+                assert real.shape==syn.shape,f"The synesthetic table {syn_name} does not have the same shape of the real table {real_name}! Please make sure that the real and synthetic lists are ordered properly."
+            except:
+                raise Exception(f"Table {syn_name} does not exist in database!")
+            try:
+                assert list(real.columns).sort() == list(syn.columns).sort()
+            except:
+                raise Exception(f"Table {syn_name} and {real_name} do not have identical variable names!")
+        
+        self.SYN_TBL_NAME_LST=syn_tbl_name_lst
+
+
+
+
+
+
+##################################### METHODS FOR GENERATING RANDOM AGGREGATE QUERIES #############################
+
 
     def _get_join_on_sub_expr(self,tbl1,tbl2):
         #This method deals with both individual and composite keys but it is not tested yet using any composite keys
@@ -254,6 +310,7 @@ class RND_QUERY():
 
 
 
+
     def _get_rnd_groupby_lst(self,from_tbl, join_tbl_lst, drop_fkey=True)-> list:
         #returned randomly picked cat vars including the concatenated table name of the real data (ie that is defined in the class)
         #Note: You can group by CAT_VARS whether from parent or child or both
@@ -267,9 +324,9 @@ class RND_QUERY():
             join_tbl_lst.append(from_tbl)#possible group-by list includes only from_tbl and join_tbl lists
             for tbl_name in join_tbl_lst: #All table types (ie parent and child) can be used in agg queries as long as they have CAT vars
                 if drop_fkey:
-                    cat_vars=self._get_vars_by_type('CAT',tbl_name,drop_key=True)
+                    cat_vars=self._get_tbl_vars_by_type('CAT',tbl_name,drop_key=True)
                 else:
-                    cat_vars=self._get_vars_by_type('CAT',tbl_name, drop_key=False)
+                    cat_vars=self._get_tbl_vars_by_type('CAT',tbl_name, drop_key=False)
                 cat_vars=self._prepend_tbl_name(tbl_name,cat_vars)
                 all_cat_vars.append(cat_vars)
             all_cat_vars=[var for vars in all_cat_vars for var in vars] #flatten
@@ -294,9 +351,9 @@ class RND_QUERY():
 
         else: #If there is only one sole table (ie tabular case)
                 if drop_fkey:
-                    cat_vars=self._get_vars_by_type('CAT',from_tbl,drop_key=True)
+                    cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl,drop_key=True)
                 else:
-                    cat_vars=self._get_vars_by_type('CAT',from_tbl, drop_key=False)
+                    cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl, drop_key=False)
                 n_vars_bag=np.arange(1, 1+len(cat_vars)) 
                 if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
                     n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
@@ -309,6 +366,7 @@ class RND_QUERY():
 
         return picked_vars
 
+
     def _get_rnd_agg_fntn_terms(self,from_tbl,join_tbl_lst)-> tuple:
         if self.SEED:
             np.random.seed(self.seed_no)
@@ -317,20 +375,17 @@ class RND_QUERY():
         if join_tbl_lst != 'Null':
             join_tbl_lst.append(from_tbl)#possible list for agg_fntn operand includes only from_tbl and join_tbl lists
             for tbl_name in join_tbl_lst: 
-                cnt_vars=self._get_vars_by_type('CNT',tbl_name,drop_key=False) #drop_key is not used for continuous variable since key is usually categorical variable 
+                cnt_vars=self._get_tbl_vars_by_type('CNT',tbl_name,drop_key=False) #drop_key is not used for continuous variable since key is usually categorical variable 
                 cnt_vars=self._prepend_tbl_name(tbl_name,cnt_vars)
                 all_cnt_vars.append(cnt_vars)
             assert len( all_cnt_vars)!=0, "No continuous variable is available to use it with an Aggregate Function. Please set agg_fnt to False."
             all_cnt_vars=[var for vars in all_cnt_vars for var in vars] #flatten
             picked_cnt_var = np.random.choice(all_cnt_vars)
         else: #If there is only one sole table (ie tabular case)
-            cnt_vars=self._get_vars_by_type('CNT',from_tbl, drop_key=False)
+            cnt_vars=self._get_tbl_vars_by_type('CNT',from_tbl, drop_key=False)
             picked_cnt_var=np.random.choice(cnt_vars)
         picked_log_op=np.random.choice(list(self.ATTRS['AGG_OPS'].keys()), p=list(self.ATTRS['AGG_OPS'].values()))
         return picked_log_op,picked_cnt_var
-
-        
-
 
 
 
@@ -349,15 +404,6 @@ class RND_QUERY():
         else:
             expr1=f'SELECT {expr2_2}, COUNT(*) '+ from_expr
             return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst, 'Null'
-    
-
-    
-    def make_query(self,cur: object, query_exp: str)-> pd.DataFrame:
-        cur.execute(query_exp)
-        query = cur.fetchall()
-        query=pd.DataFrame(query, columns=[description[0] for description in cur.description])
-        return query
-
 
     def make_single_agg_query(self, agg_fntn) -> dict:
         dic={}
@@ -376,42 +422,6 @@ class RND_QUERY():
             "n_cols":query.shape[1]
         }
         return dic
-
-    def _validate_syn_lst(self,syn_tbl_name_lst):
-        assert len(syn_tbl_name_lst)==len(self.TBL_NAME_LST), "The number of the synthetic data tables does not match the number of the real data tables!"
-
-        for i, (real_name,syn_name) in enumerate(zip(self.TBL_NAME_LST, syn_tbl_name_lst)):
-            real=self.TBL_LST[i]
-            try:
-                syn=pd.read_sql_query(f'SELECT * FROM {syn_name}', self.DB_CONN)
-                assert real.shape==syn.shape,f"The synesthetic table {syn_name} does not have the same shape of the real table {real_name}! Please make sure that the real and synthetic lists are ordered properly."
-            except:
-                raise Exception(f"Table {syn_name} does not exist in database!")
-            try:
-                assert list(real.columns).sort() == list(syn.columns).sort()
-            except:
-                raise Exception(f"Table {syn_name} and {real_name} do not have identical variable names!")
-        
-        self.SYN_TBL_NAME_LST=syn_tbl_name_lst
-
-
-    def _expr_replace_tbl_name(self, expr: str)-> str:
-        # replaces the table names of the real dataset by the table names of the synthetic datasets.
-        real_name_lst=self.TBL_NAME_LST
-        syn_name_lst=self.SYN_TBL_NAME_LST
-        new_expr=copy.deepcopy(expr)
-        for real_name, syn_name in zip(real_name_lst,syn_name_lst):
-            new_expr=new_expr.replace(real_name,syn_name)
-        return new_expr
-
-
-    def _drop_tbl_name(self,vars_in: list) ->list:
-        vars_out=[]
-        for var in vars_in:
-            split=var.split(".")
-            vars_out.append(split[1])
-        return vars_out
-
 
     def make_twin_agg_query(self, syn_tbl_name_lst, agg_fntn):
         self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
@@ -450,68 +460,10 @@ class RND_QUERY():
         }
         return dic
 
-#################  PREVIOUS METHODS BELOW THIS LINE #############################
-############################################################################################
-    # def _make_bags(self,df:pd.DataFrame)-> dict:
-    #     val_bags={}
-    #     for var in df.columns:
-    #         vals=df[var].values
-    #         vals=[x for x in vals if x==x] #drop nan
-    #         vals=list(filter(None, vals)) #drop None
-    #         if var in self.CAT_VARS['parent']+self.CAT_VARS['child']:
-    #             vals=["'"+str(x)+"'" for x in vals if "'" not in x or '"' not in x] # for the values of categorical variables, add quote to avoid errors in SQL statement
-    #         val_bags[var]=vals if len(vals)!=0 else ['N/A']
-    #     return val_bags
 
 
+##################################### METHODS FOR GENERATING RANDOM FILTER QUERIES #############################
 
-    # def _get_var_idx(self, var_name):
-    #     if var_name in self.PARENT_DF.columns: #search in parent
-    #         idx=self.PARENT_DF.columns.get_loc(var_name)
-    #         return 'parent',idx
-    #     elif var_name in self.CHILD_DF.columns: #search in child
-    #         idx=self.CHILD_DF.columns.get_loc(var_name)
-    #         return 'child', idx
-    #     else:
-    #         raise Exception(f"{var_name} not found in parent or child tables!")
-
-    # def _mix_vars(self,*args):
-    #     #accepts variable length of arguments as tuples where each tuple consists of the table name and some variables that belong to that table
-    #     # returns mixed variables in one list but each variable is concatenated with its respective table name
-    #     mixed_vars=[]
-    #     for arg in args:
-    #         vars=[arg[0]+'.'+x for x in arg[1]]
-    #         mixed_vars+=vars
-    #     return mixed_vars
-
-    # def _change_tbl_name(self, in_lst: list,in_parent_name: str, out_parent_name: str, in_child_name: str, out_child_name: str)-> list:
-    #     # replaces the table names of the real dataset by the table names of the synthetic datasets.
-    #     out_lst=[var.replace(in_parent_name,out_parent_name ) for var in in_lst] 
-    #     out_lst=[var.replace(in_child_name,out_child_name ) for var in out_lst] 
-    #     return out_lst
-
-    # def _drop_tbl_name(self,vars_in: list) ->list:
-    #     vars_out=[]
-    #     for var in vars_in:
-    #         split=var.split(".")
-    #         vars_out.append(split[1])
-    #     return vars_out
-
-
-
-
-    def _get_rnd_aggfntn_tpl(self) -> tuple:
-        #returns a random tuple of agg function and continuous OR date variable 
-        # Note: continuous variable can be from either parent or child tables 
-        if self.SEED:
-            np.random.seed(self.seed_no)
-            random.seed(self.seed_no)
-        all_possible_vars=self._mix_vars((self.PARENT_NAME,self.CNT_VARS['parent']),(self.PARENT_NAME,self.DT_VARS['parent']),(self.CHILD_NAME,self.CNT_VARS['child']),(self.CHILD_NAME,self.DT_VARS['child']))
-        picked_var=np.random.choice(all_possible_vars)
-        picked_op=np.random.choice(list(self.ATTRS['AGG_OPS'].keys()), p=list(self.ATTRS['AGG_OPS'].values()))
-        return (picked_op,picked_var)
-
-    
     def _get_rnd_where_lst(self, drop_fkey=True) -> tuple:
         # use WHERE with mix of CAT, CNT, DT variables from both PARENT and CHILD
         if self.SEED:
@@ -599,6 +551,78 @@ class RND_QUERY():
         
         selected_logic_ops=np.random.choice(list(self.ATTRS['LOGIC_OPS'].keys()), size=len(terms)-1, p=list(self.ATTRS['LOGIC_OPS'].values()))
         return terms, selected_logic_ops
+
+
+
+
+
+
+
+
+
+#################  PREVIOUS METHODS BELOW THIS LINE #############################
+############################################################################################
+    # def _make_bags(self,df:pd.DataFrame)-> dict:
+    #     val_bags={}
+    #     for var in df.columns:
+    #         vals=df[var].values
+    #         vals=[x for x in vals if x==x] #drop nan
+    #         vals=list(filter(None, vals)) #drop None
+    #         if var in self.CAT_VARS['parent']+self.CAT_VARS['child']:
+    #             vals=["'"+str(x)+"'" for x in vals if "'" not in x or '"' not in x] # for the values of categorical variables, add quote to avoid errors in SQL statement
+    #         val_bags[var]=vals if len(vals)!=0 else ['N/A']
+    #     return val_bags
+
+
+
+    # def _get_var_idx(self, var_name):
+    #     if var_name in self.PARENT_DF.columns: #search in parent
+    #         idx=self.PARENT_DF.columns.get_loc(var_name)
+    #         return 'parent',idx
+    #     elif var_name in self.CHILD_DF.columns: #search in child
+    #         idx=self.CHILD_DF.columns.get_loc(var_name)
+    #         return 'child', idx
+    #     else:
+    #         raise Exception(f"{var_name} not found in parent or child tables!")
+
+    # def _mix_vars(self,*args):
+    #     #accepts variable length of arguments as tuples where each tuple consists of the table name and some variables that belong to that table
+    #     # returns mixed variables in one list but each variable is concatenated with its respective table name
+    #     mixed_vars=[]
+    #     for arg in args:
+    #         vars=[arg[0]+'.'+x for x in arg[1]]
+    #         mixed_vars+=vars
+    #     return mixed_vars
+
+    # def _change_tbl_name(self, in_lst: list,in_parent_name: str, out_parent_name: str, in_child_name: str, out_child_name: str)-> list:
+    #     # replaces the table names of the real dataset by the table names of the synthetic datasets.
+    #     out_lst=[var.replace(in_parent_name,out_parent_name ) for var in in_lst] 
+    #     out_lst=[var.replace(in_child_name,out_child_name ) for var in out_lst] 
+    #     return out_lst
+
+    # def _drop_tbl_name(self,vars_in: list) ->list:
+    #     vars_out=[]
+    #     for var in vars_in:
+    #         split=var.split(".")
+    #         vars_out.append(split[1])
+    #     return vars_out
+
+
+
+
+    # def _get_rnd_aggfntn_tpl(self) -> tuple:
+    #     #returns a random tuple of agg function and continuous OR date variable 
+    #     # Note: continuous variable can be from either parent or child tables 
+    #     if self.SEED:
+    #         np.random.seed(self.seed_no)
+    #         random.seed(self.seed_no)
+    #     all_possible_vars=self._mix_vars((self.PARENT_NAME,self.CNT_VARS['parent']),(self.PARENT_NAME,self.DT_VARS['parent']),(self.CHILD_NAME,self.CNT_VARS['child']),(self.CHILD_NAME,self.DT_VARS['child']))
+    #     picked_var=np.random.choice(all_possible_vars)
+    #     picked_op=np.random.choice(list(self.ATTRS['AGG_OPS'].keys()), p=list(self.ATTRS['AGG_OPS'].values()))
+    #     return (picked_op,picked_var)
+
+    
+
 
     # if len(real.index)<len(syn.index):
     #     raise Exception("It is likely that a continuous variable is mistakenly defined as nominal in metadata ")
@@ -699,76 +723,76 @@ class RND_QUERY():
 
 #-------------------------------------------------------------------------------------------
 
-    def _build_agg_expr_w_aggfntn(self,pname: str, cname: str, fkey: str, agg_fntn_tpl: tuple, groupby_lst: list) -> str:
-        expr2_1=' GROUP BY '
-        expr2_2=f'{groupby_lst}'
-        expr2_2=expr2_2.replace("[","")
-        expr2_2=expr2_2.replace("]","")
-        expr2_2=expr2_2.replace("'","")
-        expr1=f'SELECT {expr2_2}, COUNT(*), {agg_fntn_tpl[0]}({agg_fntn_tpl[1]}) FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey}'
-        expr=expr1+expr2_1+expr2_2
-        return expr
+    # def _build_agg_expr_w_aggfntn(self,pname: str, cname: str, fkey: str, agg_fntn_tpl: tuple, groupby_lst: list) -> str:
+    #     expr2_1=' GROUP BY '
+    #     expr2_2=f'{groupby_lst}'
+    #     expr2_2=expr2_2.replace("[","")
+    #     expr2_2=expr2_2.replace("]","")
+    #     expr2_2=expr2_2.replace("'","")
+    #     expr1=f'SELECT {expr2_2}, COUNT(*), {agg_fntn_tpl[0]}({agg_fntn_tpl[1]}) FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey}'
+    #     expr=expr1+expr2_1+expr2_2
+    #     return expr
     
 
-    def make_single_agg_query_w_aggfntn(self):
-        dic={}
-        single_grp_lst=self._get_rnd_groupby_lst()
-        agg_fntn_tpl=self._get_rnd_aggfntn_tpl()
-        expr=self._build_agg_expr_w_aggfntn(self.PARENT_NAME,self.CHILD_NAME, self.FKEY_NAME,agg_fntn_tpl,single_grp_lst)
-        query=self.make_query(self.CUR, expr)
-        grpby_vars=self._drop_tbl_name(single_grp_lst)
-        dic['query']=query
-        dic['query_desc']={
-            "type":"single_agg",
-            "aggfntn":f"{agg_fntn_tpl[0]}({agg_fntn_tpl[1]})",
-            "grpby_vars": grpby_vars,
-            "parent_name":self.PARENT_NAME,
-            "child_name":self.CHILD_NAME,
-            "sql":expr,
-            "n_rows":query.shape[0],
-            "n_cols":query.shape[1]
-        }
-        return dic
+    # def make_single_agg_query_w_aggfntn(self):
+    #     dic={}
+    #     single_grp_lst=self._get_rnd_groupby_lst()
+    #     agg_fntn_tpl=self._get_rnd_aggfntn_tpl()
+    #     expr=self._build_agg_expr_w_aggfntn(self.PARENT_NAME,self.CHILD_NAME, self.FKEY_NAME,agg_fntn_tpl,single_grp_lst)
+    #     query=self.make_query(self.CUR, expr)
+    #     grpby_vars=self._drop_tbl_name(single_grp_lst)
+    #     dic['query']=query
+    #     dic['query_desc']={
+    #         "type":"single_agg",
+    #         "aggfntn":f"{agg_fntn_tpl[0]}({agg_fntn_tpl[1]})",
+    #         "grpby_vars": grpby_vars,
+    #         "parent_name":self.PARENT_NAME,
+    #         "child_name":self.CHILD_NAME,
+    #         "sql":expr,
+    #         "n_rows":query.shape[0],
+    #         "n_cols":query.shape[1]
+    #     }
+    #     return dic
 
-    def make_twin_agg_query_w_aggfntn(self,twintbl_parent_name,twintbl_child_name):
-        dic={}
-        real_groupby_lst=self._get_rnd_groupby_lst()
-        syn_groupby_lst=self._expr_replace_tbl_name(real_groupby_lst, self.PARENT_NAME,twintbl_parent_name, self.CHILD_NAME, twintbl_child_name)
-        real_aggfntn_tpl=self._get_rnd_aggfntn_tpl()
-        syn_aggfntn_tpl=self._expr_replace_tbl_name(real_aggfntn_tpl, self.PARENT_NAME,twintbl_parent_name, self.CHILD_NAME, twintbl_child_name)
-        real_expr=self._build_agg_expr_w_aggfntn(self.PARENT_NAME,self.CHILD_NAME,self.FKEY_NAME,real_aggfntn_tpl, real_groupby_lst)
-        syn_expr=self._build_agg_expr_w_aggfntn(twintbl_parent_name,twintbl_child_name,self.FKEY_NAME,syn_aggfntn_tpl, syn_groupby_lst)
-        query_real=self.make_query(self.CUR, real_expr)
-        query_syn=self.make_query(self.CUR, syn_expr)
+    # def make_twin_agg_query_w_aggfntn(self,twintbl_parent_name,twintbl_child_name):
+    #     dic={}
+    #     real_groupby_lst=self._get_rnd_groupby_lst()
+    #     syn_groupby_lst=self._expr_replace_tbl_name(real_groupby_lst, self.PARENT_NAME,twintbl_parent_name, self.CHILD_NAME, twintbl_child_name)
+    #     real_aggfntn_tpl=self._get_rnd_aggfntn_tpl()
+    #     syn_aggfntn_tpl=self._expr_replace_tbl_name(real_aggfntn_tpl, self.PARENT_NAME,twintbl_parent_name, self.CHILD_NAME, twintbl_child_name)
+    #     real_expr=self._build_agg_expr_w_aggfntn(self.PARENT_NAME,self.CHILD_NAME,self.FKEY_NAME,real_aggfntn_tpl, real_groupby_lst)
+    #     syn_expr=self._build_agg_expr_w_aggfntn(twintbl_parent_name,twintbl_child_name,self.FKEY_NAME,syn_aggfntn_tpl, syn_groupby_lst)
+    #     query_real=self.make_query(self.CUR, real_expr)
+    #     query_syn=self.make_query(self.CUR, syn_expr)
 
-        grpby_vars=self._drop_tbl_name(real_groupby_lst)
+    #     grpby_vars=self._drop_tbl_name(real_groupby_lst)
 
-        dic['query_real']=query_real
-        dic['query_syn']=query_syn
-        dic['query_desc']={
-            "type":"twin_agg",
-            "aggfntn":f"{real_aggfntn_tpl[0]}({real_aggfntn_tpl[1]})",
-            "grpby_vars": grpby_vars,
-            "parent_name_real":self.PARENT_NAME,
-            "child_name_real":self.CHILD_NAME,
-            "sql_real":real_expr,
-            "n_cols_real":query_real.shape[1],
-            "n_rows_real":query_real.shape[0],
-            "parent_name_syn":twintbl_parent_name,
-            "child_name_syn":twintbl_child_name,
-            "sql_syn":syn_expr,
-            "n_cols_syn":query_syn.shape[1],
-            "n_rows_syn":query_syn.shape[0],
-            }
-        return dic
+    #     dic['query_real']=query_real
+    #     dic['query_syn']=query_syn
+    #     dic['query_desc']={
+    #         "type":"twin_agg",
+    #         "aggfntn":f"{real_aggfntn_tpl[0]}({real_aggfntn_tpl[1]})",
+    #         "grpby_vars": grpby_vars,
+    #         "parent_name_real":self.PARENT_NAME,
+    #         "child_name_real":self.CHILD_NAME,
+    #         "sql_real":real_expr,
+    #         "n_cols_real":query_real.shape[1],
+    #         "n_rows_real":query_real.shape[0],
+    #         "parent_name_syn":twintbl_parent_name,
+    #         "child_name_syn":twintbl_child_name,
+    #         "sql_syn":syn_expr,
+    #         "n_cols_syn":query_syn.shape[1],
+    #         "n_rows_syn":query_syn.shape[0],
+    #         }
+    #     return dic
 
-    def make_mltpl_twin_agg_query_w_aggfntn(self, n_queries, twin_parent_name, twin_child_name ):
-        queries = []
-        for k in range(n_queries):
-            queries.append(self.make_twin_agg_query_w_aggfntn(twin_parent_name,twin_child_name))
-            print('Generated Random Aggregate Query with a Function - {} '.format(str(k)))
-        print('\n')
-        return queries
+    # def make_mltpl_twin_agg_query_w_aggfntn(self, n_queries, twin_parent_name, twin_child_name ):
+    #     queries = []
+    #     for k in range(n_queries):
+    #         queries.append(self.make_twin_agg_query_w_aggfntn(twin_parent_name,twin_child_name))
+    #         print('Generated Random Aggregate Query with a Function - {} '.format(str(k)))
+    #     print('\n')
+    #     return queries
 
 #######################################################################################
 
