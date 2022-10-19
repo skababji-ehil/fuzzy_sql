@@ -143,7 +143,7 @@ class RND_QUERY():
         return sole_grp,root_grp,child_grp,parent_grp
 
 
-    def _get_tbl_vars_by_type(self,var_type, tbl_name, drop_key):
+    def _get_tbl_vars_by_type(self,var_type, tbl_name, drop_key=False):
         # Returns variables by type (i.e CAT, CNT or DT) for the input table by referring to the corresponding metadata
         for i,metadata in enumerate(self.METADATA_LST):#lookup table index in METADATA_LST
             if metadata['tbl_name']==tbl_name:
@@ -312,34 +312,34 @@ class RND_QUERY():
 
 
     def _get_rnd_groupby_lst(self,from_tbl, join_tbl_lst, drop_fkey=True)-> list:
-        #returned randomly picked cat vars including the concatenated table name of the real data (ie that is defined in the class)
-        #Note: You can group by CAT_VARS whether from parent or child or both
+        #returns randomly picked cat vars including the concatenated table name of the real data (ie that is defined in the class)
+        #Note: You can group by CAT_VARS and DT_VARS whether from parent or child or both
         if self.SEED:
             np.random.seed(self.seed_no)
             random.seed(self.seed_no)
-        all_cat_vars=[]
-
-
+        all_catdt_vars=[]
         if join_tbl_lst != 'Null':
             join_tbl_lst.append(from_tbl)#possible group-by list includes only from_tbl and join_tbl lists
             for tbl_name in join_tbl_lst: #All table types (ie parent and child) can be used in agg queries as long as they have CAT vars
+                dt_vars=self._get_tbl_vars_by_type('DT',tbl_name)
                 if drop_fkey:
                     cat_vars=self._get_tbl_vars_by_type('CAT',tbl_name,drop_key=True)
                 else:
                     cat_vars=self._get_tbl_vars_by_type('CAT',tbl_name, drop_key=False)
-                cat_vars=self._prepend_tbl_name(tbl_name,cat_vars)
-                all_cat_vars.append(cat_vars)
-            all_cat_vars=[var for vars in all_cat_vars for var in vars] #flatten
+                catdt_vars=cat_vars+dt_vars
+                catdt_vars=self._prepend_tbl_name(tbl_name,catdt_vars)
+                all_catdt_vars.append(catdt_vars)
+            all_catdt_vars=[var for vars in all_catdt_vars for var in vars] #flatten
 
-            if len(all_cat_vars)==1:
-                raise Exception("The only available categorical variable is the JOIN key. Add more categorical variables or set drop_fkey to False in _get_rnd_groupby_lst")
+            if len(all_catdt_vars)==1:
+                raise Exception("The only available categorical variable is the JOIN key. Add more categorical or date variables, or set drop_fkey to False in _get_rnd_groupby_lst")
 
             # all_cat_vars=self._mix_vars((self.PARENT_NAME,self.CAT_VARS['parent']),(self.CHILD_NAME,self.CAT_VARS['child']))
 
             # parent_cat_vars=[self.PARENT_NAME+'.'+x for x in self.CAT_VARS['parent']]
             # child_cat_vars=[self.CHILD_NAME+'.'+x for x in self.CAT_VARS['child']]
             # all_cat_vars=parent_cat_vars +child_cat_vars
-            n_vars_bag=np.arange(1, 1+len(all_cat_vars)) 
+            n_vars_bag=np.arange(1, 1+len(all_catdt_vars)) 
             if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
                 n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
                 # n_var_probs= np.zeros_like(n_vars_bag)
@@ -347,22 +347,24 @@ class RND_QUERY():
                 n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
             else:
                 n_vars=np.random.choice(n_vars_bag)
-            picked_vars = random.sample(all_cat_vars, n_vars)
+            picked_vars = random.sample(all_catdt_vars, n_vars)
 
         else: #If there is only one sole table (ie tabular case)
-                if drop_fkey:
-                    cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl,drop_key=True)
-                else:
-                    cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl, drop_key=False)
-                n_vars_bag=np.arange(1, 1+len(cat_vars)) 
-                if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
-                    n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
-                    # n_var_probs= np.zeros_like(n_vars_bag)
-                    # n_var_probs[0]=1
-                    n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
-                else:
-                    n_vars=np.random.choice(n_vars_bag)
-                picked_vars = random.sample(cat_vars, n_vars)
+            dt_vars=self._get_tbl_vars_by_type('DT',from_tbl)
+            if drop_fkey:
+                cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl,drop_key=True)
+            else:
+                cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl, drop_key=False)
+            catdt_vars=cat_vars+dt_vars
+            n_vars_bag=np.arange(1, 1+len(catdt_vars)) 
+            if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
+                n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
+                # n_var_probs= np.zeros_like(n_vars_bag)
+                # n_var_probs[0]=1
+                n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
+            else:
+                n_vars=np.random.choice(n_vars_bag)
+            picked_vars = random.sample(catdt_vars, n_vars)
 
         return picked_vars
 
@@ -555,7 +557,32 @@ class RND_QUERY():
 
 
 
+    def _build_fltr_expr(self,  pname: str, cname: str, fkey: str, where_terms: list, log_ops:list ) -> str:
+        expr1=f'SELECT * FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey} WHERE '
+        where_expr=[None]*(len(where_terms)+len(log_ops))
+        where_expr[::2]=where_terms
+        where_expr[1::2]=log_ops
+        where_expr=' '.join(x for x in where_expr )
+        where_expr=where_expr + ' '
+        return expr1+where_expr
 
+
+    def make_single_fltr_query(self) -> dict:
+        dic={}
+        where_terms, log_ops=self._get_rnd_where_lst()
+        single_expr=self._build_fltr_expr(self.PARENT_NAME,self.CHILD_NAME, self.FKEY_NAME, where_terms, log_ops)
+        query=self.make_query(self.CUR, single_expr)
+        dic['query']=query
+        dic['query_desc']={
+            "type":"single_fltr",
+            "aggfntn":"None",
+            "parent_name":self.PARENT_NAME,
+            "child_name":self.CHILD_NAME,
+            "sql":single_expr,
+            "n_rows":query.shape[0],
+            "n_cols":query.shape[1]
+        }
+        return dic
 
 
 
@@ -796,32 +823,7 @@ class RND_QUERY():
 
 #######################################################################################
 
-    def _build_fltr_expr(self,  pname: str, cname: str, fkey: str, where_terms: list, log_ops:list ) -> str:
-        expr1=f'SELECT * FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey} WHERE '
-        where_expr=[None]*(len(where_terms)+len(log_ops))
-        where_expr[::2]=where_terms
-        where_expr[1::2]=log_ops
-        where_expr=' '.join(x for x in where_expr )
-        where_expr=where_expr + ' '
-        return expr1+where_expr
 
-
-    def make_single_fltr_query(self) -> dict:
-        dic={}
-        where_terms, log_ops=self._get_rnd_where_lst()
-        single_expr=self._build_fltr_expr(self.PARENT_NAME,self.CHILD_NAME, self.FKEY_NAME, where_terms, log_ops)
-        query=self.make_query(self.CUR, single_expr)
-        dic['query']=query
-        dic['query_desc']={
-            "type":"single_fltr",
-            "aggfntn":"None",
-            "parent_name":self.PARENT_NAME,
-            "child_name":self.CHILD_NAME,
-            "sql":single_expr,
-            "n_rows":query.shape[0],
-            "n_cols":query.shape[1]
-        }
-        return dic
 
     def make_twin_fltr_query(self, twin_parent_name: str, twin_child_name:str) -> dict:
         dic={}
