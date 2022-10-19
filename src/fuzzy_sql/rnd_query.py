@@ -151,6 +151,8 @@ class RND_QUERY():
                 mod_metadata['var'][i].append("CAT")
             elif var_tpl[1] in ['date','time','datetime']:
                 mod_metadata['var'][i].append("DT")
+            elif var_tpl[1] in ['ignore','IGNORE']:
+                mod_metadata['var'][i].append("IGN")
             else:
                 raise Exception(f"Variable type {var_tpl[1]} in metadata file is not recognized!")
 
@@ -316,9 +318,9 @@ class RND_QUERY():
             join_tbl_lst.append(from_tbl)#possible list for agg_fntn operand includes only from_tbl and join_tbl lists
             for tbl_name in join_tbl_lst: 
                 cnt_vars=self._get_vars_by_type('CNT',tbl_name,drop_key=False) #drop_key is not used for continuous variable since key is usually categorical variable 
-                assert len(cnt_vars)!=0, "No continuous variable is available to use it with an Aggregate Function. Please set agg_fnt to False."
                 cnt_vars=self._prepend_tbl_name(tbl_name,cnt_vars)
                 all_cnt_vars.append(cnt_vars)
+            assert len( all_cnt_vars)!=0, "No continuous variable is available to use it with an Aggregate Function. Please set agg_fnt to False."
             all_cnt_vars=[var for vars in all_cnt_vars for var in vars] #flatten
             picked_cnt_var = np.random.choice(all_cnt_vars)
         else: #If there is only one sole table (ie tabular case)
