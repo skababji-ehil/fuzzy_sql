@@ -235,8 +235,29 @@ class RND_QUERY():
         return vals
 
 
-#######################################  OTHER METHODS #################################### 
+####################################### COMMON METHODS #################################### 
   
+
+    def _make_rnd_from_expr(self)-> str:
+        if self.SEED:
+            np.random.seed(self.seed_no)
+            random.seed(self.seed_no)
+
+        if len(self.SOLE_NAME_LST) !=0:
+            assert len(self.SOLE_NAME_LST)==1,"For tabular fuzzing, you can not have more than one table passed to the class."
+            return f" FROM {self.SOLE_NAME_LST[0]} ", self.SOLE_NAME_LST[0],"Null"
+        else:
+            from_tbl=random.sample(self.PARENT_NAME_LST,1)[0] # randomly select one parent 
+            join_tbls=self._get_tbl_childs(from_tbl)
+            picked_no_joins=random.randint(self.min_join_clauses,len(join_tbls)) 
+            join_tbl_lst=random.sample(join_tbls,picked_no_joins) #randomly select a number of child tables 
+            expr1=f" FROM {from_tbl} "
+            expr2=""
+            for j in range(picked_no_joins):
+                expr2+=f" JOIN {join_tbl_lst[j]} "+self._get_join_on_sub_expr(from_tbl,join_tbl_lst[j])
+            return expr1+expr2, from_tbl, join_tbl_lst
+
+
 
     def make_query(self,cur: object, query_exp: str)-> pd.DataFrame:
         cur.execute(query_exp)
@@ -287,27 +308,6 @@ class RND_QUERY():
                 if i < len(tbl1_key_lst)-1:
                     expr+=" AND "
         return expr
-
-
-    def _make_rnd_from_expr(self)-> str:
-        if self.SEED:
-            np.random.seed(self.seed_no)
-            random.seed(self.seed_no)
-
-        if len(self.SOLE_NAME_LST) !=0:
-            assert len(self.SOLE_NAME_LST)==1,"For tabular fuzzing, you can not have more than one table passed to the class."
-            return f" FROM {self.SOLE_NAME_LST[0]} ", self.SOLE_NAME_LST[0],"Null"
-        else:
-            from_tbl=random.sample(self.PARENT_NAME_LST,1)[0] # randomly select one parent 
-            join_tbls=self._get_tbl_childs(from_tbl)
-            picked_no_joins=random.randint(self.min_join_clauses,len(join_tbls)) 
-            join_tbl_lst=random.sample(join_tbls,picked_no_joins) #randomly select a number of child tables 
-            expr1=f" FROM {from_tbl} "
-            expr2=""
-            for j in range(picked_no_joins):
-                expr2+=f" JOIN {join_tbl_lst[j]} "+self._get_join_on_sub_expr(from_tbl,join_tbl_lst[j])
-            return expr1+expr2, from_tbl, join_tbl_lst
-
 
 
 
@@ -390,7 +390,6 @@ class RND_QUERY():
         return picked_log_op,picked_cnt_var
 
 
-
     def _compile_agg_expr(self,agg_fntn) -> str:
         from_expr, from_table,join_tbl_lst=self._make_rnd_from_expr() #from table is the table right after the from clause which can be either a sole or parent table  
         groupby_lst=self._get_rnd_groupby_lst(from_table,join_tbl_lst)
@@ -466,123 +465,140 @@ class RND_QUERY():
 
 ##################################### METHODS FOR GENERATING RANDOM FILTER QUERIES #############################
 
-    def _get_rnd_where_lst(self, drop_fkey=True) -> tuple:
-        # use WHERE with mix of CAT, CNT, DT variables from both PARENT and CHILD
-        if self.SEED:
-            np.random.seed(self.seed_no)
-            random.seed(self.seed_no)
-        all_possible_vars=self._mix_vars((self.PARENT_NAME,self.CAT_VARS['parent']),(self.CHILD_NAME,self.CAT_VARS['child']),(self.PARENT_NAME,self.CNT_VARS['parent']),(self.CHILD_NAME,self.CNT_VARS['child']),(self.PARENT_NAME,self.DT_VARS['parent']),(self.CHILD_NAME,self.DT_VARS['child']))
-        
-        if drop_fkey:
-            all_possible_vars=[x for x in  all_possible_vars if  self.FKEY_NAME not in  x]
-            if len(all_possible_vars)==1:
-                raise Exception("Only join key is available as a variable!! Add more variables.")
 
-        n_vars_bag=np.arange(1, 1+len(all_possible_vars)) #this gives possible number of terms in the where clause
-        if self.ATTRS['LESS_CMP_VARS']:#define slope-down discrete distribution 
-            n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
-            # n_var_probs= np.zeros_like(n_vars_bag)
-            # n_var_probs[0]=1
-            n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
-        else:
-            n_vars=np.random.choice(n_vars_bag)
-        picked_vars = random.sample(all_possible_vars, n_vars)
+    def _get_rnd_where_lst(self, drop_fkey=True):
+        pass
 
-        all_cat_vars=np.concatenate(list(self.CAT_VARS.values()))
-        all_cnt_vars=np.concatenate(list(self.CNT_VARS.values()))
-        all_dt_vars=np.concatenate(list(self.DT_VARS.values()))
-        terms=[]
-        log_ops=[]
-        for long_var_name in picked_vars: #This loop will find the a proper random value comparison operation and proper random value for all the picked variables
-            #var=long_var_name[long_var_name.find(".")+1:]
-            x=long_var_name.split(".") #Note: it is assumed that variable names do NOT include any "."
-            var_tbl=x[0]
-            var=x[1]
-            var_tbl_rank='parent' if var_tbl==self.PARENT_NAME else 'child'
-            
-            #adding not to long variable name 
-            not_status=np.random.choice(list(self.ATTRS['NOT_STATE'].keys()), p=list(self.ATTRS['NOT_STATE'].values()) )
-            selected_long_var_name= 'NOT '+long_var_name if not_status=='1' else long_var_name
-            
-            if var in all_cat_vars:
-                picked_cmp_op=np.random.choice(list(self.ATTRS['CAT_OPS'].keys()),p=list(self.ATTRS['CAT_OPS'].values()))
-                if picked_cmp_op=='IN' or picked_cmp_op=='NOT IN' :
-                    possible_no_of_in_terms=np.arange(2,len(self.CAT_VAL_BAGS[var_tbl_rank][var]))
-                    no_of_in_terms=np.min([np.random.choice(possible_no_of_in_terms),self.max_no_in_terms]) if self.max_no_in_terms != 0 else np.random.choice(possible_no_of_in_terms)
-                    vals=np.random.choice(self.CAT_VAL_BAGS[var_tbl_rank][var], size=no_of_in_terms)
-                    for i,x in enumerate(vals): #This will eliminate double quotes in the list of values used in th eIN clause
-                        try:
-                            vals[i]=eval(x)
-                        except:
-                            continue
-                    if picked_cmp_op=='IN':
-                        term =f" {selected_long_var_name} IN {tuple(vals)} "
-                    else:
-                        term=f" {selected_long_var_name} NOT IN {tuple(vals)} "
-                else:
-                    val=np.random.choice(self.CAT_VAL_BAGS[var_tbl_rank][var])
-                    term=f" {selected_long_var_name} {picked_cmp_op} {val} "
-            
-            elif var in all_cnt_vars:
-                picked_cmp_op=np.random.choice(list(self.ATTRS['CNT_OPS'].keys()),p=list(self.ATTRS['CNT_OPS'].values()))
-                if picked_cmp_op=='BETWEEN' or picked_cmp_op=='NOT BETWEEN':
-                    lower_bound_bag=self.CNT_VAL_BAGS[var_tbl_rank][var]
-                    lower_bound=np.random.choice(lower_bound_bag)
-                    upper_bound_bag=[x for x in lower_bound_bag if x>=lower_bound]
-                    upper_bound=np.random.choice(upper_bound_bag)
-                    if picked_cmp_op=='BETWEEN':
-                        term=f" {selected_long_var_name} BETWEEN {lower_bound} AND {upper_bound} "
-                    else:
-                        term=f" {selected_long_var_name} NOT BETWEEN {lower_bound} AND {upper_bound} "
-                else:
-                    val=np.random.choice(self.CNT_VAL_BAGS[var_tbl_rank][var])
-                    term=f" {selected_long_var_name} {picked_cmp_op} {val} "
-            
-            elif var in all_dt_vars:
-                picked_cmp_op=np.random.choice(list(self.ATTRS['DT_OPS'].keys()),p=list(self.ATTRS['DT_OPS'].values()))
-                if picked_cmp_op=='BETWEEN':
-                    pass #To complete
-                elif picked_cmp_op=='IN':
-                    pass #To complete
-                else:
-                    pass#To complete
-            else:
-                raise Exception(f"Can not find {var} in the lists of all variables!!")
-            
-            terms.append(term)
-        
-        selected_logic_ops=np.random.choice(list(self.ATTRS['LOGIC_OPS'].keys()), size=len(terms)-1, p=list(self.ATTRS['LOGIC_OPS'].values()))
-        return terms, selected_logic_ops
-
-
-
-
-    def _build_fltr_expr(self,  pname: str, cname: str, fkey: str, where_terms: list, log_ops:list ) -> str:
-        expr1=f'SELECT * FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey} WHERE '
+    def _compile_fltr_expr(self):
+        from_expr,from_tbl,join_tbl_lst=self._make_rnd_from_expr()
+        where_terms, log_ops=self._get_rnd_where_lst(from_tbl,join_tbl_lst)
+        expr1='SELECT * '+ from_expr+ ' WHERE '
         where_expr=[None]*(len(where_terms)+len(log_ops))
         where_expr[::2]=where_terms
         where_expr[1::2]=log_ops
         where_expr=' '.join(x for x in where_expr )
         where_expr=where_expr + ' '
-        return expr1+where_expr
+        return expr1+where_expr,where_terms,from_tbl,join_tbl_lst
+
 
 
     def make_single_fltr_query(self) -> dict:
         dic={}
-        where_terms, log_ops=self._get_rnd_where_lst()
-        single_expr=self._build_fltr_expr(self.PARENT_NAME,self.CHILD_NAME, self.FKEY_NAME, where_terms, log_ops)
+        single_expr,where_terms,from_tbl, join_tbl_lst =self._compile_fltr_expr()
         query=self.make_query(self.CUR, single_expr)
         dic['query']=query
         dic['query_desc']={
             "type":"single_fltr",
-            "aggfntn":"None",
-            "parent_name":self.PARENT_NAME,
-            "child_name":self.CHILD_NAME,
+            "from_tbl_name":from_tbl,
+            "join_tbl_name_lst":join_tbl_lst,
             "sql":single_expr,
             "n_rows":query.shape[0],
             "n_cols":query.shape[1]
         }
         return dic
+
+
+
+
+
+
+
+#     def _get_rnd_where_lst(self, drop_fkey=True) -> tuple:
+#         # use WHERE with mix of CAT, CNT, DT variables from both PARENT and CHILD
+#         if self.SEED:
+#             np.random.seed(self.seed_no)
+#             random.seed(self.seed_no)
+#         all_possible_vars=self._mix_vars((self.PARENT_NAME,self.CAT_VARS['parent']),(self.CHILD_NAME,self.CAT_VARS['child']),(self.PARENT_NAME,self.CNT_VARS['parent']),(self.CHILD_NAME,self.CNT_VARS['child']),(self.PARENT_NAME,self.DT_VARS['parent']),(self.CHILD_NAME,self.DT_VARS['child']))
+        
+#         if drop_fkey:
+#             all_possible_vars=[x for x in  all_possible_vars if  self.FKEY_NAME not in  x]
+#             if len(all_possible_vars)==1:
+#                 raise Exception("Only join key is available as a variable!! Add more variables.")
+
+#         n_vars_bag=np.arange(1, 1+len(all_possible_vars)) #this gives possible number of terms in the where clause
+#         if self.ATTRS['LESS_CMP_VARS']:#define slope-down discrete distribution 
+#             n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
+#             # n_var_probs= np.zeros_like(n_vars_bag)
+#             # n_var_probs[0]=1
+#             n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
+#         else:
+#             n_vars=np.random.choice(n_vars_bag)
+#         picked_vars = random.sample(all_possible_vars, n_vars)
+
+#         all_cat_vars=np.concatenate(list(self.CAT_VARS.values()))
+#         all_cnt_vars=np.concatenate(list(self.CNT_VARS.values()))
+#         all_dt_vars=np.concatenate(list(self.DT_VARS.values()))
+#         terms=[]
+#         log_ops=[]
+#         for long_var_name in picked_vars: #This loop will find the a proper random value comparison operation and proper random value for all the picked variables
+#             #var=long_var_name[long_var_name.find(".")+1:]
+#             x=long_var_name.split(".") #Note: it is assumed that variable names do NOT include any "."
+#             var_tbl=x[0]
+#             var=x[1]
+#             var_tbl_rank='parent' if var_tbl==self.PARENT_NAME else 'child'
+            
+#             #adding not to long variable name 
+#             not_status=np.random.choice(list(self.ATTRS['NOT_STATE'].keys()), p=list(self.ATTRS['NOT_STATE'].values()) )
+#             selected_long_var_name= 'NOT '+long_var_name if not_status=='1' else long_var_name
+            
+#             if var in all_cat_vars:
+#                 picked_cmp_op=np.random.choice(list(self.ATTRS['CAT_OPS'].keys()),p=list(self.ATTRS['CAT_OPS'].values()))
+#                 if picked_cmp_op=='IN' or picked_cmp_op=='NOT IN' :
+#                     possible_no_of_in_terms=np.arange(2,len(self.CAT_VAL_BAGS[var_tbl_rank][var]))
+#                     no_of_in_terms=np.min([np.random.choice(possible_no_of_in_terms),self.max_no_in_terms]) if self.max_no_in_terms != 0 else np.random.choice(possible_no_of_in_terms)
+#                     vals=np.random.choice(self.CAT_VAL_BAGS[var_tbl_rank][var], size=no_of_in_terms)
+#                     for i,x in enumerate(vals): #This will eliminate double quotes in the list of values used in th eIN clause
+#                         try:
+#                             vals[i]=eval(x)
+#                         except:
+#                             continue
+#                     if picked_cmp_op=='IN':
+#                         term =f" {selected_long_var_name} IN {tuple(vals)} "
+#                     else:
+#                         term=f" {selected_long_var_name} NOT IN {tuple(vals)} "
+#                 else:
+#                     val=np.random.choice(self.CAT_VAL_BAGS[var_tbl_rank][var])
+#                     term=f" {selected_long_var_name} {picked_cmp_op} {val} "
+            
+#             elif var in all_cnt_vars:
+#                 picked_cmp_op=np.random.choice(list(self.ATTRS['CNT_OPS'].keys()),p=list(self.ATTRS['CNT_OPS'].values()))
+#                 if picked_cmp_op=='BETWEEN' or picked_cmp_op=='NOT BETWEEN':
+#                     lower_bound_bag=self.CNT_VAL_BAGS[var_tbl_rank][var]
+#                     lower_bound=np.random.choice(lower_bound_bag)
+#                     upper_bound_bag=[x for x in lower_bound_bag if x>=lower_bound]
+#                     upper_bound=np.random.choice(upper_bound_bag)
+#                     if picked_cmp_op=='BETWEEN':
+#                         term=f" {selected_long_var_name} BETWEEN {lower_bound} AND {upper_bound} "
+#                     else:
+#                         term=f" {selected_long_var_name} NOT BETWEEN {lower_bound} AND {upper_bound} "
+#                 else:
+#                     val=np.random.choice(self.CNT_VAL_BAGS[var_tbl_rank][var])
+#                     term=f" {selected_long_var_name} {picked_cmp_op} {val} "
+            
+#             elif var in all_dt_vars:
+#                 picked_cmp_op=np.random.choice(list(self.ATTRS['DT_OPS'].keys()),p=list(self.ATTRS['DT_OPS'].values()))
+#                 if picked_cmp_op=='BETWEEN':
+#                     pass #To complete
+#                 elif picked_cmp_op=='IN':
+#                     pass #To complete
+#                 else:
+#                     pass#To complete
+#             else:
+#                 raise Exception(f"Can not find {var} in the lists of all variables!!")
+            
+#             terms.append(term)
+        
+#         selected_logic_ops=np.random.choice(list(self.ATTRS['LOGIC_OPS'].keys()), size=len(terms)-1, p=list(self.ATTRS['LOGIC_OPS'].values()))
+#         return terms, selected_logic_ops
+
+
+
+
+
+
+
+
+
 
 
 
