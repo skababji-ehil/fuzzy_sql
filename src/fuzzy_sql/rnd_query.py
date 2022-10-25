@@ -5,6 +5,9 @@ import numpy as np
 import pandas as pd
 import random
 from sklearn.preprocessing import StandardScaler
+from jsonschema import Draft4Validator
+import json
+
 
 
 class RND_QUERY():
@@ -22,6 +25,19 @@ class RND_QUERY():
         """
         assert len(tbl_names_lst)==len(set(tbl_names_lst)), "You can not have tables with the same name"
         assert len(tbl_names_lst)==len(metadata_lst),"Each input table name shall have its own metadata dictionary."
+        
+        #validate metadata schema
+        with open('schema.json') as f:
+            schema=json.load(f)
+        validator=Draft4Validator(schema)
+        for i, metadata in enumerate(metadata_lst):
+            res=list(validator.iter_errors(metadata))
+            if len(res)==0:
+                tbl_name=tbl_names_lst[i]
+                print(f"Metadata fot table {tbl_name} validated.") 
+            else:
+                print(res) 
+
 
        
 
@@ -33,7 +49,7 @@ class RND_QUERY():
 
     
         ## SMK ## self.SOLE_GRP, self.ROOT_GRP, self.CHILD_GRP, self.PARENT_GRP=self._classify_tables(tbl_names_lst,metadata_lst) 
-        self.SOLE_NAME_LST, _, self.CHILD_NAME_LST, self.PARENT_NAME_LST=self._classify_tables(tbl_names_lst,metadata_lst) 
+        self.PARENT_NAME_LST,self.CHILD_NAME_LST,self.SOLE_NAME_LST =self._classify_tables(tbl_names_lst,metadata_lst) 
 
         
         
@@ -94,8 +110,8 @@ class RND_QUERY():
         for i, tbl_name in enumerate(self.TBL_NAME_LST):
             val_dict={}
             val_dict['tbl_name']=tbl_name
-            for j,var_tpl in enumerate(metadata_lst[i]['var']):
-                val_dict[var_tpl[0]]=self._make_val_bag(tbl_name, metadata_lst[i]['var'][j][0])
+            for j,var_tpl in enumerate(metadata_lst[i]['table_vars']):
+                val_dict[var_tpl[0]]=self._make_val_bag(tbl_name, metadata_lst[i]['table_vars'][j][0])
             self.VAL_LST.append(val_dict)
         
         # # Generate dictionaries of bags for various variables
@@ -124,23 +140,23 @@ class RND_QUERY():
 
     def _classify_tables(self,tbl_names_lst,metadata_lst):
         sole_grp=[]
-        root_grp=[]
         child_grp=[]
         parent_grp=[]
-        for i, tbl in enumerate(tbl_names_lst):
-            if metadata_lst[i]['tbl_key_name']=='Null':
-                sole_grp.append(tbl)
-                continue
-            elif metadata_lst[i]['parent_ref']=='Null':
-                root_grp.append(tbl)
-                continue
-            else:
-                child_grp.append(tbl)
-                parent_tbls=[x[0] for x in metadata_lst[i]['parent_ref']]
-                parent_grp.append(parent_tbls)
 
-        parent_grp=list(set([y for x in parent_grp for y in x]))
-        return sole_grp,root_grp,child_grp,parent_grp
+
+        for i, (tbl_name, metadata) in enumerate(zip(tbl_names_lst,metadata_lst)):
+            if 'parent_details' in metadata:
+                child_grp.append(tbl_name) 
+                parent_grp+=list(metadata['parent_details'].keys()) 
+            else:
+                sole_grp.append(tbl_name)
+        parent_grp=list(set(parent_grp))
+        new_sole_grp=[]
+        for sole in sole_grp:
+            if sole not in parent_grp:
+                new_sole_grp.append(sole)
+
+        return parent_grp,child_grp,new_sole_grp
 
 
     def _get_tbl_vars_by_type(self,var_type, tbl_name, drop_key=False):
@@ -197,15 +213,15 @@ class RND_QUERY():
     
     def _map_vars(self,metadata: dict) -> dict:
         mod_metadata=copy.deepcopy(metadata)
-        for i, var_tpl in enumerate(mod_metadata['var']):
+        for i, var_tpl in enumerate(mod_metadata['table_vars']):
             if var_tpl[1] in ['quantitative','continuous','interval','ratio', 'REAL']:
-                mod_metadata['var'][i].append("CNT")
+                mod_metadata['table_vars'][i].append("CNT")
             elif var_tpl[1] in ['qualitative','categorical','nominal','discrete','ordinal','dichotomous', 'TEXT', 'INTEGER']:
-                mod_metadata['var'][i].append("CAT")
+                mod_metadata['table_vars'][i].append("CAT")
             elif var_tpl[1] in ['date','time','datetime']:
-                mod_metadata['var'][i].append("DT")
+                mod_metadata['table_vars'][i].append("DT")
             elif var_tpl[1] in ['ignore','IGNORE']:
-                mod_metadata['var'][i].append("IGN")
+                mod_metadata['table_vars'][i].append("IGN")
             else:
                 raise Exception(f"Variable type {var_tpl[1]} in metadata file is not recognized!")
         return mod_metadata
@@ -215,7 +231,7 @@ class RND_QUERY():
         # This function gets the input variable type (CAT, CNT or DT) from the metadata and returns it
         i=self.TBL_NAME_LST.index(table_name) #find table index
         metadata=self.METADATA_LST[i] #get corresponding metadata dictionary for the table
-        var_tpl_lst=metadata['var']
+        var_tpl_lst=metadata['table_vars']
         for j,var_tpl in enumerate(var_tpl_lst):#search for variable in metadata tuples and return it type
             if var_tpl[0]==var_name:
                 return var_tpl_lst[j][2]
