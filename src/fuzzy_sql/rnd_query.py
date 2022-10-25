@@ -48,25 +48,9 @@ class RND_QUERY():
         self.CUR = db_conn.cursor()
 
     
-        ## SMK ## self.SOLE_GRP, self.ROOT_GRP, self.CHILD_GRP, self.PARENT_GRP=self._classify_tables(tbl_names_lst,metadata_lst) 
         self.PARENT_NAME_LST,self.CHILD_NAME_LST,self.SOLE_NAME_LST =self._classify_tables(tbl_names_lst,metadata_lst) 
 
-        
-        
-        # self.PARENT_NAME = parent_tbl_name #RP = Real Parent
-        # self.CHILD_NAME = child_tbl_name #RC = Real Child
-        # self.metadata=copy.deepcopy(metadata)
-        
-        #Fetch Real data (both parent and child)
-        # self.PARENT_DF=pd.read_sql_query(f'SELECT * FROM {self.PARENT_NAME}', db_conn) #Real Parent Dataframe
-        # self.CHILD_DF=pd.read_sql_query(f'SELECT * FROM {self.CHILD_NAME}', db_conn) #Real Child Dataframe
 
-
-        # #Get foreign key name
-        # self.FKEY_NAME=self.metadata['key']
-
-        # #Delete foreign key from child variables to avoid repetition of variable in various expression
-        # del self.metadata['child'][self.FKEY_NAME]
 
         self.TBL_NAME_LST=tbl_names_lst
 
@@ -76,18 +60,6 @@ class RND_QUERY():
             mod_metadata_lst.append(self._map_vars(metadata_i))
 
         self.METADATA_LST=mod_metadata_lst #A list of dictionaries for each table
-
-        # self.CAT_VARS={} #Parent Categorical Variables
-        # self.CNT_VARS={}
-        # self.DT_VARS={}
-        # self.CAT_VARS['parent']=[key for key, value in self.metadata['parent'].items() if value in ['qualitative','categorical','nominal','discrete','ordinal','dichotomous']]
-        # self.CAT_VARS['child']=[key for key, value in self.metadata['child'].items() if value in ['qualitative','categorical','nominal','discrete','ordinal','dichotomous']]
-        # self.CNT_VARS['parent']=[key for key, value in self.metadata['parent'].items() if value in ['quantitative','continuous','interval','ratio']]
-        # self.CNT_VARS['child']=[key for key, value in self.metadata['child'].items() if value in ['quantitative','continuous','interval','ratio']]
-        # self.DT_VARS['parent']=[key for key, value in self.metadata['parent'].items() if value in ['date','time','datetime']]
-        # self.DT_VARS['child']=[key for key, value in self.metadata['child'].items() if value in ['date','time','datetime']]
-
-
 
         # Aggregate function applies only when there is at least one continuous variable 
         # self.AGG_FNCTN=True if len(self.CNT_VARS['parent'])!=0 or len(self.CNT_VARS['child'])!=0 else False
@@ -106,25 +78,16 @@ class RND_QUERY():
 
         self.TBL_LST=mod_tbl_lst
 
+        #Generate value lists
         self.VAL_LST=[]
         for i, tbl_name in enumerate(self.TBL_NAME_LST):
             val_dict={}
-            val_dict['tbl_name']=tbl_name
+            val_dict['table_name']=tbl_name
             for j,var_tpl in enumerate(metadata_lst[i]['table_vars']):
                 val_dict[var_tpl[0]]=self._make_val_bag(tbl_name, metadata_lst[i]['table_vars'][j][0])
             self.VAL_LST.append(val_dict)
         
-        # # Generate dictionaries of bags for various variables
-        # self.CAT_VAL_BAGS={}
-        # self.CNT_VAL_BAGS={}
-        # self.DT_VAL_BAGS={}
-        # self.CAT_VAL_BAGS['parent']=self._make_bags(self.PARENT_DF[self.CAT_VARS['parent']])
-        # self.CNT_VAL_BAGS['parent']=self._make_bags(self.PARENT_DF[self.CNT_VARS['parent']])
-        # self.DT_VAL_BAGS['parent']=self._make_bags(self.PARENT_DF[self.DT_VARS['parent']])
-        # self.CAT_VAL_BAGS['child']=self._make_bags(self.CHILD_DF[self.CAT_VARS['child']])
-        # self.CNT_VAL_BAGS['child']=self._make_bags(self.CHILD_DF[self.CNT_VARS['child']])
-        # self.DT_VAL_BAGS['child']=self._make_bags(self.CHILD_DF[self.DT_VARS['child']])
-        
+
         self.min_join_clauses=1 #set it larger than one to enforce join clause 
         self.max_no_in_terms=5 #Maximum number of terms for 'in' clause (set it to 0 if you do not want to impose any limit)
     
@@ -134,7 +97,7 @@ class RND_QUERY():
     def _get_tbl_index(self,tbl_name):
         #lookup table index in METADATA_LST
         for i,metadata in enumerate(self.METADATA_LST):
-            if metadata['tbl_name']==tbl_name:
+            if metadata['table_name']==tbl_name:
                 return i
 
 
@@ -162,11 +125,11 @@ class RND_QUERY():
     def _get_tbl_vars_by_type(self,var_type, tbl_name, drop_key=False):
         # Returns variables by type (i.e CAT, CNT or DT) for the input table by referring to the corresponding metadata
         for i,metadata in enumerate(self.METADATA_LST):#lookup table index in METADATA_LST
-            if metadata['tbl_name']==tbl_name:
+            if metadata['table_name']==tbl_name:
                 tbl_idx=i
                 break
         fetched_vars=[]
-        var_tpls=self.METADATA_LST[tbl_idx]['var']
+        var_tpls=self.METADATA_LST[tbl_idx]['table_vars']
         for tpl in var_tpls:
             if tpl[2]==var_type:
                 fetched_vars.append(tpl[0])
@@ -179,11 +142,11 @@ class RND_QUERY():
         #search thru all tables and check if tbl_name exists in parenet 
         tbl_childs=[]
         for i,metadata in enumerate(self.METADATA_LST):#lookup table index in METADATA_LST
-            if metadata['parent_ref']=='Null':
+            if 'parent_details' not in metadata: 
                 continue
-            parents=[prnt_tpl[0] for prnt_tpl in metadata['parent_ref']]
+            parents=list(metadata['parent_details'].keys())
             if tbl_name in parents:
-                tbl_childs.append(metadata['tbl_name'])
+                tbl_childs.append(metadata['table_name'])
         return list(set(tbl_childs))
     
     def _prepend_tbl_name(self,tbl_name,vars_lst):
@@ -307,21 +270,23 @@ class RND_QUERY():
 ##################################### METHODS FOR GENERATING RANDOM AGGREGATE QUERIES #############################
 
 
-    def _get_join_on_sub_expr(self,tbl1,tbl2):
+    def _get_join_on_sub_expr(self,prnt,chld):
         #This method deals with both individual and composite keys but it is not tested yet using any composite keys
-        tbl1_key_lst=self.METADATA_LST[self._get_tbl_index(tbl1)]['tbl_key_name']
-        tbl2_key_lst=self.METADATA_LST[self._get_tbl_index(tbl2)]['tbl_key_name']
-        assert len(tbl1_key_lst) !=0, "Joining key is not defined!"
-        assert len(tbl1_key_lst)==len(tbl2_key_lst),"Both connected tables shall have the same number of joining keys"
-        tbl1_key_lst=self._prepend_tbl_name(tbl1,tbl1_key_lst)
-        tbl2_key_lst=self._prepend_tbl_name(tbl2,tbl2_key_lst)
-        if len(tbl1_key_lst)==1:
-            expr=f" ON {tbl1_key_lst[0]}={tbl2_key_lst[0]} "
+        chld_tbl_idx=self._get_tbl_index(chld)
+        chld_metadata=self.METADATA_LST[chld_tbl_idx]
+        prnt_key_lst=chld_metadata['parent_details'][prnt][0]
+        chld_key_lst=chld_metadata['parent_details'][prnt][1]
+        assert len(prnt_key_lst) !=0, "Joining key is not defined!"
+        assert len(prnt_key_lst)==len(chld_key_lst),"Both connected tables shall have the same number of joining keys"
+        prnt_key_lst=self._prepend_tbl_name(prnt,prnt_key_lst)
+        chld_key_lst=self._prepend_tbl_name(chld,chld_key_lst)
+        if len(prnt_key_lst)==1:
+            expr=f" ON {prnt_key_lst[0]}={chld_key_lst[0]} "
         else:
             expr=" ON "
-            for i, (tbl1_key, tbl2_key) in enumerate(zip(tbl1_key_lst,tbl2_key_lst)):
+            for i, (tbl1_key, tbl2_key) in enumerate(zip(prnt_key_lst,chld_key_lst)):
                 expr+= f"{tbl1_key} = {tbl2_key}"
-                if i < len(tbl1_key_lst)-1:
+                if i < len(prnt_key_lst)-1:
                     expr+=" AND "
         return expr
 
