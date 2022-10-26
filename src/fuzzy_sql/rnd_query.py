@@ -88,11 +88,21 @@ class RND_QUERY():
             self.VAL_LST.append(val_dict)
         
 
-        self.min_join_clauses=1 #set it larger than one to enforce join clause 
-        self.max_no_in_terms=5 #Maximum number of terms for 'in' clause (set it to 0 if you do not want to impose any limit)
-    
+        self.min_join_clauses=1 #set it larger than zero to enforce join clause. If you set it to zero, you may get random unrelated queries
+        self.max_in_terms=3 #Maximum number of values for 'in' clause (set to np.inf, if u do not want to enforce any upper bound)
+        self.max_groupby_terms=3 #This is the maximum number of groupby variables (set to np.inf, if u do not want to enforce any upper bound)
 
 ########################################## METHODS SERVING TABLES  #########################
+
+    def _flatten_lst(self,lst):
+        return [item for sublist in lst for item in sublist]
+
+    def _remove_sublst(self, lst, sublst):
+        sublst=list(set(sublst))
+        for x in sublst:
+            lst.remove(x)
+        return lst
+
 
     def _get_tbl_index(self,tbl_name):
         #lookup table index in METADATA_LST
@@ -121,21 +131,54 @@ class RND_QUERY():
 
         return parent_grp,child_grp,new_sole_grp
 
+    def _get_child_details(self, tbl_name)-> dict:
+        # This will return a dictionary for the input table_name (self) for all its childs as keys and list of two lists  of keys for parent and child respectively 
+        #"child1":[["self_comp_1","self_comp_2"],["child_comp_1",child_comp_2]]
+        #"child2":[["self_comp_1","self_comp_2"],["child_comp_1",child_comp_2]] ..etc
+        child_name_lst=self._get_tbl_childs(tbl_name)
+        child_idx_lst=[self._get_tbl_index(child_name) for child_name in child_name_lst]
+        child_details={}
+        for child_name, child_idx in zip(child_name_lst, child_idx_lst):
+            child_details[child_name]=self.METADATA_LST[child_idx]['parent_details'][tbl_name]
+        return child_details
 
+    def _get_table_keys(self, tbl_name):
+        #if table is sole, this function is not supposed to be called!
+        # if table is child, get its get keys from its metadata
+        # if table is parent, search for its childs and get its keys from over there.
+        # if table is both parent and child, both if's will executed and key_lst will have all its upward and downward keys
+        key_lst=[]
+        tbl_idx=self._get_tbl_index(tbl_name)
+        if tbl_name in self.CHILD_NAME_LST:
+            parent_details=self.METADATA_LST[tbl_idx]['parent_details']
+            for parent in parent_details:
+                key_lst.append(parent_details[parent][1])
+
+        if tbl_name in self.PARENT_NAME_LST: 
+            child_details=self._get_child_details(tbl_name)
+            for child in child_details:
+                key_lst.append(child_details[child][0])
+            
+        key_lst=self._flatten_lst(key_lst)
+        return key_lst
+    
     def _get_tbl_vars_by_type(self,var_type, tbl_name, drop_key=False):
         # Returns variables by type (i.e CAT, CNT or DT) for the input table by referring to the corresponding metadata
-        for i,metadata in enumerate(self.METADATA_LST):#lookup table index in METADATA_LST
-            if metadata['table_name']==tbl_name:
-                tbl_idx=i
-                break
+        # for i,metadata in enumerate(self.METADATA_LST):#lookup table index in METADATA_LST
+        #     if metadata['table_name']==tbl_name:
+        #         tbl_idx=i
+        #         break
+        tbl_idx=self._get_tbl_index(tbl_name)
         fetched_vars=[]
         var_tpls=self.METADATA_LST[tbl_idx]['table_vars']
         for tpl in var_tpls:
             if tpl[2]==var_type:
                 fetched_vars.append(tpl[0])
         if drop_key:
-            if self.METADATA_LST[tbl_idx]['tbl_key_name'] in fetched_vars:
-                fetched_vars.remove(self.METADATA_LST[tbl_idx]['tbl_key_name'])  
+                keys=self._get_table_keys(tbl_name)
+                fetched_vars=self._remove_sublst(fetched_vars,keys)
+                #fetched_vars.remove(keys)
+                #fetched_vars.remove(self.METADATA_LST[tbl_idx]['tbl_key_name'])  
         return fetched_vars
 
     def _get_tbl_childs(self,tbl_name):
@@ -328,7 +371,7 @@ class RND_QUERY():
                 n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
             else:
                 n_vars=np.random.choice(n_vars_bag)
-            picked_vars = random.sample(all_catdt_vars, n_vars)
+            picked_vars = random.sample(all_catdt_vars, min(n_vars, self.max_groupby_terms))
 
         else: #If there is only one sole table (ie tabular case)
             dt_vars=self._get_tbl_vars_by_type('DT',from_tbl)
@@ -345,7 +388,7 @@ class RND_QUERY():
                 n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
             else:
                 n_vars=np.random.choice(n_vars_bag)
-            picked_vars = random.sample(catdt_vars, n_vars)
+            picked_vars = random.sample(catdt_vars, min(n_vars, self.max_groupby_terms))
 
         return picked_vars
 
@@ -366,6 +409,7 @@ class RND_QUERY():
             picked_cnt_var = np.random.choice(all_cnt_vars)
         else: #If there is only one sole table (ie tabular case)
             cnt_vars=self._get_tbl_vars_by_type('CNT',from_tbl, drop_key=False)
+            assert len(cnt_vars)!=0, "No continuous variable is available to use it with an Aggregate Function. Please set agg_fnt to False."
             picked_cnt_var=np.random.choice(cnt_vars)
         picked_log_op=np.random.choice(list(self.ATTRS['AGG_OPS'].keys()), p=list(self.ATTRS['AGG_OPS'].values()))
         return picked_log_op,picked_cnt_var
