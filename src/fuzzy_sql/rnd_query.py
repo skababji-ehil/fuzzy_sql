@@ -90,7 +90,7 @@ class RND_QUERY():
 
         self.min_join_clauses=1 #set it larger than zero to enforce join clause. If you set it to zero, you may get random unrelated queries
         self.max_in_terms=3 #Maximum number of values for 'in' clause (set to np.inf, if u do not want to enforce any upper bound)
-        self.max_groupby_terms=3 #This is the maximum number of groupby variables (set to np.inf, if u do not want to enforce any upper bound)
+        self.max_groupby_terms=np.inf #This is the maximum number of groupby variables (set to np.inf, if u do not want to enforce any upper bound)
 
 ########################################## METHODS SERVING TABLES  #########################
 
@@ -109,7 +109,6 @@ class RND_QUERY():
         for i,metadata in enumerate(self.METADATA_LST):
             if metadata['table_name']==tbl_name:
                 return i
-
 
     def _classify_tables(self,tbl_names_lst,metadata_lst):
         sole_grp=[]
@@ -164,10 +163,6 @@ class RND_QUERY():
     
     def _get_tbl_vars_by_type(self,var_type, tbl_name, drop_key=False):
         # Returns variables by type (i.e CAT, CNT or DT) for the input table by referring to the corresponding metadata
-        # for i,metadata in enumerate(self.METADATA_LST):#lookup table index in METADATA_LST
-        #     if metadata['table_name']==tbl_name:
-        #         tbl_idx=i
-        #         break
         tbl_idx=self._get_tbl_index(tbl_name)
         fetched_vars=[]
         var_tpls=self.METADATA_LST[tbl_idx]['table_vars']
@@ -177,8 +172,6 @@ class RND_QUERY():
         if drop_key:
                 keys=self._get_table_keys(tbl_name)
                 fetched_vars=self._remove_sublst(fetched_vars,keys)
-                #fetched_vars.remove(keys)
-                #fetched_vars.remove(self.METADATA_LST[tbl_idx]['tbl_key_name'])  
         return fetched_vars
 
     def _get_tbl_childs(self,tbl_name):
@@ -193,7 +186,7 @@ class RND_QUERY():
         return list(set(tbl_childs))
     
     def _prepend_tbl_name(self,tbl_name,vars_lst):
-        # Returns teh input var names but prepended with the input table
+        # Returns the input var names but prepended with the input table
         var_names=[tbl_name+'.'+x for x in vars_lst]
         return var_names
 
@@ -335,7 +328,7 @@ class RND_QUERY():
 
 
 
-    def _get_rnd_groupby_lst(self,from_tbl, join_tbl_lst, drop_fkey=True)-> list:
+    def _get_rnd_groupby_lst(self,from_tbl, join_tbl_lst, drop_fkey)-> list:
         #returns randomly picked cat vars including the concatenated table name of the real data (ie that is defined in the class)
         #Note: You can group by CAT_VARS and DT_VARS whether from parent or child or both
         if self.SEED:
@@ -417,7 +410,7 @@ class RND_QUERY():
 
     def _compile_agg_expr(self,agg_fntn) -> str:
         from_expr, from_table,join_tbl_lst=self._make_rnd_from_expr() #from table is the table right after the from clause which can be either a sole or parent table  
-        groupby_lst=self._get_rnd_groupby_lst(from_table,join_tbl_lst)
+        groupby_lst=self._get_rnd_groupby_lst(from_table,join_tbl_lst, drop_fkey=True)
         expr2_1=' GROUP BY '
         expr2_2=f'{groupby_lst}'
         expr2_2=expr2_2.replace("[","")
@@ -490,13 +483,46 @@ class RND_QUERY():
 
 ##################################### METHODS FOR GENERATING RANDOM FILTER QUERIES #############################
 
+    def _get_tbl_val_dict(self, tbl_name)->tuple:
+        #Thi will return a tuple of the input dictionary name and its corresponding var-val dictionary. You can get the list of all values by checking the dictionary keys.
+        for tbl_val_dic in self.VAL_LST:
+            val_dict=copy.deepcopy(tbl_val_dic)
+            if tbl_val_dic['table_name']==tbl_name:
+                del val_dict['table_name']
+                return (tbl_name, val_dict)
 
-    def _get_rnd_where_lst(self, drop_fkey=True):
-        pass
+    def _get_tbl_var_tpl_lst(self, tbl_name):
+        for tbl_metdata in self.METADATA_LST:
+            if tbl_metdata['table_name']==tbl_name:
+                return [(tbl_name,var_tpl[0]) for var_tpl in tbl_metdata['table_vars'] ]
+
+
+    def _get_tbl_key_tpl(self,tbl_name):
+            keys=self._get_table_keys(tbl_name)
+            return [(tbl_name,key) for key in keys]
+
+    def _get_rnd_where_lst(self,from_tbl,join_tbl_lst, drop_fkey):
+        # use WHERE with mix of CAT, CNT, DT variables from both PARENT and CHILD
+        if self.SEED:
+            np.random.seed(self.seed_no)
+            random.seed(self.seed_no)
+        all_tbl_vars=self._get_tbl_var_tpl_lst(from_tbl)
+        for join_tbl_name in join_tbl_lst:
+            all_tbl_vars+=self._get_tbl_var_tpl_lst(join_tbl_name)
+        
+        if drop_fkey:
+            all_tbl_keys=self._get_tbl_key_tpl(from_tbl)
+            for join_tbl_name in join_tbl_lst:
+                all_tbl_keys+=self._get_tbl_key_tpl(join_tbl_name)
+            if len(all_tbl_keys)==1:
+                raise Exception("Only join key is available as a variable!! Add more variables.")
+            all_tbl_vars=self._remove_sublst(all_tbl_vars,all_tbl_keys)
+
+        
 
     def _compile_fltr_expr(self):
         from_expr,from_tbl,join_tbl_lst=self._make_rnd_from_expr()
-        where_terms, log_ops=self._get_rnd_where_lst(from_tbl,join_tbl_lst)
+        where_terms, log_ops=self._get_rnd_where_lst(from_tbl,join_tbl_lst, drop_fkey=True)
         expr1='SELECT * '+ from_expr+ ' WHERE '
         where_expr=[None]*(len(where_terms)+len(log_ops))
         where_expr[::2]=where_terms
