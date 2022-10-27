@@ -1,5 +1,6 @@
 import copy
 from http.client import MOVED_PERMANENTLY
+from matplotlib.backend_bases import PickEvent
 from matplotlib.pyplot import table
 import numpy as np
 import pandas as pd
@@ -7,7 +8,7 @@ import random
 from sklearn.preprocessing import StandardScaler
 from jsonschema import Draft4Validator
 import json
-
+from scipy import stats
 
 
 class RND_QUERY():
@@ -90,14 +91,15 @@ class RND_QUERY():
 
         self.min_join_clauses=1 #set it larger than zero to enforce join clause. If you set it to zero, you may get random unrelated queries
         self.max_in_terms=3 #Maximum number of values for 'in' clause (set to np.inf, if u do not want to enforce any upper bound)
-        self.max_groupby_terms=np.inf #This is the maximum number of groupby variables (set to np.inf, if u do not want to enforce any upper bound)
-
+        self.no_groupby_vars=np.nan ##This a fixed number of terms (vars) to be enforced in the GROUPBY clause.Set it to np.nan and the number of terms will be selected randomly. If set to a larger number than the possible GROUPBY variables, then this number will be ignored. 
+        self.no_where_vars=np.nan #This a fixed number of terms (vars) to be enforced in the WHERE clause. Set it to np.nan and the number of terms will be selected randomly. If set to a larger number than the possible WHERE variables, then this number will be ignored. 
 ########################################## METHODS SERVING TABLES  #########################
 
     def _flatten_lst(self,lst):
         return [item for sublist in lst for item in sublist]
 
     def _remove_sublst(self, lst, sublst):
+        assert len(lst)>= len(sublst), "The  length of sub-list can not be larger then the length of list"
         sublst=list(set(sublst))
         for x in sublst:
             lst.remove(x)
@@ -228,12 +230,22 @@ class RND_QUERY():
 
     def _get_var_type(self, table_name: str, var_name:str) -> str:
         # This function gets the input variable type (CAT, CNT or DT) from the metadata and returns it
-        i=self.TBL_NAME_LST.index(table_name) #find table index
-        metadata=self.METADATA_LST[i] #get corresponding metadata dictionary for the table
-        var_tpl_lst=metadata['table_vars']
+        # i=self.TBL_NAME_LST.index(table_name) #find table index
+        # metadata=self.METADATA_LST[i] #get corresponding metadata dictionary for the table
+        for tbl_metdata in self.METADATA_LST:
+            if tbl_metdata['table_name']==table_name:
+                var_tpl_lst=tbl_metdata['table_vars']
+        assert len(var_tpl_lst) !=0, f"No variables found for table {table_name}"
         for j,var_tpl in enumerate(var_tpl_lst):#search for variable in metadata tuples and return it type
             if var_tpl[0]==var_name:
                 return var_tpl_lst[j][2]
+
+
+
+
+        for tbl_metdata in self.METADATA_LST:
+            if tbl_metdata['table_name']==tbl_name:
+                metadata=tbl_metdata
 
 
     def _make_val_bag(self,table_name:str, var_name: str) -> list:
@@ -246,8 +258,15 @@ class RND_QUERY():
         if var_type=='CAT':
             #print(table_name,var_name)
             vals=["'"+str(x)+"'" for x in vals if "'" not in x or '"' not in x] # for the values of categorical variables, add quote to avoid errors in SQL statement
-        vals=vals if len(vals)!=0 else ['N/A']
+        vals=vals if len(vals)!=0 else ["'N/A'"]
         return vals
+
+
+    def _get_val_bag(self, table_name: str, var_name:str) -> str:
+        i=self.TBL_NAME_LST.index(table_name)
+        assert self.VAL_LST[i]['table_name']==table_name, "Something wrong in table indexing!"
+        return self.VAL_LST[i][var_name]
+
 
 
 ####################################### COMMON METHODS #################################### 
@@ -299,7 +318,14 @@ class RND_QUERY():
         self.SYN_TBL_NAME_LST=syn_tbl_name_lst
 
 
-
+    def _make_int_rv(self, max_int, dist='favor_small'): 
+        xk = np.arange(1,max_int)   #generate supports   
+        if dist=='favor_small':
+            pk = n_var_probs=xk[::-1]/xk.sum() #sloped down distribution of supports for less terms in where clause
+        else: 
+            pk = np.ones(len(xk))/len(xk) #uniform distribution otherwise
+        custom_rv = stats.rv_discrete(name='no_where_terms', values=(xk, pk))
+        return custom_rv
 
 
 
@@ -334,6 +360,9 @@ class RND_QUERY():
         if self.SEED:
             np.random.seed(self.seed_no)
             random.seed(self.seed_no)
+            seed=self.seed_no
+        else:
+            seed=None
         all_catdt_vars=[]
         if join_tbl_lst != 'Null':
             join_tbl_lst.append(from_tbl)#possible group-by list includes only from_tbl and join_tbl lists
@@ -356,15 +385,24 @@ class RND_QUERY():
             # parent_cat_vars=[self.PARENT_NAME+'.'+x for x in self.CAT_VARS['parent']]
             # child_cat_vars=[self.CHILD_NAME+'.'+x for x in self.CAT_VARS['child']]
             # all_cat_vars=parent_cat_vars +child_cat_vars
-            n_vars_bag=np.arange(1, 1+len(all_catdt_vars)) 
-            if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
-                n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
-                # n_var_probs= np.zeros_like(n_vars_bag)
-                # n_var_probs[0]=1
-                n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
-            else:
-                n_vars=np.random.choice(n_vars_bag)
-            picked_vars = random.sample(all_catdt_vars, min(n_vars, self.max_groupby_terms))
+            # n_vars_bag=np.arange(1, 1+len(all_catdt_vars)) 
+            # if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
+            #     n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
+            #     # n_var_probs= np.zeros_like(n_vars_bag)
+            #     # n_var_probs[0]=1
+            #     n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
+            # else:
+            #     n_vars=np.random.choice(n_vars_bag)
+            
+            # picked_vars = random.sample(all_catdt_vars, min(n_vars, self.max_groupby_terms))
+                
+            custom_rv=self._make_int_rv(len(all_catdt_vars)+1, dist='favor_small')
+            selected_n_vars=custom_rv.rvs(1, random_state=seed)
+            selected_n_vars=selected_n_vars if self.no_groupby_vars==np.nan else min(len(all_catdt_vars),self.no_groupby_vars)
+            picked_vars = random.sample(all_catdt_vars, selected_n_vars)
+
+
+
 
         else: #If there is only one sole table (ie tabular case)
             dt_vars=self._get_tbl_vars_by_type('DT',from_tbl)
@@ -373,15 +411,19 @@ class RND_QUERY():
             else:
                 cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl, drop_key=False)
             catdt_vars=cat_vars+dt_vars
-            n_vars_bag=np.arange(1, 1+len(catdt_vars)) 
-            if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
-                n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
-                # n_var_probs= np.zeros_like(n_vars_bag)
-                # n_var_probs[0]=1
-                n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
-            else:
-                n_vars=np.random.choice(n_vars_bag)
-            picked_vars = random.sample(catdt_vars, min(n_vars, self.max_groupby_terms))
+            # n_vars_bag=np.arange(1, 1+len(catdt_vars)) 
+            # if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
+            #     n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
+            #     # n_var_probs= np.zeros_like(n_vars_bag)
+            #     # n_var_probs[0]=1
+            #     n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
+            # else:
+            #     n_vars=np.random.choice(n_vars_bag)
+            # picked_vars = random.sample(catdt_vars, min(n_vars, self.max_groupby_terms))
+            custom_rv=self._make_int_rv(len(catdt_vars)+1, dist='favor_small')
+            selected_n_vars=custom_rv.rvs(1, random_state=seed)
+            selected_n_vars=selected_n_vars if self.no_groupby_vars==np.nan else min(len(catdt_vars),self.no_groupby_vars)
+            picked_vars = random.sample(catdt_vars, selected_n_vars)
 
         return picked_vars
 
@@ -497,15 +539,19 @@ class RND_QUERY():
                 return [(tbl_name,var_tpl[0]) for var_tpl in tbl_metdata['table_vars'] ]
 
 
+
     def _get_tbl_key_tpl(self,tbl_name):
             keys=self._get_table_keys(tbl_name)
             return [(tbl_name,key) for key in keys]
 
-    def _get_rnd_where_lst(self,from_tbl,join_tbl_lst, drop_fkey):
+    def _get_rnd_where_expr(self,from_tbl,join_tbl_lst, drop_fkey):
         # use WHERE with mix of CAT, CNT, DT variables from both PARENT and CHILD
         if self.SEED:
             np.random.seed(self.seed_no)
             random.seed(self.seed_no)
+            seed=self.seed_no
+        else:
+            seed=None
         all_tbl_vars=self._get_tbl_var_tpl_lst(from_tbl)
         for join_tbl_name in join_tbl_lst:
             all_tbl_vars+=self._get_tbl_var_tpl_lst(join_tbl_name)
@@ -518,24 +564,105 @@ class RND_QUERY():
                 raise Exception("Only join key is available as a variable!! Add more variables.")
             all_tbl_vars=self._remove_sublst(all_tbl_vars,all_tbl_keys)
 
+        custom_rv=self._make_int_rv(len(all_tbl_vars)+1, dist='favor_small')
+        selected_n_vars=custom_rv.rvs(1, random_state=seed)
+        selected_n_vars=selected_n_vars if self.no_where_vars==np.nan else min(len(all_tbl_vars),self.no_where_vars)
+        picked_vars = random.sample(all_tbl_vars, selected_n_vars)
         
+        # Get the correct operations and values for the the picked variables
+        terms=""
+        log_ops=[]
+        for  idx, (tbl_name, var_name) in enumerate(picked_vars):
+            var_type=self._get_var_type(tbl_name, var_name)
+            val_bag=self._get_val_bag(tbl_name,var_name)
+            assert len(val_bag)!=0, f"Variable {var_name} in table {tbl_name} does not have enough values to sample from!"
+            
+            #adding NOT modifier to variable name  
+            not_status=np.random.choice(list(self.ATTRS['NOT_STATE'].keys()), p=list(self.ATTRS['NOT_STATE'].values()) )
+            not_modifier= 'NOT ' if not_status=='1' else ""
+
+            if var_type=='CAT':
+                var_op=np.random.choice(list(self.ATTRS['CAT_OPS'].keys()),p=list(self.ATTRS['CAT_OPS'].values()))
+                if var_op=='IN' or var_op=='NOT IN' :
+                    possible_no_of_in_terms=np.arange(2,len(val_bag)) if len(val_bag) >2 else [1]
+                    no_of_in_terms=np.min([np.random.choice(possible_no_of_in_terms),self.max_in_terms])
+                    vals=np.random.choice(val_bag, size=no_of_in_terms)
+                    for i,x in enumerate(vals): #This will eliminate double quotes in the list of values used in the IN clause
+                        try:
+                            vals[i]=eval(x)
+                        except:
+                            continue
+                    if var_op=='IN':
+                        term =f" {not_modifier} {tbl_name}.{var_name} IN {tuple(vals)} "
+                    else:
+                        term=f" {not_modifier} {tbl_name}.{var_name} NOT IN {tuple(vals)} "
+                else:
+                    val=np.random.choice(val_bag)
+                    term=f" {not_modifier} {tbl_name}.{var_name} {var_op} {val} "
+
+            elif var_type=='CNT':
+                var_op=np.random.choice(list(self.ATTRS['CNT_OPS'].keys()),p=list(self.ATTRS['CNT_OPS'].values()))
+                if var_op=='BETWEEN' or var_op=='NOT BETWEEN':
+                    lower_bound=np.random.choice(val_bag)
+                    upper_bound_bag=[x for x in val_bag if x>=lower_bound]
+                    upper_bound=np.random.choice(upper_bound_bag)
+                    if var_op=='BETWEEN':
+                        term=f" {not_modifier} {tbl_name}.{var_name} BETWEEN {lower_bound} AND {upper_bound} "
+                    else:
+                        term=f" {not_modifier} {tbl_name}.{var_name} NOT BETWEEN {lower_bound} AND {upper_bound} "
+                else:
+                    val=np.random.choice(val_bag)
+                    term=f" {not_modifier} {tbl_name}.{var_name} {var_op} {val} "
+
+            elif var_type=='DT':
+                var_op=np.random.choice(list(self.ATTRS['DT_OPS'].keys()),p=list(self.ATTRS['DT_OPS'].values()))
+                if var_op=='BETWEEN' or var_op=='NOT BETWEEN' :
+                    lower_bound=np.random.choice(val_bag)
+                    upper_bound_bag=[x for x in val_bag if x>=lower_bound]
+                    upper_bound=np.random.choice(upper_bound_bag)
+                    if var_op=='BETWEEN':
+                        term=f" {not_modifier} {tbl_name}.{var_name} BETWEEN {lower_bound} AND {upper_bound} "
+                    else:
+                        term=f" {not_modifier} {tbl_name}.{var_name} NOT BETWEEN {lower_bound} AND {upper_bound} "
+                elif var_op=='IN' or var_op=='NOT IN':
+                    no_in_terms=random.randint(2,len(val_bag)) if len(val_bag)>2 else 2
+                    no_in_terms=min(no_in_terms, self.max_in_terms)
+                    vals=np.random.choice(val_bag, size=no_in_terms)
+                    for i,x in enumerate(vals): #This will eliminate double quotes in the list of values used in the IN clause
+                        try:
+                            vals[i]=eval(x)
+                        except:
+                            continue
+                    if var_op=='IN':
+                        term =f" {not_modifier} {tbl_name}.{var_name} IN {tuple(vals)} "
+                    else:
+                        term=f" {not_modifier} {tbl_name}.{var_name} NOT IN {tuple(vals)} "
+                else:
+                    val=np.random.choice(val_bag)
+                    term=f" {not_modifier} {tbl_name}.{var_name} {var_op} {val} "
+            else:
+                raise Exception(f"Can not find {var} in the lists of all variables!!")
+            
+            terms+=term
+            if idx <len(picked_vars)-1:
+                selected_logic_op=np.random.choice(list(self.ATTRS['LOGIC_OPS'].keys()),  p=list(self.ATTRS['LOGIC_OPS'].values()))
+                terms+=selected_logic_op
+
+        return terms
+
+                
 
     def _compile_fltr_expr(self):
         from_expr,from_tbl,join_tbl_lst=self._make_rnd_from_expr()
-        where_terms, log_ops=self._get_rnd_where_lst(from_tbl,join_tbl_lst, drop_fkey=True)
-        expr1='SELECT * '+ from_expr+ ' WHERE '
-        where_expr=[None]*(len(where_terms)+len(log_ops))
-        where_expr[::2]=where_terms
-        where_expr[1::2]=log_ops
-        where_expr=' '.join(x for x in where_expr )
-        where_expr=where_expr + ' '
-        return expr1+where_expr,where_terms,from_tbl,join_tbl_lst
+        where_expr=self._get_rnd_where_expr(from_tbl,join_tbl_lst, drop_fkey=True)
+        expr='SELECT * '+ from_expr+ ' WHERE ' + where_expr
+        return expr,from_tbl,join_tbl_lst
 
 
 
     def make_single_fltr_query(self) -> dict:
         dic={}
-        single_expr,where_terms,from_tbl, join_tbl_lst =self._compile_fltr_expr()
+        single_expr,from_tbl, join_tbl_lst =self._compile_fltr_expr()
         query=self.make_query(self.CUR, single_expr)
         dic['query']=query
         dic['query_desc']={
@@ -550,97 +677,6 @@ class RND_QUERY():
 
 
 
-
-
-
-
-#     def _get_rnd_where_lst(self, drop_fkey=True) -> tuple:
-#         # use WHERE with mix of CAT, CNT, DT variables from both PARENT and CHILD
-#         if self.SEED:
-#             np.random.seed(self.seed_no)
-#             random.seed(self.seed_no)
-#         all_possible_vars=self._mix_vars((self.PARENT_NAME,self.CAT_VARS['parent']),(self.CHILD_NAME,self.CAT_VARS['child']),(self.PARENT_NAME,self.CNT_VARS['parent']),(self.CHILD_NAME,self.CNT_VARS['child']),(self.PARENT_NAME,self.DT_VARS['parent']),(self.CHILD_NAME,self.DT_VARS['child']))
-        
-#         if drop_fkey:
-#             all_possible_vars=[x for x in  all_possible_vars if  self.FKEY_NAME not in  x]
-#             if len(all_possible_vars)==1:
-#                 raise Exception("Only join key is available as a variable!! Add more variables.")
-
-#         n_vars_bag=np.arange(1, 1+len(all_possible_vars)) #this gives possible number of terms in the where clause
-#         if self.ATTRS['LESS_CMP_VARS']:#define slope-down discrete distribution 
-#             n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
-#             # n_var_probs= np.zeros_like(n_vars_bag)
-#             # n_var_probs[0]=1
-#             n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
-#         else:
-#             n_vars=np.random.choice(n_vars_bag)
-#         picked_vars = random.sample(all_possible_vars, n_vars)
-
-#         all_cat_vars=np.concatenate(list(self.CAT_VARS.values()))
-#         all_cnt_vars=np.concatenate(list(self.CNT_VARS.values()))
-#         all_dt_vars=np.concatenate(list(self.DT_VARS.values()))
-#         terms=[]
-#         log_ops=[]
-#         for long_var_name in picked_vars: #This loop will find the a proper random value comparison operation and proper random value for all the picked variables
-#             #var=long_var_name[long_var_name.find(".")+1:]
-#             x=long_var_name.split(".") #Note: it is assumed that variable names do NOT include any "."
-#             var_tbl=x[0]
-#             var=x[1]
-#             var_tbl_rank='parent' if var_tbl==self.PARENT_NAME else 'child'
-            
-#             #adding not to long variable name 
-#             not_status=np.random.choice(list(self.ATTRS['NOT_STATE'].keys()), p=list(self.ATTRS['NOT_STATE'].values()) )
-#             selected_long_var_name= 'NOT '+long_var_name if not_status=='1' else long_var_name
-            
-#             if var in all_cat_vars:
-#                 picked_cmp_op=np.random.choice(list(self.ATTRS['CAT_OPS'].keys()),p=list(self.ATTRS['CAT_OPS'].values()))
-#                 if picked_cmp_op=='IN' or picked_cmp_op=='NOT IN' :
-#                     possible_no_of_in_terms=np.arange(2,len(self.CAT_VAL_BAGS[var_tbl_rank][var]))
-#                     no_of_in_terms=np.min([np.random.choice(possible_no_of_in_terms),self.max_no_in_terms]) if self.max_no_in_terms != 0 else np.random.choice(possible_no_of_in_terms)
-#                     vals=np.random.choice(self.CAT_VAL_BAGS[var_tbl_rank][var], size=no_of_in_terms)
-#                     for i,x in enumerate(vals): #This will eliminate double quotes in the list of values used in th eIN clause
-#                         try:
-#                             vals[i]=eval(x)
-#                         except:
-#                             continue
-#                     if picked_cmp_op=='IN':
-#                         term =f" {selected_long_var_name} IN {tuple(vals)} "
-#                     else:
-#                         term=f" {selected_long_var_name} NOT IN {tuple(vals)} "
-#                 else:
-#                     val=np.random.choice(self.CAT_VAL_BAGS[var_tbl_rank][var])
-#                     term=f" {selected_long_var_name} {picked_cmp_op} {val} "
-            
-#             elif var in all_cnt_vars:
-#                 picked_cmp_op=np.random.choice(list(self.ATTRS['CNT_OPS'].keys()),p=list(self.ATTRS['CNT_OPS'].values()))
-#                 if picked_cmp_op=='BETWEEN' or picked_cmp_op=='NOT BETWEEN':
-#                     lower_bound_bag=self.CNT_VAL_BAGS[var_tbl_rank][var]
-#                     lower_bound=np.random.choice(lower_bound_bag)
-#                     upper_bound_bag=[x for x in lower_bound_bag if x>=lower_bound]
-#                     upper_bound=np.random.choice(upper_bound_bag)
-#                     if picked_cmp_op=='BETWEEN':
-#                         term=f" {selected_long_var_name} BETWEEN {lower_bound} AND {upper_bound} "
-#                     else:
-#                         term=f" {selected_long_var_name} NOT BETWEEN {lower_bound} AND {upper_bound} "
-#                 else:
-#                     val=np.random.choice(self.CNT_VAL_BAGS[var_tbl_rank][var])
-#                     term=f" {selected_long_var_name} {picked_cmp_op} {val} "
-            
-#             elif var in all_dt_vars:
-#                 picked_cmp_op=np.random.choice(list(self.ATTRS['DT_OPS'].keys()),p=list(self.ATTRS['DT_OPS'].values()))
-#                 if picked_cmp_op=='BETWEEN':
-#                     pass #To complete
-#                 elif picked_cmp_op=='IN':
-#                     pass #To complete
-#                 else:
-#                     pass#To complete
-#             else:
-#                 raise Exception(f"Can not find {var} in the lists of all variables!!")
-            
-#             terms.append(term)
-        
-#         selected_logic_ops=np.random.choice(list(self.ATTRS['LOGIC_OPS'].keys()), size=len(terms)-1, p=list(self.ATTRS['LOGIC_OPS'].values()))
-#         return terms, selected_logic_ops
 
 
 
@@ -894,7 +930,7 @@ class RND_QUERY():
 
     def make_twin_fltr_query(self, twin_parent_name: str, twin_child_name:str) -> dict:
         dic={}
-        real_where_terms, log_ops =self._get_rnd_where_lst()
+        real_where_terms, log_ops =self._get_rnd_where_expr()
         syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
         real_expr=self._build_fltr_expr(self.PARENT_NAME, self.CHILD_NAME,self.FKEY_NAME, real_where_terms, log_ops)
         syn_expr=self._build_fltr_expr(twin_parent_name, twin_child_name,self.FKEY_NAME, syn_where_terms,log_ops)
@@ -950,7 +986,7 @@ class RND_QUERY():
     def make_single_aggfltr_query(self) -> dict:
         dic={}
         grp_lst=self._get_rnd_groupby_lst()
-        where_terms, log_ops=self._get_rnd_where_lst()
+        where_terms, log_ops=self._get_rnd_where_expr()
         single_expr=self._build_aggfltr_expr(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,grp_lst, where_terms,log_ops )
         query=self.make_query(self.CUR, single_expr)
         grpby_vars=self._drop_tbl_name(grp_lst)
@@ -974,7 +1010,7 @@ class RND_QUERY():
         real_grp_lst =self._get_rnd_groupby_lst()
         syn_grp_lst=self._expr_replace_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
 
-        real_where_terms, log_ops =self._get_rnd_where_lst()
+        real_where_terms, log_ops =self._get_rnd_where_expr()
         syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
         
         real_expr=self._build_aggfltr_expr(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,real_grp_lst, real_where_terms,log_ops)
@@ -1036,7 +1072,7 @@ class RND_QUERY():
         dic={}
         agg_fntn_tpl=self._get_rnd_aggfntn_tpl()
         grp_lst=self._get_rnd_groupby_lst()
-        where_terms, log_ops=self._get_rnd_where_lst()
+        where_terms, log_ops=self._get_rnd_where_expr()
         single_expr=self._build_aggfltr_expr_w_aggfntn(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,agg_fntn_tpl,grp_lst, where_terms,log_ops )
         query=self.make_query(self.CUR, single_expr)
         grpby_vars=self._drop_tbl_name(grp_lst)
@@ -1063,7 +1099,7 @@ class RND_QUERY():
         real_grp_lst =self._get_rnd_groupby_lst()
         syn_grp_lst=self._expr_replace_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
 
-        real_where_terms, log_ops =self._get_rnd_where_lst()
+        real_where_terms, log_ops =self._get_rnd_where_expr()
         syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
 
         real_expr=self._build_aggfltr_expr_w_aggfntn(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,real_agg_fntn_tpl,real_grp_lst, real_where_terms,log_ops )
