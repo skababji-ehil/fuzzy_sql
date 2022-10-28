@@ -93,10 +93,12 @@ class RND_QUERY():
         self.max_in_terms=3 #Maximum number of values for 'in' clause (set to np.inf, if u do not want to enforce any upper bound)
         self.no_groupby_vars=np.nan ##This a fixed number of terms (vars) to be enforced in the GROUPBY clause.Set it to np.nan and the number of terms will be selected randomly. If set to a larger number than the possible GROUPBY variables, then this number will be ignored. 
         self.no_where_vars=np.nan #This a fixed number of terms (vars) to be enforced in the WHERE clause. Set it to np.nan and the number of terms will be selected randomly. If set to a larger number than the possible WHERE variables, then this number will be ignored. 
-########################################## METHODS SERVING TABLES  #########################
+
+########################################## COMMON METHODS  #########################
 
     def _flatten_lst(self,lst):
         return [item for sublist in lst for item in sublist]
+
 
     def _remove_sublst(self, lst, sublst):
         assert len(lst)>= len(sublst), "The  length of sub-list can not be larger then the length of list"
@@ -112,12 +114,11 @@ class RND_QUERY():
             if metadata['table_name']==tbl_name:
                 return i
 
+
     def _classify_tables(self,tbl_names_lst,metadata_lst):
         sole_grp=[]
         child_grp=[]
         parent_grp=[]
-
-
         for i, (tbl_name, metadata) in enumerate(zip(tbl_names_lst,metadata_lst)):
             if 'parent_details' in metadata:
                 child_grp.append(tbl_name) 
@@ -129,8 +130,8 @@ class RND_QUERY():
         for sole in sole_grp:
             if sole not in parent_grp:
                 new_sole_grp.append(sole)
-
         return parent_grp,child_grp,new_sole_grp
+
 
     def _get_child_details(self, tbl_name)-> dict:
         # This will return a dictionary for the input table_name (self) for all its childs as keys and list of two lists  of keys for parent and child respectively 
@@ -142,6 +143,7 @@ class RND_QUERY():
         for child_name, child_idx in zip(child_name_lst, child_idx_lst):
             child_details[child_name]=self.METADATA_LST[child_idx]['parent_details'][tbl_name]
         return child_details
+
 
     def _get_table_keys(self, tbl_name):
         #if table is sole, this function is not supposed to be called!
@@ -163,6 +165,7 @@ class RND_QUERY():
         key_lst=self._flatten_lst(key_lst)
         return key_lst
     
+
     def _get_tbl_vars_by_type(self,var_type, tbl_name, drop_key=False):
         # Returns variables by type (i.e CAT, CNT or DT) for the input table by referring to the corresponding metadata
         tbl_idx=self._get_tbl_index(tbl_name)
@@ -176,6 +179,7 @@ class RND_QUERY():
                 fetched_vars=self._remove_sublst(fetched_vars,keys)
         return fetched_vars
 
+
     def _get_tbl_childs(self,tbl_name):
         #search thru all tables and check if tbl_name exists in parenet 
         tbl_childs=[]
@@ -187,10 +191,12 @@ class RND_QUERY():
                 tbl_childs.append(metadata['table_name'])
         return list(set(tbl_childs))
     
+
     def _prepend_tbl_name(self,tbl_name,vars_lst):
         # Returns the input var names but prepended with the input table
         var_names=[tbl_name+'.'+x for x in vars_lst]
         return var_names
+
 
     def _drop_tbl_name(self,vars_in: list) ->list:
         vars_out=[]
@@ -198,6 +204,7 @@ class RND_QUERY():
             split=var.split(".")
             vars_out.append(split[1])
         return vars_out
+
 
     def _expr_replace_tbl_name(self, expr: str)-> str:
         # replaces the table names of the real dataset by the table names of the synthetic datasets.
@@ -209,9 +216,6 @@ class RND_QUERY():
         return new_expr
 
 
-##################################### METHODS SERVING VARS #######################################
-    
-    
     def _map_vars(self,metadata: dict) -> dict:
         mod_metadata=copy.deepcopy(metadata)
         for i, var_tpl in enumerate(mod_metadata['table_vars']):
@@ -241,13 +245,6 @@ class RND_QUERY():
                 return var_tpl_lst[j][2]
 
 
-
-
-        for tbl_metdata in self.METADATA_LST:
-            if tbl_metdata['table_name']==tbl_name:
-                metadata=tbl_metdata
-
-
     def _make_val_bag(self,table_name:str, var_name: str) -> list:
         i=self.TBL_NAME_LST.index(table_name)
         df=self.TBL_LST[i]
@@ -266,17 +263,12 @@ class RND_QUERY():
         i=self.TBL_NAME_LST.index(table_name)
         assert self.VAL_LST[i]['table_name']==table_name, "Something wrong in table indexing!"
         return self.VAL_LST[i][var_name]
-
-
-
-####################################### COMMON METHODS #################################### 
   
 
     def _make_rnd_from_expr(self)-> str:
         if self.SEED:
             np.random.seed(self.seed_no)
             random.seed(self.seed_no)
-
         if len(self.SOLE_NAME_LST) !=0:
             assert len(self.SOLE_NAME_LST)==1,"For tabular fuzzing, you can not have more than one table passed to the class."
             return f" FROM {self.SOLE_NAME_LST[0]} ", self.SOLE_NAME_LST[0],"Null"
@@ -288,9 +280,9 @@ class RND_QUERY():
             expr1=f" FROM {from_tbl} "
             expr2=""
             for j in range(picked_no_joins):
-                expr2+=f" JOIN {join_tbl_lst[j]} "+self._get_join_on_sub_expr(from_tbl,join_tbl_lst[j])
+                join_type=np.random.choice(list(self.ATTRS['JOIN_TYPE'].keys()), p=list(self.ATTRS['JOIN_TYPE'].values()))
+                expr2+=f" {join_type} {join_tbl_lst[j]} "+self._get_join_on_sub_expr(from_tbl,join_tbl_lst[j])
             return expr1+expr2, from_tbl, join_tbl_lst
-
 
 
     def make_query(self,cur: object, query_exp: str)-> pd.DataFrame:
@@ -584,9 +576,9 @@ class RND_QUERY():
             if var_type=='CAT':
                 var_op=np.random.choice(list(self.ATTRS['CAT_OPS'].keys()),p=list(self.ATTRS['CAT_OPS'].values()))
                 if var_op=='IN' or var_op=='NOT IN' :
-                    possible_no_of_in_terms=np.arange(2,len(val_bag)) if len(val_bag) >2 else [1]
-                    no_of_in_terms=np.min([np.random.choice(possible_no_of_in_terms),self.max_in_terms])
-                    vals=np.random.choice(val_bag, size=no_of_in_terms)
+                    no_in_terms=random.randint(2,len(val_bag)) if len(val_bag)>2 else 2
+                    no_in_terms=min(no_in_terms, self.max_in_terms)
+                    vals=np.random.choice(val_bag, size=no_in_terms)
                     for i,x in enumerate(vals): #This will eliminate double quotes in the list of values used in the IN clause
                         try:
                             vals[i]=eval(x)
@@ -655,7 +647,8 @@ class RND_QUERY():
     def _compile_fltr_expr(self):
         from_expr,from_tbl,join_tbl_lst=self._make_rnd_from_expr()
         where_expr=self._get_rnd_where_expr(from_tbl,join_tbl_lst, drop_fkey=True)
-        expr='SELECT * '+ from_expr+ ' WHERE ' + where_expr
+        fltr_type=np.random.choice(list(self.ATTRS['FILTER_TYPE'].keys()), p=list(self.ATTRS['FILTER_TYPE'].values()))
+        expr='SELECT * '+ from_expr+ f' {fltr_type} ' + where_expr
         return expr,from_tbl,join_tbl_lst
 
 
@@ -663,6 +656,7 @@ class RND_QUERY():
     def make_single_fltr_query(self) -> dict:
         dic={}
         single_expr,from_tbl, join_tbl_lst =self._compile_fltr_expr()
+        print(single_expr)
         query=self.make_query(self.CUR, single_expr)
         dic['query']=query
         dic['query_desc']={
@@ -692,50 +686,14 @@ class RND_QUERY():
 
 #################  PREVIOUS METHODS BELOW THIS LINE #############################
 ############################################################################################
-    # def _make_bags(self,df:pd.DataFrame)-> dict:
-    #     val_bags={}
-    #     for var in df.columns:
-    #         vals=df[var].values
-    #         vals=[x for x in vals if x==x] #drop nan
-    #         vals=list(filter(None, vals)) #drop None
-    #         if var in self.CAT_VARS['parent']+self.CAT_VARS['child']:
-    #             vals=["'"+str(x)+"'" for x in vals if "'" not in x or '"' not in x] # for the values of categorical variables, add quote to avoid errors in SQL statement
-    #         val_bags[var]=vals if len(vals)!=0 else ['N/A']
-    #     return val_bags
 
 
 
-    # def _get_var_idx(self, var_name):
-    #     if var_name in self.PARENT_DF.columns: #search in parent
-    #         idx=self.PARENT_DF.columns.get_loc(var_name)
-    #         return 'parent',idx
-    #     elif var_name in self.CHILD_DF.columns: #search in child
-    #         idx=self.CHILD_DF.columns.get_loc(var_name)
-    #         return 'child', idx
-    #     else:
-    #         raise Exception(f"{var_name} not found in parent or child tables!")
 
-    # def _mix_vars(self,*args):
-    #     #accepts variable length of arguments as tuples where each tuple consists of the table name and some variables that belong to that table
-    #     # returns mixed variables in one list but each variable is concatenated with its respective table name
-    #     mixed_vars=[]
-    #     for arg in args:
-    #         vars=[arg[0]+'.'+x for x in arg[1]]
-    #         mixed_vars+=vars
-    #     return mixed_vars
 
-    # def _change_tbl_name(self, in_lst: list,in_parent_name: str, out_parent_name: str, in_child_name: str, out_child_name: str)-> list:
-    #     # replaces the table names of the real dataset by the table names of the synthetic datasets.
-    #     out_lst=[var.replace(in_parent_name,out_parent_name ) for var in in_lst] 
-    #     out_lst=[var.replace(in_child_name,out_child_name ) for var in out_lst] 
-    #     return out_lst
 
-    # def _drop_tbl_name(self,vars_in: list) ->list:
-    #     vars_out=[]
-    #     for var in vars_in:
-    #         split=var.split(".")
-    #         vars_out.append(split[1])
-    #     return vars_out
+
+
 
 
 
@@ -1051,7 +1009,7 @@ class RND_QUERY():
 #-----------------------------------------------------------------------------------------------------
 
     def _build_aggfltr_expr_w_aggfntn(self,pname: str, cname: str, fkey: str, agg_fntn_tpl: tuple, groupby_lst: list, where_terms: list, log_ops: list) -> str:
-        expr2=np.random.choice(list(self.ATTRS['JOIN_CNDTN'].keys()), p=list(self.ATTRS['JOIN_CNDTN'].values()))+' '
+        expr2=np.random.choice(list(self.ATTRS['FILTER_TYPE'].keys()), p=list(self.ATTRS['FILTER_TYPE'].values()))+' '
         expr2_1=[None]*(len(where_terms)+len(log_ops))
         expr2_1[::2]=where_terms
         expr2_1[1::2]=log_ops
