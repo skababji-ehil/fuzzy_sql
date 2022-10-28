@@ -89,11 +89,10 @@ class RND_QUERY():
             self.VAL_LST.append(val_dict)
         
 
-        self.min_join_clauses=1 #set it larger than zero to enforce join clause. If you set it to zero, you may get random unrelated queries
         self.max_in_terms=3 #Maximum number of values for 'in' clause (set to np.inf, if u do not want to enforce any upper bound)
-        self.no_groupby_vars=np.nan ##This a fixed number of terms (vars) to be enforced in the GROUPBY clause.Set it to np.nan and the number of terms will be selected randomly. If set to a larger number than the possible GROUPBY variables, then this number will be ignored. 
-        self.no_where_vars=np.nan #This a fixed number of terms (vars) to be enforced in the WHERE clause. Set it to np.nan and the number of terms will be selected randomly. If set to a larger number than the possible WHERE variables, then this number will be ignored. 
-
+        self.no_groupby_vars=np.nan ##This a fixed number of terms (vars) to be enforced in the GROUPBY clause.Set it to np.inf and the number of terms will be selected randomly. If set to a larger number than the possible GROUPBY variables, then this number will be ignored. 
+        self.no_where_vars=np.nan #This a fixed number of terms (vars) to be enforced in the WHERE clause. Set it to np.inf and the number of terms will be selected randomly. If set to a larger number than the possible WHERE variables, then this number will be ignored. 
+        self.no_join_tables=np.inf #This is a fixed number of join terms (tables) to be enforced in the JOIN clause. It does not include the name of teh master parent table (coming right after FROM). Set it to np.inf to randomly select the number of JOIN terms. 
 ########################################## COMMON METHODS  #########################
 
     def _flatten_lst(self,lst):
@@ -180,7 +179,7 @@ class RND_QUERY():
         return fetched_vars
 
 
-    def _get_tbl_childs(self,tbl_name):
+    def _get_tbl_childs(self,tbl_name: str) -> list:
         #search thru all tables and check if tbl_name exists in parenet 
         tbl_childs=[]
         for i,metadata in enumerate(self.METADATA_LST):#lookup table index in METADATA_LST
@@ -265,7 +264,30 @@ class RND_QUERY():
         return self.VAL_LST[i][var_name]
   
 
+    def _get_join_on_sub_expr(self,prnt: str,chld: str) -> str:
+        #This method deals with both individual and composite keys but it is not tested yet using any composite keys
+        chld_tbl_idx=self._get_tbl_index(chld)
+        chld_metadata=self.METADATA_LST[chld_tbl_idx]
+        prnt_key_lst=chld_metadata['parent_details'][prnt][0]
+        chld_key_lst=chld_metadata['parent_details'][prnt][1]
+        assert len(prnt_key_lst) !=0, "Joining key is not defined!"
+        assert len(prnt_key_lst)==len(chld_key_lst),"Both connected tables shall have the same number of joining keys"
+        prnt_key_lst=self._prepend_tbl_name(prnt,prnt_key_lst)
+        chld_key_lst=self._prepend_tbl_name(chld,chld_key_lst)
+        if len(prnt_key_lst)==1: #single key
+            expr=f" ON {prnt_key_lst[0]}={chld_key_lst[0]} "
+        else: #composite key
+            expr=" ON "
+            for i, (tbl1_key, tbl2_key) in enumerate(zip(prnt_key_lst,chld_key_lst)):
+                expr+= f"{tbl1_key} = {tbl2_key}"
+                if i < len(prnt_key_lst)-1:
+                    expr+=" AND "
+        return expr
+
+
+
     def _make_rnd_from_expr(self)-> str:
+        #this function returns an expression joining a master parent (from_tbl) to multiple child, and parent to grandchild..etc
         if self.SEED:
             np.random.seed(self.seed_no)
             random.seed(self.seed_no)
@@ -273,16 +295,61 @@ class RND_QUERY():
             assert len(self.SOLE_NAME_LST)==1,"For tabular fuzzing, you can not have more than one table passed to the class."
             return f" FROM {self.SOLE_NAME_LST[0]} ", self.SOLE_NAME_LST[0],"Null"
         else:
-            from_tbl=random.sample(self.PARENT_NAME_LST,1)[0] # randomly select one parent 
-            join_tbls=self._get_tbl_childs(from_tbl)
-            picked_no_joins=random.randint(self.min_join_clauses,len(join_tbls)) 
-            join_tbl_lst=random.sample(join_tbls,picked_no_joins) #randomly select a number of child tables 
-            expr1=f" FROM {from_tbl} "
-            expr2=""
-            for j in range(picked_no_joins):
+            parent1=random.sample(self.PARENT_NAME_LST,1)[0] # randomly select master parent  (from_tbl)
+            child1_lst=self._get_tbl_childs(parent1)#check the number of childs the master parent has
+            max_no_join_tbls=len(child1_lst)
+            assert max_no_join_tbls >=1, "Table {from_tbl} does not seem to have any child"
+            picked_no_join_tbls=min(random.randint(1,max_no_join_tbls), self.no_join_tables)
+            join_expr=f" FROM {parent1} "
+            child1=random.choice(child1_lst) #pick only one child table
+            parent=copy.deepcopy(parent1)
+            child=copy.deepcopy(child1)
+            join_tbl_lst=[]
+            for i in range(picked_no_join_tbls):
+                join_tbl_lst.append(child)
+                this_on_expr=self._get_join_on_sub_expr(parent,child)
                 join_type=np.random.choice(list(self.ATTRS['JOIN_TYPE'].keys()), p=list(self.ATTRS['JOIN_TYPE'].values()))
-                expr2+=f" {join_type} {join_tbl_lst[j]} "+self._get_join_on_sub_expr(from_tbl,join_tbl_lst[j])
-            return expr1+expr2, from_tbl, join_tbl_lst
+                join_expr+=f" {join_type} {child} {this_on_expr}"
+                child2_lst=self._get_tbl_childs(child)
+                if len(child2_lst) !=0: #in case there are grandchildren8
+                    child_lst=random.choice(child1_lst, child2_lst) #make a choice between children and grandchildren
+                    if child_lst==child1_lst: #picking children
+                        parent=copy.deepcopy(parent1)
+                        child1_lst.remove(child)
+                        child=random.choice(child1_lst)
+                    else:  #picking grandchildren
+                        parent=copy.deepcopy(child1)
+                        child=random.choice(child2_lst)
+                else: #no grandchildren!
+                        parent=copy.deepcopy(parent1)
+                        child1_lst.remove(child) #don't pick the same child twice!
+                        if len(child1_lst)==0:
+                            break
+                        child=random.choice(child1_lst) 
+            return join_expr, parent1, join_tbl_lst
+
+
+
+
+    # def _make_rnd_from_expr(self)-> str:
+    #     #this function returns an expression joining a parenet to multiple child, however it does not return a hierarchical joining expression ie parent->child/parent/child..etc
+    #     if self.SEED:
+    #         np.random.seed(self.seed_no)
+    #         random.seed(self.seed_no)
+    #     if len(self.SOLE_NAME_LST) !=0:
+    #         assert len(self.SOLE_NAME_LST)==1,"For tabular fuzzing, you can not have more than one table passed to the class."
+    #         return f" FROM {self.SOLE_NAME_LST[0]} ", self.SOLE_NAME_LST[0],"Null"
+    #     else:
+    #         from_tbl=random.sample(self.PARENT_NAME_LST,1)[0] # randomly select one parent 
+    #         join_tbls=self._get_tbl_childs(from_tbl)
+    #         picked_no_joins=random.randint(0,len(join_tbls)) if self.no_join_tables==self.no_join_tables else self.no_join_tables
+    #         join_tbl_lst=random.sample(join_tbls,picked_no_joins) #randomly select a number of child tables 
+    #         expr1=f" FROM {from_tbl} "
+    #         expr2=""
+    #         for j in range(picked_no_joins):
+    #             join_type=np.random.choice(list(self.ATTRS['JOIN_TYPE'].keys()), p=list(self.ATTRS['JOIN_TYPE'].values()))
+    #             expr2+=f" {join_type} {join_tbl_lst[j]} "+self._get_join_on_sub_expr(from_tbl,join_tbl_lst[j])
+    #         return expr1+expr2, from_tbl, join_tbl_lst
 
 
     def make_query(self,cur: object, query_exp: str)-> pd.DataFrame:
@@ -320,29 +387,10 @@ class RND_QUERY():
         return custom_rv
 
 
-
 ##################################### METHODS FOR GENERATING RANDOM AGGREGATE QUERIES #############################
 
 
-    def _get_join_on_sub_expr(self,prnt,chld):
-        #This method deals with both individual and composite keys but it is not tested yet using any composite keys
-        chld_tbl_idx=self._get_tbl_index(chld)
-        chld_metadata=self.METADATA_LST[chld_tbl_idx]
-        prnt_key_lst=chld_metadata['parent_details'][prnt][0]
-        chld_key_lst=chld_metadata['parent_details'][prnt][1]
-        assert len(prnt_key_lst) !=0, "Joining key is not defined!"
-        assert len(prnt_key_lst)==len(chld_key_lst),"Both connected tables shall have the same number of joining keys"
-        prnt_key_lst=self._prepend_tbl_name(prnt,prnt_key_lst)
-        chld_key_lst=self._prepend_tbl_name(chld,chld_key_lst)
-        if len(prnt_key_lst)==1:
-            expr=f" ON {prnt_key_lst[0]}={chld_key_lst[0]} "
-        else:
-            expr=" ON "
-            for i, (tbl1_key, tbl2_key) in enumerate(zip(prnt_key_lst,chld_key_lst)):
-                expr+= f"{tbl1_key} = {tbl2_key}"
-                if i < len(prnt_key_lst)-1:
-                    expr+=" AND "
-        return expr
+
 
 
 
@@ -371,30 +419,12 @@ class RND_QUERY():
 
             if len(all_catdt_vars)==1:
                 raise Exception("The only available categorical variable is the JOIN key. Add more categorical or date variables, or set drop_fkey to False in _get_rnd_groupby_lst")
-
-            # all_cat_vars=self._mix_vars((self.PARENT_NAME,self.CAT_VARS['parent']),(self.CHILD_NAME,self.CAT_VARS['child']))
-
-            # parent_cat_vars=[self.PARENT_NAME+'.'+x for x in self.CAT_VARS['parent']]
-            # child_cat_vars=[self.CHILD_NAME+'.'+x for x in self.CAT_VARS['child']]
-            # all_cat_vars=parent_cat_vars +child_cat_vars
-            # n_vars_bag=np.arange(1, 1+len(all_catdt_vars)) 
-            # if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
-            #     n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
-            #     # n_var_probs= np.zeros_like(n_vars_bag)
-            #     # n_var_probs[0]=1
-            #     n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
-            # else:
-            #     n_vars=np.random.choice(n_vars_bag)
-            
-            # picked_vars = random.sample(all_catdt_vars, min(n_vars, self.max_groupby_terms))
-                
+               
             custom_rv=self._make_int_rv(len(all_catdt_vars)+1, dist='favor_small')
             selected_n_vars=custom_rv.rvs(1, random_state=seed)
-            selected_n_vars=selected_n_vars if self.no_groupby_vars==np.nan else min(len(all_catdt_vars),self.no_groupby_vars)
+            #selected_n_vars=selected_n_vars if self.no_groupby_vars==np.nan else min(len(all_catdt_vars),self.no_groupby_vars)
+            selected_n_vars=min(random.randint(1,len(all_catdt_vars)), self.no_groupby_vars)
             picked_vars = random.sample(all_catdt_vars, selected_n_vars)
-
-
-
 
         else: #If there is only one sole table (ie tabular case)
             dt_vars=self._get_tbl_vars_by_type('DT',from_tbl)
@@ -403,20 +433,12 @@ class RND_QUERY():
             else:
                 cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl, drop_key=False)
             catdt_vars=cat_vars+dt_vars
-            # n_vars_bag=np.arange(1, 1+len(catdt_vars)) 
-            # if self.ATTRS['LESS_GRP_VARS']:#define slope-down discrete distribution 
-            #     n_var_probs=n_vars_bag[::-1]/n_vars_bag.sum()
-            #     # n_var_probs= np.zeros_like(n_vars_bag)
-            #     # n_var_probs[0]=1
-            #     n_vars=np.random.choice(n_vars_bag, p=n_var_probs)
-            # else:
-            #     n_vars=np.random.choice(n_vars_bag)
-            # picked_vars = random.sample(catdt_vars, min(n_vars, self.max_groupby_terms))
+
             custom_rv=self._make_int_rv(len(catdt_vars)+1, dist='favor_small')
             selected_n_vars=custom_rv.rvs(1, random_state=seed)
-            selected_n_vars=selected_n_vars if self.no_groupby_vars==np.nan else min(len(catdt_vars),self.no_groupby_vars)
+            # selected_n_vars=selected_n_vars if self.no_groupby_vars==np.nan else min(len(catdt_vars),self.no_groupby_vars)
+            selected_n_vars=min(random.randint(1,len(catdt_vars)), self.no_groupby_vars)
             picked_vars = random.sample(catdt_vars, selected_n_vars)
-
         return picked_vars
 
 
@@ -461,6 +483,7 @@ class RND_QUERY():
     def make_single_agg_query(self, agg_fntn) -> dict:
         dic={}
         single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self._compile_agg_expr(agg_fntn)
+        print(single_expr)
         query=self.make_query(self.CUR, single_expr)
         # grpby_vars=self._drop_tbl_name(groupby_lst)
         dic['query']=query
@@ -514,8 +537,8 @@ class RND_QUERY():
         return dic
 
 
-
 ##################################### METHODS FOR GENERATING RANDOM FILTER QUERIES #############################
+
 
     def _get_tbl_val_dict(self, tbl_name)->tuple:
         #Thi will return a tuple of the input dictionary name and its corresponding var-val dictionary. You can get the list of all values by checking the dictionary keys.
@@ -525,16 +548,17 @@ class RND_QUERY():
                 del val_dict['table_name']
                 return (tbl_name, val_dict)
 
+
     def _get_tbl_var_tpl_lst(self, tbl_name):
         for tbl_metdata in self.METADATA_LST:
             if tbl_metdata['table_name']==tbl_name:
                 return [(tbl_name,var_tpl[0]) for var_tpl in tbl_metdata['table_vars'] ]
 
 
-
     def _get_tbl_key_tpl(self,tbl_name):
             keys=self._get_table_keys(tbl_name)
             return [(tbl_name,key) for key in keys]
+
 
     def _get_rnd_where_expr(self,from_tbl,join_tbl_lst, drop_fkey):
         # use WHERE with mix of CAT, CNT, DT variables from both PARENT and CHILD
@@ -558,7 +582,8 @@ class RND_QUERY():
 
         custom_rv=self._make_int_rv(len(all_tbl_vars)+1, dist='favor_small')
         selected_n_vars=custom_rv.rvs(1, random_state=seed)
-        selected_n_vars=selected_n_vars if self.no_where_vars==np.nan else min(len(all_tbl_vars),self.no_where_vars)
+        # selected_n_vars=selected_n_vars if self.no_where_vars==np.nan else min(len(all_tbl_vars),self.no_where_vars)
+        selected_n_vars=min(random.randint(1,len(all_tbl_vars)), self.no_where_vars)
         picked_vars = random.sample(all_tbl_vars, selected_n_vars)
         
         # Get the correct operations and values for the the picked variables
@@ -641,8 +666,7 @@ class RND_QUERY():
                 terms+=selected_logic_op
 
         return terms
-
-                
+            
 
     def _compile_fltr_expr(self):
         from_expr,from_tbl,join_tbl_lst=self._make_rnd_from_expr()
@@ -650,7 +674,6 @@ class RND_QUERY():
         fltr_type=np.random.choice(list(self.ATTRS['FILTER_TYPE'].keys()), p=list(self.ATTRS['FILTER_TYPE'].values()))
         expr='SELECT * '+ from_expr+ f' {fltr_type} ' + where_expr
         return expr,from_tbl,join_tbl_lst
-
 
 
     def make_single_fltr_query(self) -> dict:
@@ -690,407 +713,312 @@ class RND_QUERY():
 
 
 
+#     def match_twin_query(self, rnd_query: dict) ->dict:
+#         assert 'single' not in rnd_query['query_desc']['type'], "This method does not apply to single random queries!"
+#         assert '_fltr' not in rnd_query['query_desc']['type'], "This method does not apply to filter random queries. It only applies to aggregate queries!"
+#         matched_rnd_query={}
+#         query_real=rnd_query['query_real']
+#         query_syn=rnd_query['query_syn']
+#         grpby_vars=rnd_query['query_desc']['grpby_vars']
+#         real_agg_vars=[x for x in list(query_real.columns) if x not in grpby_vars]
+#         syn_agg_vars=[x for x in list(query_syn.columns) if x not in grpby_vars]
+#         real=query_real[grpby_vars]
+#         syn=query_syn[grpby_vars]
 
+#         #in_both=real.merge(syn, how='inner', indicator=False)
+#         in_real_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='left_only']
+#         del in_real_only['_merge']
+#         in_real_only[syn_agg_vars]=0
+#         ext_syn= pd.concat([query_syn,in_real_only], axis=0, ignore_index=True)#extended synthetic
+#         ext_syn.sort_values(grpby_vars, inplace=True, ignore_index=True)
 
+#         in_syn_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='right_only']
+#         del in_syn_only['_merge']
+#         in_syn_only[real_agg_vars]=0
+#         ext_real= pd.concat([query_real,in_syn_only], axis=0, ignore_index=True) #extended real
+#         ext_real.sort_values(grpby_vars, inplace=True, ignore_index=True)
 
+#         assert len(ext_real)==len(ext_syn)
+#         matched_rnd_query['query_real']=ext_real
+#         matched_rnd_query['query_syn']=ext_syn
+#         matched_rnd_query['query_desc']=rnd_query['query_desc']
+#         # matched_rnd_query['query_desc']['n_rows_real']=len(ext_real)
+#         # matched_rnd_query['query_desc']['n_rows_syn']=len(ext_syn)
 
+#         return matched_rnd_query
 
+#     def calc_dist_scores(self,matched_rnd_query):
 
+#         assert 'single' not in matched_rnd_query['query_desc']['type'], "This method does not apply to single random queries!"
+#         assert '_fltr' not in matched_rnd_query['query_desc']['type'], "This method does not apply to filter random queries. It only applies to aggregate queries!"
 
+#         scored_rnd_query=matched_rnd_query
+#         real=matched_rnd_query['query_real']
+#         syn=matched_rnd_query['query_syn']
+#         desc=matched_rnd_query['query_desc']
+#         cnt_idx=-1 if  desc['aggfntn'] == 'None' else -2 #decide the column back index of COUNT header
+#         assert real.iloc[:,:cnt_idx].equals(syn.iloc[:,:cnt_idx]), "Real and Synthetic tables should be matched!"
 
-    # def _get_rnd_aggfntn_tpl(self) -> tuple:
-    #     #returns a random tuple of agg function and continuous OR date variable 
-    #     # Note: continuous variable can be from either parent or child tables 
-    #     if self.SEED:
-    #         np.random.seed(self.seed_no)
-    #         random.seed(self.seed_no)
-    #     all_possible_vars=self._mix_vars((self.PARENT_NAME,self.CNT_VARS['parent']),(self.PARENT_NAME,self.DT_VARS['parent']),(self.CHILD_NAME,self.CNT_VARS['child']),(self.CHILD_NAME,self.DT_VARS['child']))
-    #     picked_var=np.random.choice(all_possible_vars)
-    #     picked_op=np.random.choice(list(self.ATTRS['AGG_OPS'].keys()), p=list(self.ATTRS['AGG_OPS'].values()))
-    #     return (picked_op,picked_var)
+#         if len(real)!=0 and len(syn)!=0: 
+#             real_probs=real.iloc[:,-1]/sum(real.iloc[:,-1])
+#             syn_probs=syn.iloc[:,-1]/sum(syn.iloc[:,-1])
+#             hlngr_dist=np.sqrt(np.sum((np.sqrt(real_probs)-np.sqrt(syn_probs))**2))/np.sqrt(2)
+#             scored_rnd_query['query_hlngr_score']=hlngr_dist
+#         else: 
+#             scored_rnd_query['query_hlngr_score']=np.nan
 
-    
-
-
-    # if len(real.index)<len(syn.index):
-    #     raise Exception("It is likely that a continuous variable is mistakenly defined as nominal in metadata ")
-    def match_twin_query(self, rnd_query: dict) ->dict:
-        assert 'single' not in rnd_query['query_desc']['type'], "This method does not apply to single random queries!"
-        assert '_fltr' not in rnd_query['query_desc']['type'], "This method does not apply to filter random queries. It only applies to aggregate queries!"
-        matched_rnd_query={}
-        query_real=rnd_query['query_real']
-        query_syn=rnd_query['query_syn']
-        grpby_vars=rnd_query['query_desc']['grpby_vars']
-        real_agg_vars=[x for x in list(query_real.columns) if x not in grpby_vars]
-        syn_agg_vars=[x for x in list(query_syn.columns) if x not in grpby_vars]
-        real=query_real[grpby_vars]
-        syn=query_syn[grpby_vars]
-
-        #in_both=real.merge(syn, how='inner', indicator=False)
-        in_real_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='left_only']
-        del in_real_only['_merge']
-        in_real_only[syn_agg_vars]=0
-        ext_syn= pd.concat([query_syn,in_real_only], axis=0, ignore_index=True)#extended synthetic
-        ext_syn.sort_values(grpby_vars, inplace=True, ignore_index=True)
-
-        in_syn_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='right_only']
-        del in_syn_only['_merge']
-        in_syn_only[real_agg_vars]=0
-        ext_real= pd.concat([query_real,in_syn_only], axis=0, ignore_index=True) #extended real
-        ext_real.sort_values(grpby_vars, inplace=True, ignore_index=True)
-
-        assert len(ext_real)==len(ext_syn)
-        matched_rnd_query['query_real']=ext_real
-        matched_rnd_query['query_syn']=ext_syn
-        matched_rnd_query['query_desc']=rnd_query['query_desc']
-        # matched_rnd_query['query_desc']['n_rows_real']=len(ext_real)
-        # matched_rnd_query['query_desc']['n_rows_syn']=len(ext_syn)
-
-        return matched_rnd_query
-
-    def calc_dist_scores(self,matched_rnd_query):
-
-        assert 'single' not in matched_rnd_query['query_desc']['type'], "This method does not apply to single random queries!"
-        assert '_fltr' not in matched_rnd_query['query_desc']['type'], "This method does not apply to filter random queries. It only applies to aggregate queries!"
-
-        scored_rnd_query=matched_rnd_query
-        real=matched_rnd_query['query_real']
-        syn=matched_rnd_query['query_syn']
-        desc=matched_rnd_query['query_desc']
-        cnt_idx=-1 if  desc['aggfntn'] == 'None' else -2 #decide the column back index of COUNT header
-        assert real.iloc[:,:cnt_idx].equals(syn.iloc[:,:cnt_idx]), "Real and Synthetic tables should be matched!"
-
-        if len(real)!=0 and len(syn)!=0: 
-            real_probs=real.iloc[:,-1]/sum(real.iloc[:,-1])
-            syn_probs=syn.iloc[:,-1]/sum(syn.iloc[:,-1])
-            hlngr_dist=np.sqrt(np.sum((np.sqrt(real_probs)-np.sqrt(syn_probs))**2))/np.sqrt(2)
-            scored_rnd_query['query_hlngr_score']=hlngr_dist
-        else: 
-            scored_rnd_query['query_hlngr_score']=np.nan
-
-        if cnt_idx==-2:
-            pivot=np.concatenate([[real.iloc[:,-2],syn.iloc[:,-2],real.iloc[:,-1],syn.iloc[:,-1]]], axis=1).T
-            cndn=(pivot[:,0]!=0) & (pivot[:,1]!=0)  # dropping rows (ie classes) that do not exist in real or syn queries. Unlike, the Hellinger distance, the Euclidean distance is not meant to measure how good the synthetic model is in terms of teh classes generated.
-            pivot=pivot[cndn]
-            p=pivot[:,-2]
-            q=pivot[:,-1]
-            scaler = StandardScaler()
-            p_q=(p-q).reshape(-1, 1)
-            if len(p_q) !=0:
-                pq_s = scaler.fit_transform((p-q).reshape(-1, 1))
-                res=np.linalg.norm(pq_s, 2)/len(pq_s)
-            else:
-                res=np.nan
+#         if cnt_idx==-2:
+#             pivot=np.concatenate([[real.iloc[:,-2],syn.iloc[:,-2],real.iloc[:,-1],syn.iloc[:,-1]]], axis=1).T
+#             cndn=(pivot[:,0]!=0) & (pivot[:,1]!=0)  # dropping rows (ie classes) that do not exist in real or syn queries. Unlike, the Hellinger distance, the Euclidean distance is not meant to measure how good the synthetic model is in terms of teh classes generated.
+#             pivot=pivot[cndn]
+#             p=pivot[:,-2]
+#             q=pivot[:,-1]
+#             scaler = StandardScaler()
+#             p_q=(p-q).reshape(-1, 1)
+#             if len(p_q) !=0:
+#                 pq_s = scaler.fit_transform((p-q).reshape(-1, 1))
+#                 res=np.linalg.norm(pq_s, 2)/len(pq_s)
+#             else:
+#                 res=np.nan
             
-            scored_rnd_query['query_ecldn_score']=res
+#             scored_rnd_query['query_ecldn_score']=res
 
-        return scored_rnd_query
+#         return scored_rnd_query
 
     
-    def calc_mltpl_dist_scores(self,unmatched_queries: dict)-> dict:
-        scored_queries=[]
-        for twin in unmatched_queries:
-            matched_twin=self.match_twin_query(twin)
-            scored_twin=self.calc_dist_scores(matched_twin)
-            scored_queries.append(scored_twin)
-        return scored_queries
+#     def calc_mltpl_dist_scores(self,unmatched_queries: dict)-> dict:
+#         scored_queries=[]
+#         for twin in unmatched_queries:
+#             matched_twin=self.match_twin_query(twin)
+#             scored_twin=self.calc_dist_scores(matched_twin)
+#             scored_queries.append(scored_twin)
+#         return scored_queries
 
-#########################################################################
-
-
+# #########################################################################
 
 
 
-    def make_mltpl_twin_agg_query(self, n_queries, twin_parent_name, twin_child_name ):
-        queries = []
-        for k in range(n_queries):
-            queries.append(self.make_twin_agg_query(twin_parent_name,twin_child_name))
-            print('Generated Random Aggregate Query - {} '.format(str(k)))
-        print('\n')
-        return queries
-
-#-------------------------------------------------------------------------------------------
-
-    # def _build_agg_expr_w_aggfntn(self,pname: str, cname: str, fkey: str, agg_fntn_tpl: tuple, groupby_lst: list) -> str:
-    #     expr2_1=' GROUP BY '
-    #     expr2_2=f'{groupby_lst}'
-    #     expr2_2=expr2_2.replace("[","")
-    #     expr2_2=expr2_2.replace("]","")
-    #     expr2_2=expr2_2.replace("'","")
-    #     expr1=f'SELECT {expr2_2}, COUNT(*), {agg_fntn_tpl[0]}({agg_fntn_tpl[1]}) FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey}'
-    #     expr=expr1+expr2_1+expr2_2
-    #     return expr
-    
-
-    # def make_single_agg_query_w_aggfntn(self):
-    #     dic={}
-    #     single_grp_lst=self._get_rnd_groupby_lst()
-    #     agg_fntn_tpl=self._get_rnd_aggfntn_tpl()
-    #     expr=self._build_agg_expr_w_aggfntn(self.PARENT_NAME,self.CHILD_NAME, self.FKEY_NAME,agg_fntn_tpl,single_grp_lst)
-    #     query=self.make_query(self.CUR, expr)
-    #     grpby_vars=self._drop_tbl_name(single_grp_lst)
-    #     dic['query']=query
-    #     dic['query_desc']={
-    #         "type":"single_agg",
-    #         "aggfntn":f"{agg_fntn_tpl[0]}({agg_fntn_tpl[1]})",
-    #         "grpby_vars": grpby_vars,
-    #         "parent_name":self.PARENT_NAME,
-    #         "child_name":self.CHILD_NAME,
-    #         "sql":expr,
-    #         "n_rows":query.shape[0],
-    #         "n_cols":query.shape[1]
-    #     }
-    #     return dic
-
-    # def make_twin_agg_query_w_aggfntn(self,twintbl_parent_name,twintbl_child_name):
-    #     dic={}
-    #     real_groupby_lst=self._get_rnd_groupby_lst()
-    #     syn_groupby_lst=self._expr_replace_tbl_name(real_groupby_lst, self.PARENT_NAME,twintbl_parent_name, self.CHILD_NAME, twintbl_child_name)
-    #     real_aggfntn_tpl=self._get_rnd_aggfntn_tpl()
-    #     syn_aggfntn_tpl=self._expr_replace_tbl_name(real_aggfntn_tpl, self.PARENT_NAME,twintbl_parent_name, self.CHILD_NAME, twintbl_child_name)
-    #     real_expr=self._build_agg_expr_w_aggfntn(self.PARENT_NAME,self.CHILD_NAME,self.FKEY_NAME,real_aggfntn_tpl, real_groupby_lst)
-    #     syn_expr=self._build_agg_expr_w_aggfntn(twintbl_parent_name,twintbl_child_name,self.FKEY_NAME,syn_aggfntn_tpl, syn_groupby_lst)
-    #     query_real=self.make_query(self.CUR, real_expr)
-    #     query_syn=self.make_query(self.CUR, syn_expr)
-
-    #     grpby_vars=self._drop_tbl_name(real_groupby_lst)
-
-    #     dic['query_real']=query_real
-    #     dic['query_syn']=query_syn
-    #     dic['query_desc']={
-    #         "type":"twin_agg",
-    #         "aggfntn":f"{real_aggfntn_tpl[0]}({real_aggfntn_tpl[1]})",
-    #         "grpby_vars": grpby_vars,
-    #         "parent_name_real":self.PARENT_NAME,
-    #         "child_name_real":self.CHILD_NAME,
-    #         "sql_real":real_expr,
-    #         "n_cols_real":query_real.shape[1],
-    #         "n_rows_real":query_real.shape[0],
-    #         "parent_name_syn":twintbl_parent_name,
-    #         "child_name_syn":twintbl_child_name,
-    #         "sql_syn":syn_expr,
-    #         "n_cols_syn":query_syn.shape[1],
-    #         "n_rows_syn":query_syn.shape[0],
-    #         }
-    #     return dic
-
-    # def make_mltpl_twin_agg_query_w_aggfntn(self, n_queries, twin_parent_name, twin_child_name ):
-    #     queries = []
-    #     for k in range(n_queries):
-    #         queries.append(self.make_twin_agg_query_w_aggfntn(twin_parent_name,twin_child_name))
-    #         print('Generated Random Aggregate Query with a Function - {} '.format(str(k)))
-    #     print('\n')
-    #     return queries
-
-#######################################################################################
+#     def make_mltpl_twin_agg_query(self, n_queries, twin_parent_name, twin_child_name ):
+#         queries = []
+#         for k in range(n_queries):
+#             queries.append(self.make_twin_agg_query(twin_parent_name,twin_child_name))
+#             print('Generated Random Aggregate Query - {} '.format(str(k)))
+#         print('\n')
+#         return queries
 
 
 
-    def make_twin_fltr_query(self, twin_parent_name: str, twin_child_name:str) -> dict:
-        dic={}
-        real_where_terms, log_ops =self._get_rnd_where_expr()
-        syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
-        real_expr=self._build_fltr_expr(self.PARENT_NAME, self.CHILD_NAME,self.FKEY_NAME, real_where_terms, log_ops)
-        syn_expr=self._build_fltr_expr(twin_parent_name, twin_child_name,self.FKEY_NAME, syn_where_terms,log_ops)
-        query_real=self.make_query(self.CUR, real_expr)
-        query_syn=self.make_query(self.CUR, syn_expr)
+#     def make_mltpl_twin_agg_query_w_aggfntn(self, n_queries, twin_parent_name, twin_child_name ):
+#         queries = []
+#         for k in range(n_queries):
+#             queries.append(self.make_twin_agg_query_w_aggfntn(twin_parent_name,twin_child_name))
+#             print('Generated Random Aggregate Query with a Function - {} '.format(str(k)))
+#         print('\n')
+#         return queries
+
+
+#     def make_twin_fltr_query(self, twin_parent_name: str, twin_child_name:str) -> dict:
+#         dic={}
+#         real_where_terms, log_ops =self._get_rnd_where_expr()
+#         syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
+#         real_expr=self._build_fltr_expr(self.PARENT_NAME, self.CHILD_NAME,self.FKEY_NAME, real_where_terms, log_ops)
+#         syn_expr=self._build_fltr_expr(twin_parent_name, twin_child_name,self.FKEY_NAME, syn_where_terms,log_ops)
+#         query_real=self.make_query(self.CUR, real_expr)
+#         query_syn=self.make_query(self.CUR, syn_expr)
 
         
-        dic['query_real']=query_real
-        dic['query_syn']=query_syn
-        dic['query_desc']={
-            "type":"twin_fltr",
-            "aggfntn":"None",
-            "parent_name_real":self.PARENT_NAME,
-            "child_name_real":self.CHILD_NAME,
-            "sql_real":real_expr,
-            "n_cols_real":query_real.shape[1],
-            "n_rows_real":query_real.shape[0],
-            "parent_name_syn":twin_parent_name,
-            "child_name_syn":twin_child_name,
-            "sql_syn":syn_expr,
-            "n_cols_syn":query_syn.shape[1],
-            "n_rows_syn":query_syn.shape[0],
-        }
-        return dic
+#         dic['query_real']=query_real
+#         dic['query_syn']=query_syn
+#         dic['query_desc']={
+#             "type":"twin_fltr",
+#             "aggfntn":"None",
+#             "parent_name_real":self.PARENT_NAME,
+#             "child_name_real":self.CHILD_NAME,
+#             "sql_real":real_expr,
+#             "n_cols_real":query_real.shape[1],
+#             "n_rows_real":query_real.shape[0],
+#             "parent_name_syn":twin_parent_name,
+#             "child_name_syn":twin_child_name,
+#             "sql_syn":syn_expr,
+#             "n_cols_syn":query_syn.shape[1],
+#             "n_rows_syn":query_syn.shape[0],
+#         }
+#         return dic
 
-    def make_mltpl_twin_fltr_query(self, n_queries, twin_parent_name, twin_child_name ):
-        queries = []
-        for k in range(n_queries):
-            queries.append(self.make_twin_fltr_query(twin_parent_name,twin_child_name))
-            print('Generated Random Filter Query - {} '.format(str(k)))
-        print('\n')
-        return queries
+#     def make_mltpl_twin_fltr_query(self, n_queries, twin_parent_name, twin_child_name ):
+#         queries = []
+#         for k in range(n_queries):
+#             queries.append(self.make_twin_fltr_query(twin_parent_name,twin_child_name))
+#             print('Generated Random Filter Query - {} '.format(str(k)))
+#         print('\n')
+#         return queries
 
-##########################################################################################
+#     def _build_aggfltr_expr(self,  pname: str, cname: str, fkey: str, groupby_lst: list, where_terms: list, log_ops: list) -> str:
+#         expr2=np.random.choice(list(self.ATTRS['JOIN_CNDTN'].keys()), p=list(self.ATTRS['JOIN_CNDTN'].values()))+' '
+#         expr2_1=[None]*(len(where_terms)+len(log_ops))
+#         expr2_1[::2]=where_terms
+#         expr2_1[1::2]=log_ops
+#         expr2_1=' '.join(x for x in expr2_1)
+#         expr2_1='('+expr2_1+')' 
+#         expr3_1=' GROUP BY '
+#         expr3_2=f'{groupby_lst}'
+#         expr3_2=expr3_2.replace("[","")
+#         expr3_2=expr3_2.replace("]","")
+#         expr3_2=expr3_2.replace("'","")
+#         expr1=f'SELECT {expr3_2} ,COUNT(*) FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey} '
 
-    def _build_aggfltr_expr(self,  pname: str, cname: str, fkey: str, groupby_lst: list, where_terms: list, log_ops: list) -> str:
-        expr2=np.random.choice(list(self.ATTRS['JOIN_CNDTN'].keys()), p=list(self.ATTRS['JOIN_CNDTN'].values()))+' '
-        expr2_1=[None]*(len(where_terms)+len(log_ops))
-        expr2_1[::2]=where_terms
-        expr2_1[1::2]=log_ops
-        expr2_1=' '.join(x for x in expr2_1)
-        expr2_1='('+expr2_1+')' 
-        expr3_1=' GROUP BY '
-        expr3_2=f'{groupby_lst}'
-        expr3_2=expr3_2.replace("[","")
-        expr3_2=expr3_2.replace("]","")
-        expr3_2=expr3_2.replace("'","")
-        expr1=f'SELECT {expr3_2} ,COUNT(*) FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey} '
-
-        return expr1+expr2+expr2_1+expr3_1+expr3_2
+#         return expr1+expr2+expr2_1+expr3_1+expr3_2
 
 
-    def make_single_aggfltr_query(self) -> dict:
-        dic={}
-        grp_lst=self._get_rnd_groupby_lst()
-        where_terms, log_ops=self._get_rnd_where_expr()
-        single_expr=self._build_aggfltr_expr(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,grp_lst, where_terms,log_ops )
-        query=self.make_query(self.CUR, single_expr)
-        grpby_vars=self._drop_tbl_name(grp_lst)
-        dic['query']=query
-        dic['query_desc']={
-            "type":"single_aggfltr",
-            "aggfntn":"None",
-            "grpby_vars": grpby_vars,
-            "parent_name":self.PARENT_NAME,
-            "child_name":self.CHILD_NAME,
-            "sql":single_expr,
-            "n_rows":query.shape[0],
-            "n_cols":query.shape[1]
-        }
-        return dic
+#     def make_single_aggfltr_query(self) -> dict:
+#         dic={}
+#         grp_lst=self._get_rnd_groupby_lst()
+#         where_terms, log_ops=self._get_rnd_where_expr()
+#         single_expr=self._build_aggfltr_expr(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,grp_lst, where_terms,log_ops )
+#         query=self.make_query(self.CUR, single_expr)
+#         grpby_vars=self._drop_tbl_name(grp_lst)
+#         dic['query']=query
+#         dic['query_desc']={
+#             "type":"single_aggfltr",
+#             "aggfntn":"None",
+#             "grpby_vars": grpby_vars,
+#             "parent_name":self.PARENT_NAME,
+#             "child_name":self.CHILD_NAME,
+#             "sql":single_expr,
+#             "n_rows":query.shape[0],
+#             "n_cols":query.shape[1]
+#         }
+#         return dic
 
 
-    def make_twin_aggfltr_query(self, twin_parent_name: str, twin_child_name:str) -> dict:
-        dic={}
+#     def make_twin_aggfltr_query(self, twin_parent_name: str, twin_child_name:str) -> dict:
+#         dic={}
         
-        real_grp_lst =self._get_rnd_groupby_lst()
-        syn_grp_lst=self._expr_replace_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
+#         real_grp_lst =self._get_rnd_groupby_lst()
+#         syn_grp_lst=self._expr_replace_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
 
-        real_where_terms, log_ops =self._get_rnd_where_expr()
-        syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
+#         real_where_terms, log_ops =self._get_rnd_where_expr()
+#         syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
         
-        real_expr=self._build_aggfltr_expr(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,real_grp_lst, real_where_terms,log_ops)
-        print(real_expr+'\n')
-        syn_expr=self._build_aggfltr_expr(twin_parent_name, twin_child_name, self.FKEY_NAME,syn_grp_lst, syn_where_terms,log_ops)
+#         real_expr=self._build_aggfltr_expr(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,real_grp_lst, real_where_terms,log_ops)
+#         print(real_expr+'\n')
+#         syn_expr=self._build_aggfltr_expr(twin_parent_name, twin_child_name, self.FKEY_NAME,syn_grp_lst, syn_where_terms,log_ops)
 
-        query_real=self.make_query(self.CUR, real_expr)
-        query_syn=self.make_query(self.CUR, syn_expr)
+#         query_real=self.make_query(self.CUR, real_expr)
+#         query_syn=self.make_query(self.CUR, syn_expr)
 
-        grpby_vars=self._drop_tbl_name(real_grp_lst)
-        dic['query_real']=query_real
-        dic['query_syn']=query_syn
-        dic['query_desc']={
-            "type":"twin_aggfltr",
-            "aggfntn":"None",
-            "grpby_vars": grpby_vars,
-            "parent_name_real":self.PARENT_NAME,
-            "child_name_real":self.CHILD_NAME,
-            "sql_real":real_expr,
-            "n_cols_real":query_real.shape[1],
-            "n_rows_real":query_real.shape[0],
-            "parent_name_syn":twin_parent_name,
-            "child_name_syn":twin_child_name,
-            "sql_syn":syn_expr,
-            "n_cols_syn":query_syn.shape[1],
-            "n_rows_syn":query_syn.shape[0],
-        }
-        return dic
-
-
-    def make_mltpl_twin_aggfltr_query(self, n_queries, twin_parent_name, twin_child_name ):
-        queries = []
-        for k in range(n_queries):
-            queries.append(self.make_twin_aggfltr_query(twin_parent_name,twin_child_name))
-            print('Generated Random Aggregate Filter Query - {} '.format(str(k)))
-        print('\n')
-        return queries
-#-----------------------------------------------------------------------------------------------------
-
-    def _build_aggfltr_expr_w_aggfntn(self,pname: str, cname: str, fkey: str, agg_fntn_tpl: tuple, groupby_lst: list, where_terms: list, log_ops: list) -> str:
-        expr2=np.random.choice(list(self.ATTRS['FILTER_TYPE'].keys()), p=list(self.ATTRS['FILTER_TYPE'].values()))+' '
-        expr2_1=[None]*(len(where_terms)+len(log_ops))
-        expr2_1[::2]=where_terms
-        expr2_1[1::2]=log_ops
-        expr2_1=' '.join(x for x in expr2_1)
-        expr2_1='('+expr2_1+')' 
-        expr3_1=' GROUP BY '
-        expr3_2=f'{groupby_lst}'
-        expr3_2=expr3_2.replace("[","")
-        expr3_2=expr3_2.replace("]","")
-        expr3_2=expr3_2.replace("'","")
-        expr1=f'SELECT {expr3_2}, COUNT(*), {agg_fntn_tpl[0]}({agg_fntn_tpl[1]}) FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey} '
-
-        return expr1+expr2+expr2_1+expr3_1+expr3_2
+#         grpby_vars=self._drop_tbl_name(real_grp_lst)
+#         dic['query_real']=query_real
+#         dic['query_syn']=query_syn
+#         dic['query_desc']={
+#             "type":"twin_aggfltr",
+#             "aggfntn":"None",
+#             "grpby_vars": grpby_vars,
+#             "parent_name_real":self.PARENT_NAME,
+#             "child_name_real":self.CHILD_NAME,
+#             "sql_real":real_expr,
+#             "n_cols_real":query_real.shape[1],
+#             "n_rows_real":query_real.shape[0],
+#             "parent_name_syn":twin_parent_name,
+#             "child_name_syn":twin_child_name,
+#             "sql_syn":syn_expr,
+#             "n_cols_syn":query_syn.shape[1],
+#             "n_rows_syn":query_syn.shape[0],
+#         }
+#         return dic
 
 
-
-    def make_single_aggfltr_query_w_aggfntn(self) -> dict:
-        dic={}
-        agg_fntn_tpl=self._get_rnd_aggfntn_tpl()
-        grp_lst=self._get_rnd_groupby_lst()
-        where_terms, log_ops=self._get_rnd_where_expr()
-        single_expr=self._build_aggfltr_expr_w_aggfntn(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,agg_fntn_tpl,grp_lst, where_terms,log_ops )
-        query=self.make_query(self.CUR, single_expr)
-        grpby_vars=self._drop_tbl_name(grp_lst)
-        dic['query']=query
-        dic['query_desc']={
-            "type":"single_aggfltr",
-            "aggfntn":f"{agg_fntn_tpl[0]}({agg_fntn_tpl[1]})",
-            "grpby_vars": grpby_vars,
-            "parent_name":self.PARENT_NAME,
-            "child_name":self.CHILD_NAME,
-            "sql":single_expr,
-            "n_rows":query.shape[0],
-            "n_cols":query.shape[1]
-        }
-        return dic
+#     def make_mltpl_twin_aggfltr_query(self, n_queries, twin_parent_name, twin_child_name ):
+#         queries = []
+#         for k in range(n_queries):
+#             queries.append(self.make_twin_aggfltr_query(twin_parent_name,twin_child_name))
+#             print('Generated Random Aggregate Filter Query - {} '.format(str(k)))
+#         print('\n')
+#         return queries
 
 
+#     def _build_aggfltr_expr_w_aggfntn(self,pname: str, cname: str, fkey: str, agg_fntn_tpl: tuple, groupby_lst: list, where_terms: list, log_ops: list) -> str:
+#         expr2=np.random.choice(list(self.ATTRS['FILTER_TYPE'].keys()), p=list(self.ATTRS['FILTER_TYPE'].values()))+' '
+#         expr2_1=[None]*(len(where_terms)+len(log_ops))
+#         expr2_1[::2]=where_terms
+#         expr2_1[1::2]=log_ops
+#         expr2_1=' '.join(x for x in expr2_1)
+#         expr2_1='('+expr2_1+')' 
+#         expr3_1=' GROUP BY '
+#         expr3_2=f'{groupby_lst}'
+#         expr3_2=expr3_2.replace("[","")
+#         expr3_2=expr3_2.replace("]","")
+#         expr3_2=expr3_2.replace("'","")
+#         expr1=f'SELECT {expr3_2}, COUNT(*), {agg_fntn_tpl[0]}({agg_fntn_tpl[1]}) FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey} '
 
-    def make_twin_aggfltr_query_w_aggfntn(self, twin_parent_name: str, twin_child_name:str) -> dict:
-        dic={}
-        real_agg_fntn_tpl=self._get_rnd_aggfntn_tpl()
-        syn_agg_fntn_tpl=tuple(self._expr_replace_tbl_name(real_agg_fntn_tpl, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name))
+#         return expr1+expr2+expr2_1+expr3_1+expr3_2
 
-        real_grp_lst =self._get_rnd_groupby_lst()
-        syn_grp_lst=self._expr_replace_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
 
-        real_where_terms, log_ops =self._get_rnd_where_expr()
-        syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
+#     def make_single_aggfltr_query_w_aggfntn(self) -> dict:
+#         dic={}
+#         agg_fntn_tpl=self._get_rnd_aggfntn_tpl()
+#         grp_lst=self._get_rnd_groupby_lst()
+#         where_terms, log_ops=self._get_rnd_where_expr()
+#         single_expr=self._build_aggfltr_expr_w_aggfntn(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,agg_fntn_tpl,grp_lst, where_terms,log_ops )
+#         query=self.make_query(self.CUR, single_expr)
+#         grpby_vars=self._drop_tbl_name(grp_lst)
+#         dic['query']=query
+#         dic['query_desc']={
+#             "type":"single_aggfltr",
+#             "aggfntn":f"{agg_fntn_tpl[0]}({agg_fntn_tpl[1]})",
+#             "grpby_vars": grpby_vars,
+#             "parent_name":self.PARENT_NAME,
+#             "child_name":self.CHILD_NAME,
+#             "sql":single_expr,
+#             "n_rows":query.shape[0],
+#             "n_cols":query.shape[1]
+#         }
+#         return dic
 
-        real_expr=self._build_aggfltr_expr_w_aggfntn(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,real_agg_fntn_tpl,real_grp_lst, real_where_terms,log_ops )
-        syn_expr=self._build_aggfltr_expr_w_aggfntn(twin_parent_name, twin_child_name, self.FKEY_NAME,syn_agg_fntn_tpl,syn_grp_lst, syn_where_terms,log_ops )
 
-        query_real=self.make_query(self.CUR, real_expr)
-        query_syn=self.make_query(self.CUR, syn_expr)
 
-        grpby_vars=self._drop_tbl_name(real_grp_lst)
+#     def make_twin_aggfltr_query_w_aggfntn(self, twin_parent_name: str, twin_child_name:str) -> dict:
+#         dic={}
+#         real_agg_fntn_tpl=self._get_rnd_aggfntn_tpl()
+#         syn_agg_fntn_tpl=tuple(self._expr_replace_tbl_name(real_agg_fntn_tpl, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name))
 
-        dic['query_real']=query_real
-        dic['query_syn']=query_syn
-        dic['query_desc']={
-            "type":"twin_aggfltr",
-            "aggfntn":f"{real_agg_fntn_tpl[0]}({real_agg_fntn_tpl[1]})",
-            "grpby_vars": grpby_vars,
-            "parent_name_real":self.PARENT_NAME,
-            "child_name_real":self.CHILD_NAME,
-            "sql_real":real_expr,
-            "n_cols_real":query_real.shape[1],
-            "n_rows_real":query_real.shape[0],
-            "parent_name_syn":twin_parent_name,
-            "child_name_syn":twin_child_name,
-            "sql_syn":syn_expr,
-            "n_cols_syn":query_syn.shape[1],
-            "n_rows_syn":query_syn.shape[0],
-        }
-        return dic
+#         real_grp_lst =self._get_rnd_groupby_lst()
+#         syn_grp_lst=self._expr_replace_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
 
-    def make_mltpl_twin_aggfltr_query_w_aggfntn(self, n_queries, twin_parent_name, twin_child_name ):
-        queries = []
-        for k in range(n_queries):
-            queries.append(self.make_twin_aggfltr_query_w_aggfntn(twin_parent_name,twin_child_name))
-            print('Generated Random Aggregate Filter Query with Function - {} '.format(str(k)))
-        print('\n')
-        return queries
+#         real_where_terms, log_ops =self._get_rnd_where_expr()
+#         syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
+
+#         real_expr=self._build_aggfltr_expr_w_aggfntn(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,real_agg_fntn_tpl,real_grp_lst, real_where_terms,log_ops )
+#         syn_expr=self._build_aggfltr_expr_w_aggfntn(twin_parent_name, twin_child_name, self.FKEY_NAME,syn_agg_fntn_tpl,syn_grp_lst, syn_where_terms,log_ops )
+
+#         query_real=self.make_query(self.CUR, real_expr)
+#         query_syn=self.make_query(self.CUR, syn_expr)
+
+#         grpby_vars=self._drop_tbl_name(real_grp_lst)
+
+#         dic['query_real']=query_real
+#         dic['query_syn']=query_syn
+#         dic['query_desc']={
+#             "type":"twin_aggfltr",
+#             "aggfntn":f"{real_agg_fntn_tpl[0]}({real_agg_fntn_tpl[1]})",
+#             "grpby_vars": grpby_vars,
+#             "parent_name_real":self.PARENT_NAME,
+#             "child_name_real":self.CHILD_NAME,
+#             "sql_real":real_expr,
+#             "n_cols_real":query_real.shape[1],
+#             "n_rows_real":query_real.shape[0],
+#             "parent_name_syn":twin_parent_name,
+#             "child_name_syn":twin_child_name,
+#             "sql_syn":syn_expr,
+#             "n_cols_syn":query_syn.shape[1],
+#             "n_rows_syn":query_syn.shape[0],
+#         }
+#         return dic
+
+#     def make_mltpl_twin_aggfltr_query_w_aggfntn(self, n_queries, twin_parent_name, twin_child_name ):
+#         queries = []
+#         for k in range(n_queries):
+#             queries.append(self.make_twin_aggfltr_query_w_aggfntn(twin_parent_name,twin_child_name))
+#             print('Generated Random Aggregate Filter Query with Function - {} '.format(str(k)))
+#         print('\n')
+#         return queries
