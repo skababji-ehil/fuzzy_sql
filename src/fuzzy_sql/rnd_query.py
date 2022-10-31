@@ -293,7 +293,7 @@ class RND_QUERY():
             random.seed(self.seed_no)
         if len(self.SOLE_NAME_LST) !=0:
             assert len(self.SOLE_NAME_LST)==1,"For tabular fuzzing, you can not have more than one table passed to the class."
-            return f" FROM {self.SOLE_NAME_LST[0]} ", self.SOLE_NAME_LST[0],"Null"
+            return f" FROM {self.SOLE_NAME_LST[0]} ", self.SOLE_NAME_LST[0],[]
         else:
             parent1=random.sample(self.PARENT_NAME_LST,1)[0] # randomly select master parent  (from_tbl)
             child1_lst=self._get_tbl_childs(parent1)#check the number of childs the master parent has
@@ -671,7 +671,10 @@ class RND_QUERY():
     def _compile_fltr_expr(self):
         from_expr,from_tbl,join_tbl_lst=self._make_rnd_from_expr()
         where_expr=self._get_rnd_where_expr(from_tbl,join_tbl_lst, drop_fkey=True)
-        fltr_type=np.random.choice(list(self.ATTRS['FILTER_TYPE'].keys()), p=list(self.ATTRS['FILTER_TYPE'].values()))
+        if len(join_tbl_lst)!=0:
+            fltr_type=np.random.choice(list(self.ATTRS['FILTER_TYPE'].keys()), p=list(self.ATTRS['FILTER_TYPE'].values()))
+        else:
+            fltr_type='WHERE'
         expr='SELECT * '+ from_expr+ f' {fltr_type} ' + where_expr
         return expr,from_tbl,join_tbl_lst
 
