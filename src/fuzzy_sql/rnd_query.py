@@ -390,13 +390,10 @@ class RND_QUERY():
 ##################################### METHODS FOR GENERATING RANDOM AGGREGATE QUERIES #############################
 
 
-
-
-
-
-    def _get_rnd_groupby_lst(self,from_tbl, join_tbl_lst, drop_fkey)-> list:
+    def _get_rnd_groupby_lst(self,from_tbl, inp_join_tbl_lst, drop_fkey)-> list:
         #returns randomly picked cat vars including the concatenated table name of the real data (ie that is defined in the class)
         #Note: You can group by CAT_VARS and DT_VARS whether from parent or child or both
+        join_tbl_lst=copy.deepcopy(inp_join_tbl_lst)
         if self.SEED:
             np.random.seed(self.seed_no)
             random.seed(self.seed_no)
@@ -404,62 +401,63 @@ class RND_QUERY():
         else:
             seed=None
         all_catdt_vars=[]
-        if join_tbl_lst != 'Null':
-            join_tbl_lst.append(from_tbl)#possible group-by list includes only from_tbl and join_tbl lists
-            for tbl_name in join_tbl_lst: #All table types (ie parent and child) can be used in agg queries as long as they have CAT vars
-                dt_vars=self._get_tbl_vars_by_type('DT',tbl_name)
-                if drop_fkey:
-                    cat_vars=self._get_tbl_vars_by_type('CAT',tbl_name,drop_key=True)
-                else:
-                    cat_vars=self._get_tbl_vars_by_type('CAT',tbl_name, drop_key=False)
-                catdt_vars=cat_vars+dt_vars
-                catdt_vars=self._prepend_tbl_name(tbl_name,catdt_vars)
-                all_catdt_vars.append(catdt_vars)
-            all_catdt_vars=[var for vars in all_catdt_vars for var in vars] #flatten
-
-            if len(all_catdt_vars)==1:
-                raise Exception("The only available categorical variable is the JOIN key. Add more categorical or date variables, or set drop_fkey to False in _get_rnd_groupby_lst")
-               
-            custom_rv=self._make_int_rv(len(all_catdt_vars)+1, dist='favor_small')
-            selected_n_vars=custom_rv.rvs(1, random_state=seed)
-            #selected_n_vars=selected_n_vars if self.no_groupby_vars==np.nan else min(len(all_catdt_vars),self.no_groupby_vars)
-            selected_n_vars=min(random.randint(1,len(all_catdt_vars)), self.no_groupby_vars)
-            picked_vars = random.sample(all_catdt_vars, selected_n_vars)
-
-        else: #If there is only one sole table (ie tabular case)
-            dt_vars=self._get_tbl_vars_by_type('DT',from_tbl)
+        # if len(join_tbl_lst) != 0:
+        join_tbl_lst.append(from_tbl)#possible group-by list includes only from_tbl and join_tbl lists
+        for tbl_name in join_tbl_lst: #All table types (ie parent and child) can be used in agg queries as long as they have CAT vars
+            dt_vars=self._get_tbl_vars_by_type('DT',tbl_name)
             if drop_fkey:
-                cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl,drop_key=True)
+                cat_vars=self._get_tbl_vars_by_type('CAT',tbl_name,drop_key=True)
             else:
-                cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl, drop_key=False)
+                cat_vars=self._get_tbl_vars_by_type('CAT',tbl_name, drop_key=False)
             catdt_vars=cat_vars+dt_vars
+            catdt_vars=self._prepend_tbl_name(tbl_name,catdt_vars) if len(inp_join_tbl_lst)!=0 else catdt_vars
+            all_catdt_vars.append(catdt_vars)
+        all_catdt_vars=[var for vars in all_catdt_vars for var in vars] #flatten
 
-            custom_rv=self._make_int_rv(len(catdt_vars)+1, dist='favor_small')
-            selected_n_vars=custom_rv.rvs(1, random_state=seed)
-            # selected_n_vars=selected_n_vars if self.no_groupby_vars==np.nan else min(len(catdt_vars),self.no_groupby_vars)
-            selected_n_vars=min(random.randint(1,len(catdt_vars)), self.no_groupby_vars)
-            picked_vars = random.sample(catdt_vars, selected_n_vars)
+        if len(all_catdt_vars)==1:
+            raise Exception("The only available categorical variable is the JOIN key. Add more categorical or date variables, or set drop_fkey to False in _get_rnd_groupby_lst")
+            
+        custom_rv=self._make_int_rv(len(all_catdt_vars)+1, dist='favor_small')
+        selected_n_vars=custom_rv.rvs(1, random_state=seed)
+        #selected_n_vars=selected_n_vars if self.no_groupby_vars==np.nan else min(len(all_catdt_vars),self.no_groupby_vars)
+        selected_n_vars=min(random.randint(1,len(all_catdt_vars)), self.no_groupby_vars)
+        picked_vars = random.sample(all_catdt_vars, selected_n_vars)
+
+        # else: #If there is only one sole table (ie tabular case)
+        #     dt_vars=self._get_tbl_vars_by_type('DT',from_tbl)
+        #     if drop_fkey:
+        #         cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl,drop_key=True)
+        #     else:
+        #         cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl, drop_key=False)
+        #     catdt_vars=cat_vars+dt_vars
+
+        #     custom_rv=self._make_int_rv(len(catdt_vars)+1, dist='favor_small')
+        #     selected_n_vars=custom_rv.rvs(1, random_state=seed)
+        #     # selected_n_vars=selected_n_vars if self.no_groupby_vars==np.nan else min(len(catdt_vars),self.no_groupby_vars)
+        #     selected_n_vars=min(random.randint(1,len(catdt_vars)), self.no_groupby_vars)
+        #     picked_vars = random.sample(catdt_vars, selected_n_vars)
         return picked_vars
 
 
-    def _get_rnd_agg_fntn_terms(self,from_tbl,join_tbl_lst)-> tuple:
+    def _get_rnd_agg_fntn_terms(self,from_tbl,inp_join_tbl_lst)-> tuple:
+        join_tbl_lst=copy.deepcopy(inp_join_tbl_lst)
         if self.SEED:
             np.random.seed(self.seed_no)
             random.seed(self.seed_no)
         all_cnt_vars=[]
-        if join_tbl_lst != 'Null':
-            join_tbl_lst.append(from_tbl)#possible list for agg_fntn operand includes only from_tbl and join_tbl lists
-            for tbl_name in join_tbl_lst: 
-                cnt_vars=self._get_tbl_vars_by_type('CNT',tbl_name,drop_key=False) #drop_key is not used for continuous variable since key is usually categorical variable 
-                cnt_vars=self._prepend_tbl_name(tbl_name,cnt_vars)
-                all_cnt_vars.append(cnt_vars)
-            assert len( all_cnt_vars)!=0, "No continuous variable is available to use it with an Aggregate Function. Please set agg_fnt to False."
-            all_cnt_vars=[var for vars in all_cnt_vars for var in vars] #flatten
-            picked_cnt_var = np.random.choice(all_cnt_vars)
-        else: #If there is only one sole table (ie tabular case)
-            cnt_vars=self._get_tbl_vars_by_type('CNT',from_tbl, drop_key=False)
-            assert len(cnt_vars)!=0, "No continuous variable is available to use it with an Aggregate Function. Please set agg_fnt to False."
-            picked_cnt_var=np.random.choice(cnt_vars)
+        # if len(join_tbl_lst) != 0:
+        join_tbl_lst.append(from_tbl)#possible list for agg_fntn operand includes only from_tbl and join_tbl lists
+        for tbl_name in join_tbl_lst: 
+            cnt_vars=self._get_tbl_vars_by_type('CNT',tbl_name,drop_key=False) #drop_key is not used for continuous variable since key is usually categorical variable 
+            cnt_vars=self._prepend_tbl_name(tbl_name,cnt_vars) if len(inp_join_tbl_lst)!=0 else cnt_vars
+            all_cnt_vars.append(cnt_vars)
+        assert len( all_cnt_vars)!=0, "No continuous variable is available to use it with an Aggregate Function. Please set agg_fnt to False."
+        all_cnt_vars=[var for vars in all_cnt_vars for var in vars] #flatten
+        picked_cnt_var = np.random.choice(all_cnt_vars)
+        # else: #If there is only one sole table (ie tabular case)
+        #     cnt_vars=self._get_tbl_vars_by_type('CNT',from_tbl, drop_key=False)
+        #     assert len(cnt_vars)!=0, "No continuous variable is available to use it with an Aggregate Function. Please set agg_fnt to False."
+        #     picked_cnt_var=np.random.choice(cnt_vars)
         picked_log_op=np.random.choice(list(self.ATTRS['AGG_OPS'].keys()), p=list(self.ATTRS['AGG_OPS'].values()))
         return picked_log_op,picked_cnt_var
 
@@ -483,7 +481,7 @@ class RND_QUERY():
     def make_single_agg_query(self, agg_fntn) -> dict:
         dic={}
         single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self._compile_agg_expr(agg_fntn)
-        print(single_expr)
+        print(single_expr) #SMK TEMP
         query=self.make_query(self.CUR, single_expr)
         # grpby_vars=self._drop_tbl_name(groupby_lst)
         dic['query']=query
@@ -502,7 +500,7 @@ class RND_QUERY():
     def make_twin_agg_query(self, syn_tbl_name_lst, agg_fntn):
         self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
         real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst,agg_fntn_terms=self._compile_agg_expr(agg_fntn)
-        if real_join_tbl_lst != 'Null':
+        if len(real_join_tbl_lst) != 0: #if table eis sole
             groupby_lst=self._drop_tbl_name(real_groupby_lst)
         else:
             groupby_lst=real_groupby_lst
@@ -610,12 +608,12 @@ class RND_QUERY():
                         except:
                             continue
                     if var_op=='IN':
-                        term =f" {not_modifier} {tbl_name}.{var_name} IN {tuple(vals)} "
+                        term =f" {not_modifier} {tbl_name}.{var_name} IN {tuple(vals)} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} IN {tuple(vals)} "
                     else:
-                        term=f" {not_modifier} {tbl_name}.{var_name} NOT IN {tuple(vals)} "
+                        term=f" {not_modifier} {tbl_name}.{var_name} NOT IN {tuple(vals)} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} NOT IN {tuple(vals)} " 
                 else:
                     val=np.random.choice(val_bag)
-                    term=f" {not_modifier} {tbl_name}.{var_name} {var_op} {val} "
+                    term=f" {not_modifier} {tbl_name}.{var_name} {var_op} {val} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} {var_op} {val} "
 
             elif var_type=='CNT':
                 var_op=np.random.choice(list(self.ATTRS['CNT_OPS'].keys()),p=list(self.ATTRS['CNT_OPS'].values()))
@@ -624,9 +622,9 @@ class RND_QUERY():
                     upper_bound_bag=[x for x in val_bag if x>=lower_bound]
                     upper_bound=np.random.choice(upper_bound_bag)
                     if var_op=='BETWEEN':
-                        term=f" {not_modifier} {tbl_name}.{var_name} BETWEEN {lower_bound} AND {upper_bound} "
+                        term=f" {not_modifier} {tbl_name}.{var_name} BETWEEN {lower_bound} AND {upper_bound} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} BETWEEN {lower_bound} AND {upper_bound} "
                     else:
-                        term=f" {not_modifier} {tbl_name}.{var_name} NOT BETWEEN {lower_bound} AND {upper_bound} "
+                        term=f" {not_modifier} {tbl_name}.{var_name} NOT BETWEEN {lower_bound} AND {upper_bound} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} NOT BETWEEN {lower_bound} AND {upper_bound} "
                 else:
                     val=np.random.choice(val_bag)
                     term=f" {not_modifier} {tbl_name}.{var_name} {var_op} {val} "
@@ -638,9 +636,9 @@ class RND_QUERY():
                     upper_bound_bag=[x for x in val_bag if x>=lower_bound]
                     upper_bound=np.random.choice(upper_bound_bag)
                     if var_op=='BETWEEN':
-                        term=f" {not_modifier} {tbl_name}.{var_name} BETWEEN {lower_bound} AND {upper_bound} "
+                        term=f" {not_modifier} {tbl_name}.{var_name} BETWEEN {lower_bound} AND {upper_bound} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} BETWEEN {lower_bound} AND {upper_bound} "
                     else:
-                        term=f" {not_modifier} {tbl_name}.{var_name} NOT BETWEEN {lower_bound} AND {upper_bound} "
+                        term=f" {not_modifier} {tbl_name}.{var_name} NOT BETWEEN {lower_bound} AND {upper_bound} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} NOT BETWEEN {lower_bound} AND {upper_bound} "
                 elif var_op=='IN' or var_op=='NOT IN':
                     no_in_terms=random.randint(2,len(val_bag)) if len(val_bag)>2 else 2
                     no_in_terms=min(no_in_terms, self.max_in_terms)
@@ -651,14 +649,14 @@ class RND_QUERY():
                         except:
                             continue
                     if var_op=='IN':
-                        term =f" {not_modifier} {tbl_name}.{var_name} IN {tuple(vals)} "
+                        term =f" {not_modifier} {tbl_name}.{var_name} IN {tuple(vals)} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} IN {tuple(vals)} "
                     else:
-                        term=f" {not_modifier} {tbl_name}.{var_name} NOT IN {tuple(vals)} "
+                        term=f" {not_modifier} {tbl_name}.{var_name} NOT IN {tuple(vals)} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} NOT IN {tuple(vals)} "
                 else:
                     val=np.random.choice(val_bag)
-                    term=f" {not_modifier} {tbl_name}.{var_name} {var_op} {val} "
+                    term=f" {not_modifier} {tbl_name}.{var_name} {var_op} {val} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} {var_op} {val} "
             else:
-                raise Exception(f"Can not find {var} in the lists of all variables!!")
+                raise Exception(f"Can not find {var_name} in the lists of all variables!!")
             
             terms+=term
             if idx <len(picked_vars)-1:
@@ -697,6 +695,32 @@ class RND_QUERY():
 
 
 
+    def make_twin_fltr_query(self,syn_tbl_name_lst) -> dict:
+        self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
+        real_expr,real_from_tbl, real_join_tbl_lst =self._compile_fltr_expr()
+        print(real_expr)
+        syn_expr=self._expr_replace_tbl_name(real_expr)
+        syn_from_tbl=syn_tbl_name_lst[self._get_tbl_index(real_from_tbl)]
+        syn_join_tbl_lst=[syn_tbl_name_lst[self._get_tbl_index(real_tbl_name)] for real_tbl_name in real_join_tbl_lst]
+        query_real=self.make_query(self.CUR, real_expr)
+        query_syn=self.make_query(self.CUR, syn_expr)
+        dic={}
+        dic['query_real']=query_real
+        dic['query_syn']=query_syn
+        dic['query_desc']={
+            "type":"twin_fltr",
+            "from_tbl_name_real":real_from_tbl,
+            "join_tbl_name_lst_real":real_join_tbl_lst,
+            "sql_real":real_expr,
+            "n_cols_real":query_real.shape[1],
+            "n_rows_real":query_real.shape[0],
+            "from_tbl_name_syn":syn_from_tbl,
+            "join_tbl_name_lst_syn":syn_join_tbl_lst,
+            "sql_syn":syn_expr,
+            "n_cols_syn":query_syn.shape[1],
+            "n_rows_syn":query_syn.shape[0],
+        }
+        return dic
 
 
 
@@ -820,33 +844,7 @@ class RND_QUERY():
 #         return queries
 
 
-#     def make_twin_fltr_query(self, twin_parent_name: str, twin_child_name:str) -> dict:
-#         dic={}
-#         real_where_terms, log_ops =self._get_rnd_where_expr()
-#         syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
-#         real_expr=self._build_fltr_expr(self.PARENT_NAME, self.CHILD_NAME,self.FKEY_NAME, real_where_terms, log_ops)
-#         syn_expr=self._build_fltr_expr(twin_parent_name, twin_child_name,self.FKEY_NAME, syn_where_terms,log_ops)
-#         query_real=self.make_query(self.CUR, real_expr)
-#         query_syn=self.make_query(self.CUR, syn_expr)
 
-        
-#         dic['query_real']=query_real
-#         dic['query_syn']=query_syn
-#         dic['query_desc']={
-#             "type":"twin_fltr",
-#             "aggfntn":"None",
-#             "parent_name_real":self.PARENT_NAME,
-#             "child_name_real":self.CHILD_NAME,
-#             "sql_real":real_expr,
-#             "n_cols_real":query_real.shape[1],
-#             "n_rows_real":query_real.shape[0],
-#             "parent_name_syn":twin_parent_name,
-#             "child_name_syn":twin_child_name,
-#             "sql_syn":syn_expr,
-#             "n_cols_syn":query_syn.shape[1],
-#             "n_rows_syn":query_syn.shape[0],
-#         }
-#         return dic
 
 #     def make_mltpl_twin_fltr_query(self, n_queries, twin_parent_name, twin_child_name ):
 #         queries = []
