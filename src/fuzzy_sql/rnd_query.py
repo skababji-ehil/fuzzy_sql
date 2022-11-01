@@ -479,7 +479,7 @@ class RND_QUERY():
     def make_single_agg_query(self, agg_fntn) -> dict:
         dic={}
         single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self._compile_agg_expr(agg_fntn)
-        print(single_expr) #SMK TEMP
+        # print(single_expr) #SMK TEMP
         if len(join_tbl_lst) != 0: #if table is sole
             groupby_lst=self._drop_tbl_name(groupby_lst)
         else:
@@ -502,7 +502,7 @@ class RND_QUERY():
     def make_twin_agg_query(self, syn_tbl_name_lst, agg_fntn):
         self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
         real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst,agg_fntn_terms=self._compile_agg_expr(agg_fntn)
-        print(real_expr) #SMK TEMP
+        # print(real_expr) #SMK TEMP
         if len(real_join_tbl_lst) != 0: #if table is sole
             groupby_lst=self._drop_tbl_name(real_groupby_lst)
         else:
@@ -692,7 +692,7 @@ class RND_QUERY():
     def make_single_fltr_query(self) -> dict:
         dic={}
         single_expr,from_tbl, join_tbl_lst =self._compile_fltr_expr()
-        print(single_expr) #SMK TMP
+        # print(single_expr) #SMK TMP
         query=self.make_query(self.CUR, single_expr)
         dic['query']=query
         dic['query_desc']={
@@ -710,7 +710,7 @@ class RND_QUERY():
     def make_twin_fltr_query(self,syn_tbl_name_lst) -> dict:
         self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
         real_expr,real_from_tbl, real_join_tbl_lst =self._compile_fltr_expr()
-        print(real_expr) #SMK TMP
+        # print(real_expr) #SMK TMP
         syn_expr=self._expr_replace_tbl_name(real_expr)
         syn_from_tbl=syn_tbl_name_lst[self._get_tbl_index(real_from_tbl)]
         syn_join_tbl_lst=[syn_tbl_name_lst[self._get_tbl_index(real_tbl_name)] for real_tbl_name in real_join_tbl_lst]
@@ -769,7 +769,7 @@ class RND_QUERY():
     def make_single_aggfltr_query(self, agg_fntn) -> dict:
         dic={}
         single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self._compile_aggfltr_expr(agg_fntn)
-        print(single_expr) #SMK TEMP
+        # print(single_expr) #SMK TEMP
         query=self.make_query(self.CUR, single_expr)
         # grpby_vars=self._drop_tbl_name(groupby_lst)
         dic['query']=query
@@ -789,7 +789,7 @@ class RND_QUERY():
     def make_twin_aggfltr_query(self,syn_tbl_name_lst, agg_fntn) -> dict:
         self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
         real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst, agg_fntn_terms=self._compile_aggfltr_expr(agg_fntn)
-        print(real_expr) #SMK TEMP
+        # print(real_expr) #SMK TEMP
 
         if len(real_join_tbl_lst) != 0: #if table is sole
             groupby_lst=self._drop_tbl_name(real_groupby_lst)
@@ -905,67 +905,3 @@ class RND_QUERY():
 
         return scored_rnd_query
 
-
-#################  PREVIOUS METHODS BELOW THIS LINE #############################
-############################################################################################
-
-
-    
-#     def calc_mltpl_dist_scores(self,unmatched_queries: dict)-> dict:
-#         scored_queries=[]
-#         for twin in unmatched_queries:
-#             matched_twin=self.match_twin_query(twin)
-#             scored_twin=self.calc_dist_scores(matched_twin)
-#             scored_queries.append(scored_twin)
-#         return scored_queries
-
-# #########################################################################
-
-
-
-#     def make_mltpl_twin_agg_query(self, n_queries, twin_parent_name, twin_child_name ):
-#         queries = []
-#         for k in range(n_queries):
-#             queries.append(self.make_twin_agg_query(twin_parent_name,twin_child_name))
-#             print('Generated Random Aggregate Query - {} '.format(str(k)))
-#         print('\n')
-#         return queries
-
-
-
-#     def make_mltpl_twin_agg_query_w_aggfntn(self, n_queries, twin_parent_name, twin_child_name ):
-#         queries = []
-#         for k in range(n_queries):
-#             queries.append(self.make_twin_agg_query_w_aggfntn(twin_parent_name,twin_child_name))
-#             print('Generated Random Aggregate Query with a Function - {} '.format(str(k)))
-#         print('\n')
-#         return queries
-
-
-
-
-#     def make_mltpl_twin_fltr_query(self, n_queries, twin_parent_name, twin_child_name ):
-#         queries = []
-#         for k in range(n_queries):
-#             queries.append(self.make_twin_fltr_query(twin_parent_name,twin_child_name))
-#             print('Generated Random Filter Query - {} '.format(str(k)))
-#         print('\n')
-#         return queries
-
-
-#     def make_mltpl_twin_aggfltr_query(self, n_queries, twin_parent_name, twin_child_name ):
-#         queries = []
-#         for k in range(n_queries):
-#             queries.append(self.make_twin_aggfltr_query(twin_parent_name,twin_child_name))
-#             print('Generated Random Aggregate Filter Query - {} '.format(str(k)))
-#         print('\n')
-#         return queries
-
-
-#     def make_mltpl_twin_aggfltr_query_w_aggfntn(self, n_queries, twin_parent_name, twin_child_name ):
-#         queries = []
-#         for k in range(n_queries):
-#             queries.append(self.make_twin_aggfltr_query_w_aggfntn(twin_parent_name,twin_child_name))
-#             print('Generated Random Aggregate Filter Query with Function - {} '.format(str(k)))
-#         print('\n')
-#         return queries
