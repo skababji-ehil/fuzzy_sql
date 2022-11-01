@@ -38,9 +38,7 @@ class RND_QUERY():
                 print(f"Metadata fot table {tbl_name} validated.") 
             else:
                 print(res) 
-
-
-       
+     
 
         self.SEED=seed
         self.seed_no=141
@@ -613,10 +611,14 @@ class RND_QUERY():
                             vals[i]=eval(x)
                         except:
                             continue
+                    vals=set(vals) 
+                    vals_str=f"{vals}"
+                    vals_str=vals_str.replace("}",")")
+                    vals_str=vals_str.replace("{","(")
                     if var_op=='IN':
-                        term =f" {not_modifier} {tbl_name}.{var_name} IN {tuple(vals)} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} IN {tuple(vals)} "
+                        term =f" {not_modifier} {tbl_name}.{var_name} IN "+vals_str+ " " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} IN "+vals_str+ " "
                     else:
-                        term=f" {not_modifier} {tbl_name}.{var_name} NOT IN {tuple(vals)} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} NOT IN {tuple(vals)} " 
+                        term=f" {not_modifier} {tbl_name}.{var_name} NOT IN "+vals_str+ " " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} NOT IN "+vals_str+ " " 
                 else:
                     val=np.random.choice(val_bag)
                     term=f" {not_modifier} {tbl_name}.{var_name} {var_op} {val} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} {var_op} {val} "
@@ -654,10 +656,14 @@ class RND_QUERY():
                             vals[i]=eval(x)
                         except:
                             continue
+                    vals=set(vals)
+                    vals_str=f"{vals}"
+                    vals_str=vals_str.replace("}",")")
+                    vals_str=vals_str.replace("{","(")
                     if var_op=='IN':
-                        term =f" {not_modifier} {tbl_name}.{var_name} IN {tuple(vals)} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} IN {tuple(vals)} "
+                        term =f" {not_modifier} {tbl_name}.{var_name} IN "+vals_str+ " " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} IN "+vals_str+ " "
                     else:
-                        term=f" {not_modifier} {tbl_name}.{var_name} NOT IN {tuple(vals)} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} NOT IN {tuple(vals)} "
+                        term=f" {not_modifier} {tbl_name}.{var_name} NOT IN "+vals_str+ " " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} NOT IN "+vals_str+ " "
                 else:
                     val=np.random.choice(val_bag)
                     term=f" {not_modifier} {tbl_name}.{var_name} {var_op} {val} " if len(join_tbl_lst) !=0 else f" {not_modifier} {var_name} {var_op} {val} "
@@ -947,62 +953,6 @@ class RND_QUERY():
 #         print('\n')
 #         return queries
 
-#     def _build_aggfltr_expr(self,  pname: str, cname: str, fkey: str, groupby_lst: list, where_terms: list, log_ops: list) -> str:
-#         expr2=np.random.choice(list(self.ATTRS['JOIN_CNDTN'].keys()), p=list(self.ATTRS['JOIN_CNDTN'].values()))+' '
-#         expr2_1=[None]*(len(where_terms)+len(log_ops))
-#         expr2_1[::2]=where_terms
-#         expr2_1[1::2]=log_ops
-#         expr2_1=' '.join(x for x in expr2_1)
-#         expr2_1='('+expr2_1+')' 
-#         expr3_1=' GROUP BY '
-#         expr3_2=f'{groupby_lst}'
-#         expr3_2=expr3_2.replace("[","")
-#         expr3_2=expr3_2.replace("]","")
-#         expr3_2=expr3_2.replace("'","")
-#         expr1=f'SELECT {expr3_2} ,COUNT(*) FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey} '
-
-#         return expr1+expr2+expr2_1+expr3_1+expr3_2
-
-
-
-
-
-#     def make_twin_aggfltr_query(self, twin_parent_name: str, twin_child_name:str) -> dict:
-#         dic={}
-        
-#         real_grp_lst =self._get_rnd_groupby_lst()
-#         syn_grp_lst=self._expr_replace_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
-
-#         real_where_terms, log_ops =self._get_rnd_where_expr()
-#         syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
-        
-#         real_expr=self._build_aggfltr_expr(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,real_grp_lst, real_where_terms,log_ops)
-#         print(real_expr+'\n')
-#         syn_expr=self._build_aggfltr_expr(twin_parent_name, twin_child_name, self.FKEY_NAME,syn_grp_lst, syn_where_terms,log_ops)
-
-#         query_real=self.make_query(self.CUR, real_expr)
-#         query_syn=self.make_query(self.CUR, syn_expr)
-
-#         grpby_vars=self._drop_tbl_name(real_grp_lst)
-#         dic['query_real']=query_real
-#         dic['query_syn']=query_syn
-#         dic['query_desc']={
-#             "type":"twin_aggfltr",
-#             "aggfntn":"None",
-#             "grpby_vars": grpby_vars,
-#             "parent_name_real":self.PARENT_NAME,
-#             "child_name_real":self.CHILD_NAME,
-#             "sql_real":real_expr,
-#             "n_cols_real":query_real.shape[1],
-#             "n_rows_real":query_real.shape[0],
-#             "parent_name_syn":twin_parent_name,
-#             "child_name_syn":twin_child_name,
-#             "sql_syn":syn_expr,
-#             "n_cols_syn":query_syn.shape[1],
-#             "n_rows_syn":query_syn.shape[0],
-#         }
-#         return dic
-
 
 #     def make_mltpl_twin_aggfltr_query(self, n_queries, twin_parent_name, twin_child_name ):
 #         queries = []
@@ -1012,84 +962,6 @@ class RND_QUERY():
 #         print('\n')
 #         return queries
 
-
-#     def _build_aggfltr_expr_w_aggfntn(self,pname: str, cname: str, fkey: str, agg_fntn_tpl: tuple, groupby_lst: list, where_terms: list, log_ops: list) -> str:
-#         expr2=np.random.choice(list(self.ATTRS['FILTER_TYPE'].keys()), p=list(self.ATTRS['FILTER_TYPE'].values()))+' '
-#         expr2_1=[None]*(len(where_terms)+len(log_ops))
-#         expr2_1[::2]=where_terms
-#         expr2_1[1::2]=log_ops
-#         expr2_1=' '.join(x for x in expr2_1)
-#         expr2_1='('+expr2_1+')' 
-#         expr3_1=' GROUP BY '
-#         expr3_2=f'{groupby_lst}'
-#         expr3_2=expr3_2.replace("[","")
-#         expr3_2=expr3_2.replace("]","")
-#         expr3_2=expr3_2.replace("'","")
-#         expr1=f'SELECT {expr3_2}, COUNT(*), {agg_fntn_tpl[0]}({agg_fntn_tpl[1]}) FROM {pname} JOIN {cname} ON {pname}.{fkey} = {cname}.{fkey} '
-
-#         return expr1+expr2+expr2_1+expr3_1+expr3_2
-
-
-#     def make_single_aggfltr_query_w_aggfntn(self) -> dict:
-#         dic={}
-#         agg_fntn_tpl=self._get_rnd_aggfntn_tpl()
-#         grp_lst=self._get_rnd_groupby_lst()
-#         where_terms, log_ops=self._get_rnd_where_expr()
-#         single_expr=self._build_aggfltr_expr_w_aggfntn(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,agg_fntn_tpl,grp_lst, where_terms,log_ops )
-#         query=self.make_query(self.CUR, single_expr)
-#         grpby_vars=self._drop_tbl_name(grp_lst)
-#         dic['query']=query
-#         dic['query_desc']={
-#             "type":"single_aggfltr",
-#             "aggfntn":f"{agg_fntn_tpl[0]}({agg_fntn_tpl[1]})",
-#             "grpby_vars": grpby_vars,
-#             "parent_name":self.PARENT_NAME,
-#             "child_name":self.CHILD_NAME,
-#             "sql":single_expr,
-#             "n_rows":query.shape[0],
-#             "n_cols":query.shape[1]
-#         }
-#         return dic
-
-
-
-#     def make_twin_aggfltr_query_w_aggfntn(self, twin_parent_name: str, twin_child_name:str) -> dict:
-#         dic={}
-#         real_agg_fntn_tpl=self._get_rnd_aggfntn_tpl()
-#         syn_agg_fntn_tpl=tuple(self._expr_replace_tbl_name(real_agg_fntn_tpl, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name))
-
-#         real_grp_lst =self._get_rnd_groupby_lst()
-#         syn_grp_lst=self._expr_replace_tbl_name(real_grp_lst, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
-
-#         real_where_terms, log_ops =self._get_rnd_where_expr()
-#         syn_where_terms=self._expr_replace_tbl_name(real_where_terms, self.PARENT_NAME,twin_parent_name, self.CHILD_NAME,twin_child_name)
-
-#         real_expr=self._build_aggfltr_expr_w_aggfntn(self.PARENT_NAME, self.CHILD_NAME, self.FKEY_NAME,real_agg_fntn_tpl,real_grp_lst, real_where_terms,log_ops )
-#         syn_expr=self._build_aggfltr_expr_w_aggfntn(twin_parent_name, twin_child_name, self.FKEY_NAME,syn_agg_fntn_tpl,syn_grp_lst, syn_where_terms,log_ops )
-
-#         query_real=self.make_query(self.CUR, real_expr)
-#         query_syn=self.make_query(self.CUR, syn_expr)
-
-#         grpby_vars=self._drop_tbl_name(real_grp_lst)
-
-#         dic['query_real']=query_real
-#         dic['query_syn']=query_syn
-#         dic['query_desc']={
-#             "type":"twin_aggfltr",
-#             "aggfntn":f"{real_agg_fntn_tpl[0]}({real_agg_fntn_tpl[1]})",
-#             "grpby_vars": grpby_vars,
-#             "parent_name_real":self.PARENT_NAME,
-#             "child_name_real":self.CHILD_NAME,
-#             "sql_real":real_expr,
-#             "n_cols_real":query_real.shape[1],
-#             "n_rows_real":query_real.shape[0],
-#             "parent_name_syn":twin_parent_name,
-#             "child_name_syn":twin_child_name,
-#             "sql_syn":syn_expr,
-#             "n_cols_syn":query_syn.shape[1],
-#             "n_rows_syn":query_syn.shape[0],
-#         }
-#         return dic
 
 #     def make_mltpl_twin_aggfltr_query_w_aggfntn(self, n_queries, twin_parent_name, twin_child_name ):
 #         queries = []
