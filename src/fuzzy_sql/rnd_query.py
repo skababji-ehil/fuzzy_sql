@@ -474,7 +474,7 @@ class RND_QUERY():
             return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst, (log_op, cnt_var)
         else:
             expr1=f'SELECT {expr2_2}, COUNT(*) '+ from_expr
-            return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst, 'Null'
+            return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst, 'None'
 
     def make_single_agg_query(self, agg_fntn) -> dict:
         dic={}
@@ -828,88 +828,87 @@ class RND_QUERY():
         return dic
 
 
+################################ Matching records and calculating metrics methods
+
+    def _match_twin_query(self, rnd_query: dict) ->dict:
+        assert 'single' not in rnd_query['query_desc']['type'], "This method does not apply to single random queries!"
+        assert '_fltr' not in rnd_query['query_desc']['type'], "This method does not apply to filter random queries. It only applies to aggregate queries!"
+        matched_rnd_query={}
+        query_real=rnd_query['query_real']
+        query_syn=rnd_query['query_syn']
+        grpby_vars=rnd_query['query_desc']['grpby_vars']
+        real_agg_vars=[x for x in list(query_real.columns) if x not in grpby_vars]
+        syn_agg_vars=[x for x in list(query_syn.columns) if x not in grpby_vars]
+        real=query_real[grpby_vars]
+        syn=query_syn[grpby_vars]
+
+        #in_both=real.merge(syn, how='inner', indicator=False)
+        in_real_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='left_only']
+        del in_real_only['_merge']
+        in_real_only[syn_agg_vars]=0
+        ext_syn= pd.concat([query_syn,in_real_only], axis=0, ignore_index=True)#extended synthetic
+        ext_syn.sort_values(grpby_vars, inplace=True, ignore_index=True)
+
+        in_syn_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='right_only']
+        del in_syn_only['_merge']
+        in_syn_only[real_agg_vars]=0
+        ext_real= pd.concat([query_real,in_syn_only], axis=0, ignore_index=True) #extended real
+        ext_real.sort_values(grpby_vars, inplace=True, ignore_index=True)
+
+        assert len(ext_real)==len(ext_syn)
+        matched_rnd_query['query_real']=ext_real
+        matched_rnd_query['query_syn']=ext_syn
+        matched_rnd_query['query_desc']=rnd_query['query_desc']
+        # matched_rnd_query['query_desc']['n_rows_real']=len(ext_real)
+        # matched_rnd_query['query_desc']['n_rows_syn']=len(ext_syn)
+
+        return matched_rnd_query
 
 
 
+    def calc_dist_scores(self,matched_rnd_query):
+
+        assert 'single' not in matched_rnd_query['query_desc']['type'], "This method does not apply to single random queries!"
+        assert '_fltr' not in matched_rnd_query['query_desc']['type'], "This method does not apply to filter random queries. It only applies to aggregate queries!"
+
+        scored_rnd_query=matched_rnd_query
+        real=matched_rnd_query['query_real']
+        syn=matched_rnd_query['query_syn']
+        desc=matched_rnd_query['query_desc']
+        cnt_idx=-1 if  desc['agg_fntn'] == 'None' else -2 #decide the column back index of COUNT header
+        assert real.iloc[:,:cnt_idx].equals(syn.iloc[:,:cnt_idx]), "Real and Synthetic tables should be matched!"
+
+        if len(real)!=0 and len(syn)!=0: 
+            real_probs=real.iloc[:,cnt_idx].astype(float)/sum(real.iloc[:,cnt_idx].astype(float))
+            syn_probs=syn.iloc[:,cnt_idx].astype(float)/sum(syn.iloc[:,cnt_idx].astype(float))
+            hlngr_dist=np.sqrt(np.sum((np.sqrt(real_probs)-np.sqrt(syn_probs))**2))/np.sqrt(2)
+            scored_rnd_query['query_hlngr_score']=hlngr_dist
+        else: 
+            scored_rnd_query['query_hlngr_score']=np.nan
+
+        if cnt_idx==-2:
+            pivot=np.concatenate([[real.iloc[:,cnt_idx],syn.iloc[:,cnt_idx],real.iloc[:,-1],syn.iloc[:,-1]]], axis=1).T
+            pivot=pivot.astype(float)
+            cndn=(pivot[:,0]!=0) & (pivot[:,1]!=0) & (pivot[:,2]==pivot[:,2]) & (pivot[:,2]==pivot[:,3]) # dropping rows (ie classes) that do not exist in real or syn queries. Unlike, the Hellinger distance, the Euclidean distance is not meant to measure how good the synthetic model is in terms of teh classes generated.
+            pivot=pivot[cndn]
+            p=pivot[:,-2]
+            q=pivot[:,-1]
+            scaler = StandardScaler()
+            p_q=(p-q).reshape(-1, 1)
+            if len(p_q) !=0:
+                pq_s = scaler.fit_transform((p-q).reshape(-1, 1))
+                res=np.linalg.norm(pq_s, 2)/len(pq_s)
+            else:
+                res=np.nan
+            
+            scored_rnd_query['query_ecldn_score']=res
+
+        return scored_rnd_query
 
 
 #################  PREVIOUS METHODS BELOW THIS LINE #############################
 ############################################################################################
 
-
-
-
-#     def match_twin_query(self, rnd_query: dict) ->dict:
-#         assert 'single' not in rnd_query['query_desc']['type'], "This method does not apply to single random queries!"
-#         assert '_fltr' not in rnd_query['query_desc']['type'], "This method does not apply to filter random queries. It only applies to aggregate queries!"
-#         matched_rnd_query={}
-#         query_real=rnd_query['query_real']
-#         query_syn=rnd_query['query_syn']
-#         grpby_vars=rnd_query['query_desc']['grpby_vars']
-#         real_agg_vars=[x for x in list(query_real.columns) if x not in grpby_vars]
-#         syn_agg_vars=[x for x in list(query_syn.columns) if x not in grpby_vars]
-#         real=query_real[grpby_vars]
-#         syn=query_syn[grpby_vars]
-
-#         #in_both=real.merge(syn, how='inner', indicator=False)
-#         in_real_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='left_only']
-#         del in_real_only['_merge']
-#         in_real_only[syn_agg_vars]=0
-#         ext_syn= pd.concat([query_syn,in_real_only], axis=0, ignore_index=True)#extended synthetic
-#         ext_syn.sort_values(grpby_vars, inplace=True, ignore_index=True)
-
-#         in_syn_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='right_only']
-#         del in_syn_only['_merge']
-#         in_syn_only[real_agg_vars]=0
-#         ext_real= pd.concat([query_real,in_syn_only], axis=0, ignore_index=True) #extended real
-#         ext_real.sort_values(grpby_vars, inplace=True, ignore_index=True)
-
-#         assert len(ext_real)==len(ext_syn)
-#         matched_rnd_query['query_real']=ext_real
-#         matched_rnd_query['query_syn']=ext_syn
-#         matched_rnd_query['query_desc']=rnd_query['query_desc']
-#         # matched_rnd_query['query_desc']['n_rows_real']=len(ext_real)
-#         # matched_rnd_query['query_desc']['n_rows_syn']=len(ext_syn)
-
-#         return matched_rnd_query
-
-#     def calc_dist_scores(self,matched_rnd_query):
-
-#         assert 'single' not in matched_rnd_query['query_desc']['type'], "This method does not apply to single random queries!"
-#         assert '_fltr' not in matched_rnd_query['query_desc']['type'], "This method does not apply to filter random queries. It only applies to aggregate queries!"
-
-#         scored_rnd_query=matched_rnd_query
-#         real=matched_rnd_query['query_real']
-#         syn=matched_rnd_query['query_syn']
-#         desc=matched_rnd_query['query_desc']
-#         cnt_idx=-1 if  desc['aggfntn'] == 'None' else -2 #decide the column back index of COUNT header
-#         assert real.iloc[:,:cnt_idx].equals(syn.iloc[:,:cnt_idx]), "Real and Synthetic tables should be matched!"
-
-#         if len(real)!=0 and len(syn)!=0: 
-#             real_probs=real.iloc[:,-1]/sum(real.iloc[:,-1])
-#             syn_probs=syn.iloc[:,-1]/sum(syn.iloc[:,-1])
-#             hlngr_dist=np.sqrt(np.sum((np.sqrt(real_probs)-np.sqrt(syn_probs))**2))/np.sqrt(2)
-#             scored_rnd_query['query_hlngr_score']=hlngr_dist
-#         else: 
-#             scored_rnd_query['query_hlngr_score']=np.nan
-
-#         if cnt_idx==-2:
-#             pivot=np.concatenate([[real.iloc[:,-2],syn.iloc[:,-2],real.iloc[:,-1],syn.iloc[:,-1]]], axis=1).T
-#             cndn=(pivot[:,0]!=0) & (pivot[:,1]!=0)  # dropping rows (ie classes) that do not exist in real or syn queries. Unlike, the Hellinger distance, the Euclidean distance is not meant to measure how good the synthetic model is in terms of teh classes generated.
-#             pivot=pivot[cndn]
-#             p=pivot[:,-2]
-#             q=pivot[:,-1]
-#             scaler = StandardScaler()
-#             p_q=(p-q).reshape(-1, 1)
-#             if len(p_q) !=0:
-#                 pq_s = scaler.fit_transform((p-q).reshape(-1, 1))
-#                 res=np.linalg.norm(pq_s, 2)/len(pq_s)
-#             else:
-#                 res=np.nan
-            
-#             scored_rnd_query['query_ecldn_score']=res
-
-#         return scored_rnd_query
 
     
 #     def calc_mltpl_dist_scores(self,unmatched_queries: dict)-> dict:
