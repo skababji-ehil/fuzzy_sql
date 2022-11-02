@@ -10,12 +10,24 @@ from jsonschema import Draft4Validator
 import json
 from scipy import stats
 
+#setup default parameters
+DEFAULT_PARAMS={
+    'AGG_OPS':{'AVG':0.5, 'SUM':0.3, 'MAX':0.1, 'MIN':0.1 },
+    'LOGIC_OPS':{'AND':0.9,'OR':0.1},
+    'NOT_STATE':{'0':0.8, '1':0.2},
+    'CAT_OPS':{'=':0.25, '<>':0.25, 'LIKE':0.15, 'IN':0.15, 'NOT LIKE':0.1, 'NOT IN':0.1},
+    'CNT_OPS':{'=':0.2, '>':0.1, '<':0.1, '>=':0.1, '<=':0.1, '<>':0.1, 'BETWEEN':0.2, 'NOT BETWEEN':0.1},
+    'DT_OPS':{'=':0.2, '>':0.1, '<':0.1, '>=':0, '<=':0, '<>':0.1, 'BETWEEN':0.2, 'IN':0.1, 'NOT BETWEEN':0.1, 'NOT IN':0.1},
+    'FILTER_TYPE':{'WHERE':0.5, 'AND':0.5}, #Use WHERE or AND with JOIN CLAUSE
+    'JOIN_TYPE': {'JOIN':0.5, 'LEFT JOIN':0.5}
+}
+
 
 class RND_QUERY():
     """ Generates random queries for tabular and longitudinal datasets. 
     """
 
-    def __init__(self, db_conn: object, tbl_names_lst: list,  metadata_lst: list,params: dict , seed=False):
+    def __init__(self, db_conn: object, tbl_names_lst: list,  metadata_lst: list,params=DEFAULT_PARAMS , seed=False):
         """ 
         Args:
             db_conn: The connection object of the sqlite database where the data exists.
@@ -28,16 +40,25 @@ class RND_QUERY():
         assert len(tbl_names_lst)==len(metadata_lst),"Each input table name shall have its own metadata dictionary."
         
         #validate metadata schema
-        with open('schema.json') as f:
-            schema=json.load(f)
-        validator=Draft4Validator(schema)
+        # with open('/metadata_schema.json') as f:
+        #     schema=json.load(f)
+        validator=Draft4Validator(self._get_metdata_schema())
         for i, metadata in enumerate(metadata_lst):
             res=list(validator.iter_errors(metadata))
             if len(res)==0:
                 tbl_name=tbl_names_lst[i]
-                print(f"Metadata fot table {tbl_name} validated.") 
+                print(f"Metadata for table {tbl_name} is valid.") 
             else:
                 print(res) 
+        
+        validator=Draft4Validator(self._get_params_schema())
+        res=list(validator.iter_errors(params))
+        if len(res)==0:
+            tbl_name=tbl_names_lst[i]
+            print(f"Parameter input is valid.") 
+        else:
+            print(res) 
+
      
 
         self.SEED=seed
@@ -91,6 +112,282 @@ class RND_QUERY():
         self.no_groupby_vars=np.nan ##This a fixed number of terms (vars) to be enforced in the GROUPBY clause.Set it to np.inf and the number of terms will be selected randomly. If set to a larger number than the possible GROUPBY variables, then this number will be ignored. 
         self.no_where_vars=np.nan #This a fixed number of terms (vars) to be enforced in the WHERE clause. Set it to np.inf and the number of terms will be selected randomly. If set to a larger number than the possible WHERE variables, then this number will be ignored. 
         self.no_join_tables=np.inf #This is a fixed number of join terms (tables) to be enforced in the JOIN clause. It does not include the name of teh master parent table (coming right after FROM). Set it to np.inf to randomly select the number of JOIN terms. 
+
+############################################ Schema definitions 
+
+    def _get_params_schema(self):
+        schema = {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "type": "object",
+            "properties": {
+                    "AGG_OPS": {
+                        "type": "object",
+                        "properties": {
+                            "AVG": {
+                                "type": "number"
+                            },
+                            "SUM": {
+                                "type": "number"
+                            },
+                            "MAX": {
+                                "type": "number"
+                            },
+                            "MIN": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "AVG",
+                            "SUM",
+                            "MAX",
+                            "MIN"
+                        ]
+                    },
+                "LOGIC_OPS": {
+                        "type": "object",
+                        "properties": {
+                            "AND": {
+                                "type": "number"
+                            },
+                            "OR": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "AND",
+                            "OR"
+                        ]
+                },
+                "NOT_STATE": {
+                        "type": "object",
+                        "properties": {
+                            "0": {
+                                "type": "number"
+                            },
+                            "1": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "0",
+                            "1"
+                        ]
+                },
+                "CAT_OPS": {
+                        "type": "object",
+                        "properties": {
+                            "=": {
+                                "type": "number"
+                            },
+                            "<>": {
+                                "type": "number"
+                            },
+                            "LIKE": {
+                                "type": "number"
+                            },
+                            "IN": {
+                                "type": "number"
+                            },
+                            "NOT LIKE": {
+                                "type": "number"
+                            },
+                            "NOT IN": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "=",
+                            "<>",
+                            "LIKE",
+                            "IN",
+                            "NOT LIKE",
+                            "NOT IN"
+                        ]
+                },
+                "CNT_OPS": {
+                        "type": "object",
+                        "properties": {
+                            "=": {
+                                "type": "number"
+                            },
+                            ">": {
+                                "type": "number"
+                            },
+                            "<": {
+                                "type": "number"
+                            },
+                            ">=": {
+                                "type": "number"
+                            },
+                            "<=": {
+                                "type": "number"
+                            },
+                            "<>": {
+                                "type": "number"
+                            },
+                            "BETWEEN": {
+                                "type": "number"
+                            },
+                            "NOT BETWEEN": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "=",
+                            ">",
+                            "<",
+                            ">=",
+                            "<=",
+                            "<>",
+                            "BETWEEN",
+                            "NOT BETWEEN"
+                        ]
+                },
+                "DT_OPS": {
+                        "type": "object",
+                        "properties": {
+                            "=": {
+                                "type": "number"
+                            },
+                            ">": {
+                                "type": "number"
+                            },
+                            "<": {
+                                "type": "number"
+                            },
+                            ">=": {
+                                "type": "integer"
+                            },
+                            "<=": {
+                                "type": "integer"
+                            },
+                            "<>": {
+                                "type": "number"
+                            },
+                            "BETWEEN": {
+                                "type": "number"
+                            },
+                            "IN": {
+                                "type": "number"
+                            },
+                            "NOT BETWEEN": {
+                                "type": "number"
+                            },
+                            "NOT IN": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "=",
+                            ">",
+                            "<",
+                            ">=",
+                            "<=",
+                            "<>",
+                            "BETWEEN",
+                            "IN",
+                            "NOT BETWEEN",
+                            "NOT IN"
+                        ]
+                },
+                "FILTER_TYPE": {
+                        "type": "object",
+                        "properties": {
+                            "WHERE": {
+                                "type": "number"
+                            },
+                            "AND": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "WHERE",
+                            "AND"
+                        ]
+                },
+                "JOIN_TYPE": {
+                        "type": "object",
+                        "properties": {
+                            "JOIN": {
+                                "type": "number"
+                            },
+                            "LEFT JOIN": {
+                                "type": "number"
+                            }
+                        },
+                        "required": [
+                            "JOIN",
+                            "LEFT JOIN"
+                        ]
+                }
+            },
+            "required": [
+                "AGG_OPS",
+                "LOGIC_OPS",
+                "NOT_STATE",
+                "CAT_OPS",
+                "CNT_OPS",
+                "DT_OPS",
+                "FILTER_TYPE",
+                "JOIN_TYPE"
+            ]
+        }
+
+        return schema
+
+    def _get_metdata_schema(self):  
+        schema = {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "type": "object",
+            "properties": {
+                    "table_name": {
+                        "type": "string"
+                    },
+                "table_vars": {
+                        "type": "array",
+                        "items": [
+                            {
+                                "type": "array",
+                                "items": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "string"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                "parent_details": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "array",
+                            "items": [
+                                {
+                                    "type": "array",
+                                    "items": [
+                                        {
+                                            "type": "string"
+                                        },
+                                        {
+                                            "type": "string"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+            },
+            "required": [
+                "table_name",
+                "table_vars"
+            ]
+        }
+        return schema
+
+
+
 ########################################## COMMON METHODS  #########################
 
     def _flatten_lst(self,lst):
@@ -171,7 +468,7 @@ class RND_QUERY():
         for tpl in var_tpls:
             if tpl[2]==var_type:
                 fetched_vars.append(tpl[0])
-        if drop_key:
+        if drop_key and var_type=='CAT': #Note that unique key is NOT allowed to be other than CAT type
                 keys=self._get_table_keys(tbl_name)
                 fetched_vars=self._remove_sublst(fetched_vars,keys)
         return fetched_vars
@@ -328,28 +625,6 @@ class RND_QUERY():
 
 
 
-
-    # def _make_rnd_from_expr(self)-> str:
-    #     #this function returns an expression joining a parenet to multiple child, however it does not return a hierarchical joining expression ie parent->child/parent/child..etc
-    #     if self.SEED:
-    #         np.random.seed(self.seed_no)
-    #         random.seed(self.seed_no)
-    #     if len(self.SOLE_NAME_LST) !=0:
-    #         assert len(self.SOLE_NAME_LST)==1,"For tabular fuzzing, you can not have more than one table passed to the class."
-    #         return f" FROM {self.SOLE_NAME_LST[0]} ", self.SOLE_NAME_LST[0],"Null"
-    #     else:
-    #         from_tbl=random.sample(self.PARENT_NAME_LST,1)[0] # randomly select one parent 
-    #         join_tbls=self._get_tbl_childs(from_tbl)
-    #         picked_no_joins=random.randint(0,len(join_tbls)) if self.no_join_tables==self.no_join_tables else self.no_join_tables
-    #         join_tbl_lst=random.sample(join_tbls,picked_no_joins) #randomly select a number of child tables 
-    #         expr1=f" FROM {from_tbl} "
-    #         expr2=""
-    #         for j in range(picked_no_joins):
-    #             join_type=np.random.choice(list(self.ATTRS['JOIN_TYPE'].keys()), p=list(self.ATTRS['JOIN_TYPE'].values()))
-    #             expr2+=f" {join_type} {join_tbl_lst[j]} "+self._get_join_on_sub_expr(from_tbl,join_tbl_lst[j])
-    #         return expr1+expr2, from_tbl, join_tbl_lst
-
-
     def make_query(self,cur: object, query_exp: str)-> pd.DataFrame:
         cur.execute(query_exp)
         query = cur.fetchall()
@@ -421,19 +696,6 @@ class RND_QUERY():
         selected_n_vars=min(random.randint(1,len(all_catdt_vars)), self.no_groupby_vars)
         picked_vars = random.sample(all_catdt_vars, selected_n_vars)
 
-        # else: #If there is only one sole table (ie tabular case)
-        #     dt_vars=self._get_tbl_vars_by_type('DT',from_tbl)
-        #     if drop_fkey:
-        #         cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl,drop_key=True)
-        #     else:
-        #         cat_vars=self._get_tbl_vars_by_type('CAT',from_tbl, drop_key=False)
-        #     catdt_vars=cat_vars+dt_vars
-
-        #     custom_rv=self._make_int_rv(len(catdt_vars)+1, dist='favor_small')
-        #     selected_n_vars=custom_rv.rvs(1, random_state=seed)
-        #     # selected_n_vars=selected_n_vars if self.no_groupby_vars==np.nan else min(len(catdt_vars),self.no_groupby_vars)
-        #     selected_n_vars=min(random.randint(1,len(catdt_vars)), self.no_groupby_vars)
-        #     picked_vars = random.sample(catdt_vars, selected_n_vars)
         return picked_vars
 
 
@@ -446,21 +708,19 @@ class RND_QUERY():
         # if len(join_tbl_lst) != 0:
         join_tbl_lst.append(from_tbl)#possible list for agg_fntn operand includes only from_tbl and join_tbl lists
         for tbl_name in join_tbl_lst: 
-            cnt_vars=self._get_tbl_vars_by_type('CNT',tbl_name,drop_key=False) #drop_key is not used for continuous variable since key is usually categorical variable 
+            cnt_vars=self._get_tbl_vars_by_type('CNT',tbl_name,drop_key=False) #drop_key is not used for continuous variable since key is only categorical variable 
             cnt_vars=self._prepend_tbl_name(tbl_name,cnt_vars) if len(inp_join_tbl_lst)!=0 else cnt_vars
             all_cnt_vars.append(cnt_vars)
-        assert len( all_cnt_vars)!=0, "No continuous variable is available to use it with an Aggregate Function. Please set agg_fnt to False."
+        if len( all_cnt_vars)==0:
+            return 'None', 'None' # if there are no continuous variables, return  'None' for picked_log_op and picked_cnt_var
+        #assert len( all_cnt_vars)!=0, "No continuous variable is available to use it with an Aggregate Function. Please set agg_fnt to False."
         all_cnt_vars=[var for vars in all_cnt_vars for var in vars] #flatten
         picked_cnt_var = np.random.choice(all_cnt_vars)
-        # else: #If there is only one sole table (ie tabular case)
-        #     cnt_vars=self._get_tbl_vars_by_type('CNT',from_tbl, drop_key=False)
-        #     assert len(cnt_vars)!=0, "No continuous variable is available to use it with an Aggregate Function. Please set agg_fnt to False."
-        #     picked_cnt_var=np.random.choice(cnt_vars)
         picked_log_op=np.random.choice(list(self.ATTRS['AGG_OPS'].keys()), p=list(self.ATTRS['AGG_OPS'].values()))
         return picked_log_op,picked_cnt_var
 
 
-    def _compile_agg_expr(self,agg_fntn) -> str:
+    def _compile_agg_expr(self) -> str:
         from_expr, from_table,join_tbl_lst=self._make_rnd_from_expr() #from table is the table right after the from clause which can be either a sole or parent table  
         groupby_lst=self._get_rnd_groupby_lst(from_table,join_tbl_lst, drop_fkey=True)
         expr2_1=' GROUP BY '
@@ -468,17 +728,17 @@ class RND_QUERY():
         expr2_2=expr2_2.replace("[","")
         expr2_2=expr2_2.replace("]","")
         expr2_2=expr2_2.replace("'","")
-        if agg_fntn:
+        log_op,cnt_var=self._get_rnd_agg_fntn_terms(from_table,join_tbl_lst)
+        if log_op != 'None': # Automatically use aggregate function if there is a returned log_op:
             log_op,cnt_var=self._get_rnd_agg_fntn_terms(from_table,join_tbl_lst)
-            expr1=f'SELECT {expr2_2}, COUNT(*), {log_op}({cnt_var}) '+ from_expr
-            return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst, (log_op, cnt_var)
-        else:
-            expr1=f'SELECT {expr2_2}, COUNT(*) '+ from_expr
-            return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst, 'None'
+            expr1=f'SELECT {expr2_2}, COUNT(*), {log_op}({cnt_var}) '+ from_expr        
+        else: # Don NOT use aggregate function if the returned log_op in 'None':
+            expr1=f'SELECT {expr2_2}, COUNT(*) '+ from_expr   
+        return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst, (log_op, cnt_var)
 
-    def make_single_agg_query(self, agg_fntn) -> dict:
+    def make_single_agg_query(self) -> dict:
         dic={}
-        single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self._compile_agg_expr(agg_fntn)
+        single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self._compile_agg_expr()
         # print(single_expr) #SMK TEMP
         if len(join_tbl_lst) != 0: #if table is sole
             groupby_lst=self._drop_tbl_name(groupby_lst)
@@ -499,9 +759,9 @@ class RND_QUERY():
         }
         return dic
 
-    def make_twin_agg_query(self, syn_tbl_name_lst, agg_fntn):
+    def make_twin_agg_query(self, syn_tbl_name_lst):
         self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
-        real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst,agg_fntn_terms=self._compile_agg_expr(agg_fntn)
+        real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst,agg_fntn_terms=self._compile_agg_expr()
         # print(real_expr) #SMK TEMP
         if len(real_join_tbl_lst) != 0: #if table is sole
             groupby_lst=self._drop_tbl_name(real_groupby_lst)
@@ -737,7 +997,7 @@ class RND_QUERY():
 
 ##################################### METHODS FOR GENERATING RANDOM FILTER-AGGREGATE QUERIES #############################
 
-    def _compile_aggfltr_expr(self,agg_fntn):
+    def _compile_aggfltr_expr(self):
         
         from_expr, from_table,join_tbl_lst=self._make_rnd_from_expr() #from table is the table right after the from clause which can be either a sole or parent table  
         groupby_lst=self._get_rnd_groupby_lst(from_table,join_tbl_lst, drop_fkey=True)
@@ -754,8 +1014,8 @@ class RND_QUERY():
         else:
             fltr_type='WHERE'
 
-        if agg_fntn:
-            log_op,cnt_var=self._get_rnd_agg_fntn_terms(from_table,join_tbl_lst)            
+        log_op,cnt_var=self._get_rnd_agg_fntn_terms(from_table,join_tbl_lst)  
+        if log_op != 'None':        
             expr_a=f'SELECT {expr2_2}, COUNT(*), {log_op}({cnt_var}) '+ from_expr
         else:
             expr_a=f'SELECT {expr2_2}, COUNT(*) '+ from_expr
@@ -766,9 +1026,9 @@ class RND_QUERY():
         return expr_a+expr_b+expr_c, groupby_lst, from_table, join_tbl_lst, (log_op,cnt_var) 
 
 
-    def make_single_aggfltr_query(self, agg_fntn) -> dict:
+    def make_single_aggfltr_query(self) -> dict:
         dic={}
-        single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self._compile_aggfltr_expr(agg_fntn)
+        single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self._compile_aggfltr_expr()
         # print(single_expr) #SMK TEMP
         query=self.make_query(self.CUR, single_expr)
         # grpby_vars=self._drop_tbl_name(groupby_lst)
@@ -786,9 +1046,9 @@ class RND_QUERY():
         return dic
 
 
-    def make_twin_aggfltr_query(self,syn_tbl_name_lst, agg_fntn) -> dict:
+    def make_twin_aggfltr_query(self,syn_tbl_name_lst) -> dict:
         self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
-        real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst, agg_fntn_terms=self._compile_aggfltr_expr(agg_fntn)
+        real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst, agg_fntn_terms=self._compile_aggfltr_expr()
         # print(real_expr) #SMK TEMP
 
         if len(real_join_tbl_lst) != 0: #if table is sole
