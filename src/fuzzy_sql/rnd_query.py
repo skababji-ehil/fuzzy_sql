@@ -9,6 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from jsonschema import Draft4Validator
 import json
 from scipy import stats
+import time
 
 #setup default parameters
 DEFAULT_PARAMS={
@@ -390,6 +391,12 @@ class RND_QUERY():
 
 ########################################## COMMON METHODS  #########################
 
+    def _test_query_time(self, query_expr):
+        cur = self.CUR
+        cur.execute(query_expr)
+        # time.sleep(10) #SMK TEMP
+
+
     def _flatten_lst(self,lst):
         return [item for sublist in lst for item in sublist]
 
@@ -625,7 +632,7 @@ class RND_QUERY():
 
 
 
-    def make_query(self,cur: object, query_exp: str)-> pd.DataFrame:
+    def _make_query(self,cur: object, query_exp: str)-> pd.DataFrame:
         cur.execute(query_exp)
         query = cur.fetchall()
         query=pd.DataFrame(query, columns=[description[0] for description in cur.description])
@@ -720,7 +727,7 @@ class RND_QUERY():
         return picked_log_op,picked_cnt_var
 
 
-    def _compile_agg_expr(self) -> str:
+    def compile_agg_expr(self) -> str:
         from_expr, from_table,join_tbl_lst=self._make_rnd_from_expr() #from table is the table right after the from clause which can be either a sole or parent table  
         groupby_lst=self._get_rnd_groupby_lst(from_table,join_tbl_lst, drop_fkey=True)
         expr2_1=' GROUP BY '
@@ -736,15 +743,15 @@ class RND_QUERY():
             expr1=f'SELECT {expr2_2}, COUNT(*) '+ from_expr   
         return expr1+expr2_1+expr2_2, groupby_lst,from_table,join_tbl_lst, (log_op, cnt_var)
 
-    def make_single_agg_query(self) -> dict:
+    def make_single_agg_query(self,single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms) -> dict:
         dic={}
-        single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self._compile_agg_expr()
+        #single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self.compile_agg_expr()
         # print(single_expr) #SMK TEMP
         if len(join_tbl_lst) != 0: #if table is sole
             groupby_lst=self._drop_tbl_name(groupby_lst)
         else:
             groupby_lst=groupby_lst
-        query=self.make_query(self.CUR, single_expr)
+        query=self._make_query(self.CUR, single_expr)
         # grpby_vars=self._drop_tbl_name(groupby_lst)
         dic['query']=query
         dic['query_desc']={
@@ -759,9 +766,9 @@ class RND_QUERY():
         }
         return dic
 
-    def make_twin_agg_query(self, syn_tbl_name_lst):
+    def make_twin_agg_query(self, syn_tbl_name_lst,real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst,agg_fntn_terms):
         self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
-        real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst,agg_fntn_terms=self._compile_agg_expr()
+        # real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst,agg_fntn_terms=self.compile_agg_expr()
         # print(real_expr) #SMK TEMP
         if len(real_join_tbl_lst) != 0: #if table is sole
             groupby_lst=self._drop_tbl_name(real_groupby_lst)
@@ -775,8 +782,8 @@ class RND_QUERY():
         else:
             syn_join_tbl_lst=[]
 
-        query_real=self.make_query(self.CUR, real_expr)
-        query_syn=self.make_query(self.CUR, syn_expr) 
+        query_real=self._make_query(self.CUR, real_expr)
+        query_syn=self._make_query(self.CUR, syn_expr) 
         #grpby_vars=self._drop_tbl_name(real_grp_lst)
         dic={}
         dic['query_real']=query_real
@@ -938,7 +945,7 @@ class RND_QUERY():
         return terms
             
 
-    def _compile_fltr_expr(self):
+    def compile_fltr_expr(self):
         from_expr,from_tbl,join_tbl_lst=self._make_rnd_from_expr()
         where_expr=self._get_rnd_where_expr(from_tbl,join_tbl_lst, drop_fkey=True)
         if len(join_tbl_lst)!=0:
@@ -949,11 +956,11 @@ class RND_QUERY():
         return expr,from_tbl,join_tbl_lst
 
 
-    def make_single_fltr_query(self) -> dict:
+    def make_single_fltr_query(self,single_expr,from_tbl, join_tbl_lst) -> dict:
         dic={}
-        single_expr,from_tbl, join_tbl_lst =self._compile_fltr_expr()
+        # single_expr,from_tbl, join_tbl_lst =self.compile_fltr_expr()
         # print(single_expr) #SMK TMP
-        query=self.make_query(self.CUR, single_expr)
+        query=self._make_query(self.CUR, single_expr)
         dic['query']=query
         dic['query_desc']={
             "type":"single_fltr",
@@ -967,15 +974,15 @@ class RND_QUERY():
 
 
 
-    def make_twin_fltr_query(self,syn_tbl_name_lst) -> dict:
+    def make_twin_fltr_query(self,syn_tbl_name_lst,real_expr,real_from_tbl, real_join_tbl_lst ) -> dict:
         self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
-        real_expr,real_from_tbl, real_join_tbl_lst =self._compile_fltr_expr()
+        # real_expr,real_from_tbl, real_join_tbl_lst =self.compile_fltr_expr()
         # print(real_expr) #SMK TMP
         syn_expr=self._expr_replace_tbl_name(real_expr)
         syn_from_tbl=syn_tbl_name_lst[self._get_tbl_index(real_from_tbl)]
         syn_join_tbl_lst=[syn_tbl_name_lst[self._get_tbl_index(real_tbl_name)] for real_tbl_name in real_join_tbl_lst]
-        query_real=self.make_query(self.CUR, real_expr)
-        query_syn=self.make_query(self.CUR, syn_expr)
+        query_real=self._make_query(self.CUR, real_expr)
+        query_syn=self._make_query(self.CUR, syn_expr)
         dic={}
         dic['query_real']=query_real
         dic['query_syn']=query_syn
@@ -997,7 +1004,7 @@ class RND_QUERY():
 
 ##################################### METHODS FOR GENERATING RANDOM FILTER-AGGREGATE QUERIES #############################
 
-    def _compile_aggfltr_expr(self):
+    def compile_aggfltr_expr(self):
         
         from_expr, from_table,join_tbl_lst=self._make_rnd_from_expr() #from table is the table right after the from clause which can be either a sole or parent table  
         groupby_lst=self._get_rnd_groupby_lst(from_table,join_tbl_lst, drop_fkey=True)
@@ -1022,15 +1029,15 @@ class RND_QUERY():
         
         expr_b= f' {fltr_type} ' + where_expr
         expr_c= f' GROUP BY {expr2_2}'
-
+        
         return expr_a+expr_b+expr_c, groupby_lst, from_table, join_tbl_lst, (log_op,cnt_var) 
 
 
-    def make_single_aggfltr_query(self) -> dict:
+    def make_single_aggfltr_query(self,single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms) -> dict:
         dic={}
-        single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self._compile_aggfltr_expr()
+        # single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self.compile_aggfltr_expr()
         # print(single_expr) #SMK TEMP
-        query=self.make_query(self.CUR, single_expr)
+        query=self._make_query(self.CUR, single_expr)
         # grpby_vars=self._drop_tbl_name(groupby_lst)
         dic['query']=query
         dic['query_desc']={
@@ -1046,9 +1053,9 @@ class RND_QUERY():
         return dic
 
 
-    def make_twin_aggfltr_query(self,syn_tbl_name_lst) -> dict:
+    def make_twin_aggfltr_query(self,syn_tbl_name_lst,real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst, agg_fntn_terms) -> dict:
         self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
-        real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst, agg_fntn_terms=self._compile_aggfltr_expr()
+        # real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst, agg_fntn_terms=self.compile_aggfltr_expr()
         # print(real_expr) #SMK TEMP
 
         if len(real_join_tbl_lst) != 0: #if table is sole
@@ -1063,8 +1070,8 @@ class RND_QUERY():
         else:
             syn_join_tbl_lst=[]
     
-        query_real=self.make_query(self.CUR, real_expr)
-        query_syn=self.make_query(self.CUR, syn_expr)
+        query_real=self._make_query(self.CUR, real_expr)
+        query_syn=self._make_query(self.CUR, syn_expr)
         dic={}
 
         dic['query_real']=query_real
