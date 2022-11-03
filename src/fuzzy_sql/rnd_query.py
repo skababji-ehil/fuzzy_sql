@@ -48,7 +48,7 @@ class RND_QUERY():
             res=list(validator.iter_errors(metadata))
             if len(res)==0:
                 tbl_name=tbl_names_lst[i]
-                print(f"Metadata for table {tbl_name} is valid.") 
+                # print(f"Metadata for table {tbl_name} is valid.") #SMK TEMP
             else:
                 print(res) 
         
@@ -56,7 +56,7 @@ class RND_QUERY():
         res=list(validator.iter_errors(params))
         if len(res)==0:
             tbl_name=tbl_names_lst[i]
-            print(f"Parameter input is valid.") 
+            # print(f"Parameter input is valid.") #SMK TEMP
         else:
             print(res) 
 
@@ -394,7 +394,7 @@ class RND_QUERY():
     def _test_query_time(self, query_expr):
         cur = self.CUR
         cur.execute(query_expr)
-        # time.sleep(10) #SMK TEMP
+        #time.sleep(10) #SMK TEMP
 
 
     def _flatten_lst(self,lst):
@@ -702,7 +702,7 @@ class RND_QUERY():
         #selected_n_vars=selected_n_vars if self.no_groupby_vars==np.nan else min(len(all_catdt_vars),self.no_groupby_vars)
         selected_n_vars=min(random.randint(1,len(all_catdt_vars)), self.no_groupby_vars)
         picked_vars = random.sample(all_catdt_vars, selected_n_vars)
-
+        picked_vars=list(set(picked_vars))
         return picked_vars
 
 
@@ -770,10 +770,10 @@ class RND_QUERY():
         self._validate_syn_lst(syn_tbl_name_lst)  #validate syn list
         # real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst,agg_fntn_terms=self.compile_agg_expr()
         # print(real_expr) #SMK TEMP
-        if len(real_join_tbl_lst) != 0: #if table is sole
-            groupby_lst=self._drop_tbl_name(real_groupby_lst)
-        else:
-            groupby_lst=real_groupby_lst
+        # if len(real_join_tbl_lst) != 0: #if table is sole
+        #     groupby_lst=self._drop_tbl_name(real_groupby_lst)
+        # else:
+        #     groupby_lst=real_groupby_lst
         syn_expr=self._expr_replace_tbl_name(real_expr)
         syn_from_tbl=syn_tbl_name_lst[self._get_tbl_index(real_from_tbl)]
         
@@ -791,7 +791,7 @@ class RND_QUERY():
         dic['query_desc']={
             "type":"twin_agg",
             "agg_fntn":agg_fntn_terms,
-            "grpby_vars": groupby_lst,
+            "grpby_vars": real_groupby_lst,
             "from_tbl_name_real":real_from_tbl,
             "join_tbl_name_lst_real":real_join_tbl_lst,
             "sql_real":real_expr,
@@ -1058,10 +1058,10 @@ class RND_QUERY():
         # real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst, agg_fntn_terms=self.compile_aggfltr_expr()
         # print(real_expr) #SMK TEMP
 
-        if len(real_join_tbl_lst) != 0: #if table is sole
-            groupby_lst=self._drop_tbl_name(real_groupby_lst)
-        else:
-            groupby_lst=real_groupby_lst
+        # if len(real_join_tbl_lst) == 0: #if table is sole
+        #     groupby_lst=self._drop_tbl_name(real_groupby_lst)
+        # else:
+        #     groupby_lst=real_groupby_lst
         syn_expr=self._expr_replace_tbl_name(real_expr)
         syn_from_tbl=syn_tbl_name_lst[self._get_tbl_index(real_from_tbl)]
         
@@ -1071,7 +1071,12 @@ class RND_QUERY():
             syn_join_tbl_lst=[]
     
         query_real=self._make_query(self.CUR, real_expr)
+        real_col_dic=dict(zip(list(query_real.columns[0:len(real_groupby_lst)]),real_groupby_lst))
+        query_real.rename(columns=real_col_dic, inplace=True)
         query_syn=self._make_query(self.CUR, syn_expr)
+        syn_col_dic=dict(zip(list(query_syn.columns[0:len(real_groupby_lst)]),real_groupby_lst)) #No need to rename the table names to match these in the synthetic data since matching processes requires that both real and syn tables have same varibale names.
+        query_syn.rename(columns=syn_col_dic, inplace=True)
+
         dic={}
 
         dic['query_real']=query_real
@@ -1079,7 +1084,7 @@ class RND_QUERY():
         dic['query_desc']={
             "type":"twin_agg",
             "agg_fntn":agg_fntn_terms,
-            "grpby_vars": groupby_lst,
+            "grpby_vars": real_groupby_lst,
             "from_tbl_name_real":real_from_tbl,
             "join_tbl_name_lst_real":real_join_tbl_lst,
             "sql_real":real_expr,
@@ -1103,21 +1108,39 @@ class RND_QUERY():
         matched_rnd_query={}
         query_real=rnd_query['query_real']
         query_syn=rnd_query['query_syn']
-        grpby_vars=rnd_query['query_desc']['grpby_vars']
+        grpby_vars=rnd_query['query_desc']['grpby_vars'] #vars including real table name
         real_agg_vars=[x for x in list(query_real.columns) if x not in grpby_vars]
         syn_agg_vars=[x for x in list(query_syn.columns) if x not in grpby_vars]
-        real=query_real[grpby_vars]
-        syn=query_syn[grpby_vars]
+        real=copy.deepcopy(query_real)
+        syn=copy.deepcopy(query_syn)
+
+        #drop count and agg fntn columns
+        if rnd_query['query_desc']['agg_fntn'][0] != 'None':
+            real=real.iloc[:,:-2]
+            syn=syn.iloc[:,:-2]
+        else:
+            real=real.iloc[:,:-1]
+            syn=syn.iloc[:,:-1]
+
+        #unify column names
+        org_real_vars=list(real.columns)
+        org_syn_vars=list(syn.columns)
+        new_unified_vars=list(range(len(org_real_vars)))
+        real.columns=new_unified_vars
+        syn.columns=new_unified_vars
 
         #in_both=real.merge(syn, how='inner', indicator=False)
+        assert (real.columns == syn.columns).all(),"Real and synthetic queries can not be matched since they have different variable names"
         in_real_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='left_only']
         del in_real_only['_merge']
+        in_real_only.columns=org_syn_vars
         in_real_only[syn_agg_vars]=0
         ext_syn= pd.concat([query_syn,in_real_only], axis=0, ignore_index=True)#extended synthetic
         ext_syn.sort_values(grpby_vars, inplace=True, ignore_index=True)
 
         in_syn_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='right_only']
         del in_syn_only['_merge']
+        in_syn_only.columns=org_real_vars
         in_syn_only[real_agg_vars]=0
         ext_real= pd.concat([query_real,in_syn_only], axis=0, ignore_index=True) #extended real
         ext_real.sort_values(grpby_vars, inplace=True, ignore_index=True)

@@ -12,8 +12,10 @@ from sklearn.preprocessing import KBinsDiscretizer
 #import pdfkit as pdf
 import random
 import string
+import multiprocessing
 
 from fuzzy_sql.tabular_query import TABULAR_QUERY
+from fuzzy_sql.rnd_query import RND_QUERY
 
 
 import matplotlib.pylab as plt
@@ -661,4 +663,42 @@ def import_df_into_db(table_name: str, df: pd.DataFrame, db_conn: object):
         print(f'Table {table_name} is created in the database')
     else:
         print (f'Table {table_name} already exists in the database')
+
+
+def gen_mltpl_aggfltr(n_queries: int,db_conn: object, real_tbl_lst: list, metadata_lst: list,  syn_tbl_lst: list,max_query_time=5 ) -> list:
+    ''' The function generates multiple twin random queries of aggregate-filter type. 
+    
+    Args:
+        n_queries: The required number of queries to be geenrated.
+        db_conn: A connection to the sqlite database where all the input real and synthetic data reside.
+        real_tbl_lst: A list of real tables to be used for generating the random queries. The list may include related tables.
+        metadata_list: A lsit of dictionaries describing the varibales and relations for each input table. A single metadat dictionaries is used for each real table and its counterpart syntheitc table since both real and syntheitc tables shall have identical varibales and relations.
+        syn_tbl_lst: A list of synthetic tables to be used for generating the random queries.
+        max_query_time: The maximum time in seconds that is allowed to execute a randomly generated query expression before it skips it to the next random expression. 
+    
+    Returns: 
+        A list of dictionaries where each dictionary includes the query result for real data as a dataframe, the query result for synthetic data as a dataframe, a dictioanry describing the query details, a float represnting the twin query Hellinger distance and another represnting  Euclidean distance, whenever applicable.  
+    '''
+    queries = []
+    k=0
+    while k < n_queries:
+        query_obj = RND_QUERY(db_conn, real_tbl_lst, metadata_lst)
+        #query_obj.no_groupby_vars = 2
+        #query_obj.no_where_vars = 3
+        real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms = query_obj.compile_aggfltr_expr()
+        p = multiprocessing.Process(target=query_obj._test_query_time, name="_test_query_time", args=(real_expr,))
+        p.start()
+        p.join(max_query_time)  # wait 5 seconds until process terminates
+        if p.is_alive():
+            p.terminate()
+            p.join()
+            # print('Cant wait any further! I am skipping to next random query!') #MK TEMP
+            continue
+        rnd_query = query_obj.make_twin_aggfltr_query(syn_tbl_lst, real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms)
+        matched_query = query_obj._match_twin_query(rnd_query)
+        scored_query = query_obj.calc_dist_scores(matched_query)
+        queries.append(scored_query)
+        k+=1
+        print('Generated Random Aggregate Filter Query - {} '.format(str(k)))
+    return queries
         
