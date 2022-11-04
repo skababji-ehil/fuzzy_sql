@@ -24,7 +24,7 @@ DEFAULT_PARAMS={
 }
 
 
-class RND_QUERY():
+class RND_QRY_GNRTR():
     """ Generates random queries for tabular and longitudinal datasets. 
     """
 
@@ -1200,4 +1200,10 @@ class RND_QUERY():
             scored_rnd_query['query_ecldn_score']=np.nan
          
         return scored_rnd_query
+
+
+
+
+
+
 

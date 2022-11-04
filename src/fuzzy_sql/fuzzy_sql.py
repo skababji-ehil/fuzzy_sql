@@ -15,7 +15,7 @@ import string
 import multiprocessing
 
 from fuzzy_sql.tabular_query import TABULAR_QUERY
-from fuzzy_sql.rnd_query import RND_QUERY
+from fuzzy_sql.rnd_query import RND_QRY_GNRTR
 
 
 import matplotlib.pylab as plt
@@ -682,7 +682,7 @@ def gen_mltpl_aggfltr(n_queries: int,db_conn: object, real_tbl_lst: list, metada
     queries = []
     k=0
     while k < n_queries:
-        query_obj = RND_QUERY(db_conn, real_tbl_lst, metadata_lst)
+        query_obj = RND_QRY_GNRTR(db_conn, real_tbl_lst, metadata_lst)
         query_obj.no_groupby_vars = groupby_terms
         query_obj.no_where_vars = where_terms
         query_obj.no_join_tables=join_terms
@@ -705,8 +705,10 @@ def gen_mltpl_aggfltr(n_queries: int,db_conn: object, real_tbl_lst: list, metada
         
 
 
-class REPORTER():
-    def __init__(self):
+class MLTPL_QRY_RPRTR():
+    def __init__(self, dataset_table_lst, random_queries):
+        self.tbl_lst=dataset_table_lst
+        self.rnd_queries=random_queries
 
         self.style = """
             .mystyle {
@@ -761,10 +763,10 @@ class REPORTER():
         html_string+="<br><br>"
         return html_string
 
-    def print_html_mltpl(self, rnd_queries, output_file):
+    def print_html_mltpl(self, output_file):
         with open(output_file, 'w') as f:
             f.write(self.start_html)
-            for query in rnd_queries:
+            for query in self.rnd_queries:
                 f.write(f"<H3>======================= START RANDOM QUERY ======================</H3>")
                 f.write(self.query_to_html('real',query))
                 f.write(self.query_to_html('syn',query))
@@ -773,3 +775,57 @@ class REPORTER():
                 f.write("Normalized Euclidean Distance = {:.3f}".format(query['query_ecldn_score']))
                 f.write("<H3>************************************************************************************</H3>")
             f.write(self.end_html)
+
+
+    def calc_stats(self):
+        #history_arr =history_arr[~np.isnan(history_arr)]
+        hlngr_lst=[self.rnd_queries[i]['query_hlngr_score'] for i in range(len(self.rnd_queries))]
+        ecldn_lst=[self.rnd_queries[i]['query_ecldn_score'] for i in range(len(self.rnd_queries))]
+
+        hlngr_lst=[x for x in hlngr_lst if ~np.isnan(x)]
+        ecldn_lst=[x for x in ecldn_lst if ~np.isnan(x)]
+
+        if len(hlngr_lst)!=0:
+            mean=np.mean(hlngr_lst)
+            median=np.median(hlngr_lst)
+            stddev=np.sqrt(np.var(hlngr_lst))
+        else:
+            mean=np.nan
+            median=np.nan
+            stddev=np.nan
+        hlngr_stats= {'mean':mean, 'median':median, 'stddev':stddev}
+
+        if len(ecldn_lst)!=0:
+            mean=np.mean(ecldn_lst)
+            median=np.median(ecldn_lst)
+            stddev=np.sqrt(np.var(ecldn_lst))
+        else:
+            mean=np.nan
+            median=np.nan
+            stddev=np.nan
+        ecldn_stats= {'mean':mean, 'median':median, 'stddev':stddev}
+
+        return hlngr_stats, ecldn_stats
+
+    def plot_violin(self,type: str, outputfile: str ):
+        hlngr_stats, ecldn_stats=self.calc_stats()
+        if type == 'Hellinger':
+            lst=[self.rnd_queries[i]['query_hlngr_score'] for i in range(len(self.rnd_queries))]
+            stats=hlngr_stats
+        elif type== 'Euclidean':
+            lst=[self.rnd_queries[i]['query_ecldn_score'] for i in range(len(self.rnd_queries))]
+            stats=ecldn_stats
+        else:
+            raise ValueError ('type shall be either Hellinger or Euclidean')
+
+        fig, ax=plt.subplots(1,1,figsize=(12, 6))
+        sns.violinplot(x=lst, ax=ax)
+        #ax.set_xlim(-0.2,1)
+        ax.set_xlabel(type +" ( median: {} , mean: {} , std dev: {} ) ".format(round(stats['median'],2), round(stats['mean'],2),round(stats['stddev'],2)))
+        #ax.set_xticks([0,0.2,0.4,0.6,0.8,1.0])
+        fig.suptitle(f'Fuzzy SQL for {self.tbl_lst}', fontsize=12)
+        fig.savefig(outputfile)
+        fig.show()
+
+
+

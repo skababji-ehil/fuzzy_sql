@@ -30,8 +30,10 @@ if __name__ == "__main__":
     rnd_queries=gen_mltpl_aggfltr(10,conn, real_tbl_lst, metadata_lst,  syn_tbl_lst )
 
 
-    reporter=REPORTER()
-    reporter.print_html_mltpl(rnd_queries,'smk_lucy.html')
+    rprtr=MLTPL_QRY_RPRTR(real_tbl_lst, rnd_queries)
+    rprtr.print_html_mltpl('smk_lucy.html')
+    rprtr.plot_violin('Hellinger','smk_lucy_hlngr.png' )
+    rprtr.plot_violin('Euclidean','smk_lucy_ecldn.png' )
 
 
 
