@@ -1178,25 +1178,26 @@ class RND_QUERY():
             syn_probs=syn.iloc[:,cnt_idx].astype(float)/sum(syn.iloc[:,cnt_idx].astype(float))
             hlngr_dist=np.sqrt(np.sum((np.sqrt(real_probs)-np.sqrt(syn_probs))**2))/np.sqrt(2)
             scored_rnd_query['query_hlngr_score']=hlngr_dist
+            
+            if cnt_idx==-2:
+                pivot=np.concatenate([[real.iloc[:,cnt_idx],syn.iloc[:,cnt_idx],real.iloc[:,-1],syn.iloc[:,-1]]], axis=1).T #count_real, count_syn, agg_real, agg_syn
+                pivot=pivot.astype(float)
+                pivot=pivot[~np.isnan(pivot).any(axis=1),:]# remove rows with any nan 
+                cndn=(pivot[:,0]!=0) & (pivot[:,1]!=0) # dropping rows (ie classes) that do not exist in real or syn queries. Unlike, the Hellinger distance, the Euclidean distance is not meant to measure how good the synthetic model is in terms of teh classes generated.
+                pivot=pivot[cndn,:]
+                p=pivot[:,-2]
+                q=pivot[:,-1]
+                scaler = StandardScaler()
+                p_q=(p-q).reshape(-1, 1)
+                if len(p_q) !=0:
+                    pq_s = scaler.fit_transform((p-q).reshape(-1, 1))
+                    res=np.linalg.norm(pq_s, 2)/len(pq_s)
+                    scored_rnd_query['query_ecldn_score']=res
+                else:
+                    scored_rnd_query['query_ecldn_score']=np.nan
         else: 
             scored_rnd_query['query_hlngr_score']=np.nan
-
-        if cnt_idx==-2:
-            pivot=np.concatenate([[real.iloc[:,cnt_idx],syn.iloc[:,cnt_idx],real.iloc[:,-1],syn.iloc[:,-1]]], axis=1).T
-            pivot=pivot.astype(float)
-            cndn=(pivot[:,0]!=0) & (pivot[:,1]!=0) & (pivot[:,2]==pivot[:,2]) & (pivot[:,2]==pivot[:,3]) # dropping rows (ie classes) that do not exist in real or syn queries. Unlike, the Hellinger distance, the Euclidean distance is not meant to measure how good the synthetic model is in terms of teh classes generated.
-            pivot=pivot[cndn]
-            p=pivot[:,-2]
-            q=pivot[:,-1]
-            scaler = StandardScaler()
-            p_q=(p-q).reshape(-1, 1)
-            if len(p_q) !=0:
-                pq_s = scaler.fit_transform((p-q).reshape(-1, 1))
-                res=np.linalg.norm(pq_s, 2)/len(pq_s)
-            else:
-                res=np.nan
-            
-            scored_rnd_query['query_ecldn_score']=res
-
+            scored_rnd_query['query_ecldn_score']=np.nan
+         
         return scored_rnd_query
 
