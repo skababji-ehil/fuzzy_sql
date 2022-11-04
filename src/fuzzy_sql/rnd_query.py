@@ -1106,46 +1106,51 @@ class RND_QUERY():
         assert 'single' not in rnd_query['query_desc']['type'], "This method does not apply to single random queries!"
         assert '_fltr' not in rnd_query['query_desc']['type'], "This method does not apply to filter random queries. It only applies to aggregate queries!"
         matched_rnd_query={}
-        query_real=rnd_query['query_real']
-        query_syn=rnd_query['query_syn']
-        grpby_vars=rnd_query['query_desc']['grpby_vars'] #vars including real table name
-        real_agg_vars=[x for x in list(query_real.columns) if x not in grpby_vars]
-        syn_agg_vars=[x for x in list(query_syn.columns) if x not in grpby_vars]
-        real=copy.deepcopy(query_real)
-        syn=copy.deepcopy(query_syn)
+        ext_real=rnd_query['query_real']
+        ext_syn=rnd_query['query_syn']
+        # grpby_vars=rnd_query['query_desc']['grpby_vars'] #vars including real table name
+        # real_agg_vars=[x for x in list(query_real.columns) if x not in grpby_vars]
+        # syn_agg_vars=[x for x in list(query_syn.columns) if x not in grpby_vars]
+        # real=copy.deepcopy(query_real)
+        # syn=copy.deepcopy(query_syn)
 
-        #drop count and agg fntn columns
-        if rnd_query['query_desc']['agg_fntn'][0] != 'None':
-            real=real.iloc[:,:-2]
-            syn=syn.iloc[:,:-2]
-        else:
-            real=real.iloc[:,:-1]
-            syn=syn.iloc[:,:-1]
+        #redefine var names into number to assure smooth sorting
+        ext_var_names=list(ext_real.columns)
+        ext_var_nmbrs=list(range(ext_real.shape[1]))
 
-        #unify column names
-        org_real_vars=list(real.columns)
-        org_syn_vars=list(syn.columns)
-        new_unified_vars=list(range(len(org_real_vars)))
-        real.columns=new_unified_vars
-        syn.columns=new_unified_vars
+        ext_real.columns=ext_var_nmbrs
+        ext_syn.columns=ext_var_nmbrs
+        
+
+        i=2 if rnd_query['query_desc']['agg_fntn'][0] != 'None' else 1
+        red_real=ext_real.iloc[:,:-i] #drop count and agg fntn columns
+        red_syn=ext_syn.iloc[:,:-i]
+        agg_col_names=ext_var_names[-i:]
+        agg_col_nmbrs=ext_var_nmbrs[-i:]
+        red_real.columns=ext_var_nmbrs[0:-i]
+        red_syn.columns=ext_var_nmbrs[0:-i]
+
+
+        assert (red_real.columns == red_syn.columns).all(),"Real and synthetic queries can not be matched since they have different variable names"
+
 
         #in_both=real.merge(syn, how='inner', indicator=False)
-        assert (real.columns == syn.columns).all(),"Real and synthetic queries can not be matched since they have different variable names"
-        in_real_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='left_only']
+        in_real_only=red_real.merge(red_syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='left_only']
         del in_real_only['_merge']
-        in_real_only.columns=org_syn_vars
-        in_real_only[syn_agg_vars]=0
-        ext_syn= pd.concat([query_syn,in_real_only], axis=0, ignore_index=True)#extended synthetic
-        ext_syn.sort_values(grpby_vars, inplace=True, ignore_index=True)
+        in_real_only[agg_col_nmbrs]=0
+        ext_syn= pd.concat([ext_syn,in_real_only], axis=0, ignore_index=True)
+        ext_syn.sort_values(ext_var_nmbrs[0:-i], inplace=True, ignore_index=True)
 
-        in_syn_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='right_only']
+        in_syn_only=red_real.merge(red_syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='right_only']
         del in_syn_only['_merge']
-        in_syn_only.columns=org_real_vars
-        in_syn_only[real_agg_vars]=0
-        ext_real= pd.concat([query_real,in_syn_only], axis=0, ignore_index=True) #extended real
-        ext_real.sort_values(grpby_vars, inplace=True, ignore_index=True)
+        in_syn_only[agg_col_nmbrs]=0
+        ext_real= pd.concat([ext_real,in_syn_only], axis=0, ignore_index=True) 
+        ext_real.sort_values(ext_var_nmbrs[0:-i], inplace=True, ignore_index=True)
 
         assert len(ext_real)==len(ext_syn)
+        ext_real.columns=ext_var_names
+        ext_syn.columns=ext_var_names
+
         matched_rnd_query['query_real']=ext_real
         matched_rnd_query['query_syn']=ext_syn
         matched_rnd_query['query_desc']=rnd_query['query_desc']
@@ -1153,6 +1158,61 @@ class RND_QUERY():
         # matched_rnd_query['query_desc']['n_rows_syn']=len(ext_syn)
 
         return matched_rnd_query
+
+
+    # def _match_twin_query(self, rnd_query: dict) ->dict:
+    #     assert 'single' not in rnd_query['query_desc']['type'], "This method does not apply to single random queries!"
+    #     assert '_fltr' not in rnd_query['query_desc']['type'], "This method does not apply to filter random queries. It only applies to aggregate queries!"
+    #     matched_rnd_query={}
+    #     query_real=rnd_query['query_real']
+    #     query_syn=rnd_query['query_syn']
+    #     grpby_vars=rnd_query['query_desc']['grpby_vars'] #vars including real table name
+    #     real_agg_vars=[x for x in list(query_real.columns) if x not in grpby_vars]
+    #     syn_agg_vars=[x for x in list(query_syn.columns) if x not in grpby_vars]
+    #     real=copy.deepcopy(query_real)
+    #     syn=copy.deepcopy(query_syn)
+
+    #     #drop count and agg fntn columns
+    #     if rnd_query['query_desc']['agg_fntn'][0] != 'None':
+    #         real=real.iloc[:,:-2]
+    #         syn=syn.iloc[:,:-2]
+    #     else:
+    #         real=real.iloc[:,:-1]
+    #         syn=syn.iloc[:,:-1]
+
+    #     #unify column names
+    #     org_real_vars=list(real.columns)
+    #     org_syn_vars=list(syn.columns)
+    #     new_unified_vars=list(range(len(org_real_vars)))
+    #     real.columns=new_unified_vars
+    #     syn.columns=new_unified_vars
+
+    #     #in_both=real.merge(syn, how='inner', indicator=False)
+    #     assert (real.columns == syn.columns).all(),"Real and synthetic queries can not be matched since they have different variable names"
+    #     in_real_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='left_only']
+    #     del in_real_only['_merge']
+    #     in_real_only.columns=org_syn_vars
+    #     in_real_only[syn_agg_vars]=0
+    #     ext_syn= pd.concat([query_syn,in_real_only], axis=0, ignore_index=True)#extended synthetic
+    #     sorting_vars=list(ext_syn.columns[0:-2])
+    #     ext_syn.sort_values(sorting_vars, inplace=True, ignore_index=True)
+
+    #     in_syn_only=real.merge(syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='right_only']
+    #     del in_syn_only['_merge']
+    #     in_syn_only.columns=org_real_vars
+    #     in_syn_only[real_agg_vars]=0
+    #     ext_real= pd.concat([query_real,in_syn_only], axis=0, ignore_index=True) #extended real
+    #     sorting_vars=list(ext_real.columns[0:-2])
+    #     ext_real.sort_values(sorting_vars, inplace=True, ignore_index=True)
+
+    #     assert len(ext_real)==len(ext_syn)
+    #     matched_rnd_query['query_real']=ext_real
+    #     matched_rnd_query['query_syn']=ext_syn
+    #     matched_rnd_query['query_desc']=rnd_query['query_desc']
+    #     # matched_rnd_query['query_desc']['n_rows_real']=len(ext_real)
+    #     # matched_rnd_query['query_desc']['n_rows_syn']=len(ext_syn)
+
+    #     return matched_rnd_query
 
 
 
