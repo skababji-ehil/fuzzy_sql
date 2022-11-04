@@ -27,5 +27,8 @@ if __name__ == "__main__":
     conn = sqlite3.connect(db_path)
 
 
-    twin_queries=gen_mltpl_aggfltr(10,conn, real_tbl_lst, metadata_lst,  syn_tbl_lst )
+    rnd_queries=gen_mltpl_aggfltr(100,conn, real_tbl_lst, metadata_lst,  syn_tbl_lst, groupby_terms=2, where_terms=3, join_terms=2 )
+
+    reporter=REPORTER()
+    reporter.print_html_mltpl(rnd_queries,'smk_cms.html')
 

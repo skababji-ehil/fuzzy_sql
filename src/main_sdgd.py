@@ -13,6 +13,7 @@ if __name__ == "__main__":
     root_dir = Path('/home/samer/projects/fuzzy_sql')
     metadata_dir = os.path.join(root_dir, 'data/sdgd/processed/metadata')
     db_path = os.path.join(root_dir, 'db/sdgd.db')
+    run_dir=os.path.join(root_dir,'.runs')
 
     # define input tables and metadata
     real_tbl_lst = ["C1"]
@@ -27,5 +28,12 @@ if __name__ == "__main__":
     conn = sqlite3.connect(db_path)
 
 
-    twin_queries=gen_mltpl_aggfltr(10,conn, real_tbl_lst, metadata_lst,  syn_tbl_lst )
+    rnd_queries=gen_mltpl_aggfltr(100,conn, real_tbl_lst, metadata_lst,  syn_tbl_lst )
+
+
+    reporter=REPORTER()
+    reporter.print_html_mltpl(rnd_queries,'smk_sdgd.html')
+
+
+
 
