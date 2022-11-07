@@ -11,6 +11,7 @@ import multiprocessing
 import matplotlib.pylab as plt
 import seaborn as sns
 sns.set_style("ticks",{'axes.grid' : True})
+from textwrap import wrap
 
 import sqlite3
 import json
@@ -714,7 +715,7 @@ class RND_QRY():
             all_catdt_vars.append(catdt_vars)
         all_catdt_vars=[var for vars in all_catdt_vars for var in vars] #flatten
 
-        if len(all_catdt_vars)==1:
+        if len(all_catdt_vars)==1 and len(inp_join_tbl_lst)!=0:
             raise Exception("The only available categorical variable is the JOIN key. Add more categorical or date variables, or set drop_fkey to False in _get_rnd_groupby_lst")
             
         custom_rv=self._make_int_rv(len(all_catdt_vars)+1, dist='favor_small')
@@ -1500,7 +1501,7 @@ class QRY_RPRT():
         #ax.set_xlim(-0.2,1)
         ax.set_xlabel(type +" ( median: {} , mean: {} , std dev: {} ) ".format(round(stats['median'],2), round(stats['mean'],2),round(stats['stddev'],2)))
         #ax.set_xticks([0,0.2,0.4,0.6,0.8,1.0])
-        fig.suptitle(f'Fuzzy SQL for {self.tbl_lst}', fontsize=12)
+        fig.suptitle("\n".join(wrap(f'Fuzzy SQL for {self.tbl_lst}')), fontsize=12)
         fig.savefig(outputfile)
         # fig.show()
 
