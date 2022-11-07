@@ -31,7 +31,7 @@ if __name__ == "__main__":
     conn = sqlite3.connect(db_path)
 
 
-    rnd_queries=gen_queries(3,conn, real_tbl_lst, metadata_lst,  syn_tbl_lst, groupby_terms=2, where_terms=3, join_terms=2 )
+    rnd_queries=gen_queries(100,conn, real_tbl_lst, metadata_lst,  syn_tbl_lst, groupby_terms=2, where_terms=3, join_terms=2 )
 
 
     rprtr=QRY_RPRT(real_tbl_lst, rnd_queries)

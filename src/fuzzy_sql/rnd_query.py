@@ -402,11 +402,19 @@ class RND_QRY():
 
 ########################################## COMMON METHODS  #########################
 
-    def _test_query_time(self, query_expr):
+    def _test_query_time(self, query_expr, max_query_time=5):
         cur = self.CUR
-        cur.execute(query_expr)
         #time.sleep(10) #SMK TEMP
-
+        p = multiprocessing.Process(target=cur.execute, name="_test_query_time", args=(query_expr,))
+        p.start()
+        p.join(max_query_time)  # wait 5 seconds until process terminates
+        if p.is_alive():
+            p.terminate()
+            p.join()
+            print('Cant wait any further! I am skipping this one!') #MK TEMP
+            return False # execution time is too long
+        else:
+            return True # execution time is ok
 
     def _flatten_lst(self,lst):
         return [item for sublist in lst for item in sublist]
@@ -1146,6 +1154,11 @@ class RND_QRY():
 
 
         #in_both=real.merge(syn, how='inner', indicator=False)
+        # print(f"real\n {red_real.dtypes}\n\nsyn\n {red_syn.dtypes}") #SMK TEMP
+
+        # red_real=red_real.astype("category")
+        # red_syn=red_syn.astype("category")
+
         in_real_only=red_real.merge(red_syn,how='outer', indicator=True).loc[lambda x: x['_merge']=='left_only']
         del in_real_only['_merge']
         in_real_only[agg_col_nmbrs]=0
@@ -1319,13 +1332,15 @@ def gen_queries(n_queries: int,db_conn: object, real_tbl_lst: list, metadata_lst
         query_obj.no_where_vars = where_terms
         query_obj.no_join_tables=join_terms
         real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms = query_obj.compile_aggfltr_expr()
-        p = multiprocessing.Process(target=query_obj._test_query_time, name="_test_query_time", args=(real_expr,))
-        p.start()
-        p.join(max_query_time)  # wait 5 seconds until process terminates
-        if p.is_alive():
-            p.terminate()
-            p.join()
-            # print('Cant wait any further! I am skipping to next random query!') #MK TEMP
+        # p = multiprocessing.Process(target=query_obj._test_query_time, name="_test_query_time", args=(real_expr,))
+        # p.start()
+        # p.join(max_query_time)  # wait 5 seconds until process terminates
+        # if p.is_alive():
+        #     p.terminate()
+        #     p.join()
+        #     # print('Cant wait any further! I am skipping to next random query!') #MK TEMP
+        #     continue
+        if not query_obj._test_query_time(real_expr): # if execution time is too long, skip this expression
             continue
         rnd_query = query_obj.make_twin_aggfltr_query(syn_tbl_lst, real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms)
         matched_query = query_obj._match_twin_query(rnd_query)
