@@ -10,7 +10,9 @@ Fuzzy SQL
    :maxdepth: 2
 
    installation
+   functions
    usage
+
 
 
 
