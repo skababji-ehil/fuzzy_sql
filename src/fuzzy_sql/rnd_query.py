@@ -1,15 +1,26 @@
-import copy
-from http.client import MOVED_PERMANENTLY
-from matplotlib.backend_bases import PickEvent
-from matplotlib.pyplot import table
+from pathlib import Path
 import numpy as np
 import pandas as pd
+import copy
 import random
-from sklearn.preprocessing import StandardScaler
-from jsonschema import Draft4Validator
-import json
-from scipy import stats
 import time
+import multiprocessing
+
+
+import matplotlib.pylab as plt
+import seaborn as sns
+sns.set_style("ticks",{'axes.grid' : True})
+
+import sqlite3
+import json
+from jsonschema import Draft4Validator
+from sklearn.preprocessing import StandardScaler
+from scipy import stats
+
+
+
+
+
 
 #setup default parameters
 DEFAULT_PARAMS={
@@ -24,7 +35,7 @@ DEFAULT_PARAMS={
 }
 
 
-class RND_QRY_GNRTR():
+class RND_QRY():
     """ Generates random queries for tabular and longitudinal datasets. 
     """
 
@@ -1203,7 +1214,250 @@ class RND_QRY_GNRTR():
 
 
 
+################################################### SUPPORTING FUNCTIONS ###################
 
+
+def prep_data_for_db(csv_table_path: Path, optional_table_name='None', gen_metadata=False, metadata_dir='None', nrows=None) -> tuple:
+    """Reads the input csv file and prepare it for importation into sqlite db for fuzzy-sql analysis. 
+    The file name (without extension) will be used as a table name in the database.
+    All values are imported as strings. 
+    Any "'" found in the values (e.g. '1')  is deleted.
+    Any variable (columns) that include dots in their names will be replaced by underscores.
+    
+    Args:
+        csv_table_path: The input file full path including the file name and csv extension.
+        optional_table_name: This is an optional name of the table when imported into the database. The default 'None' will use the csv file name (without extension) as the table's name.
+        gen_metadata: A boolean to generate metadata dictionary with default keys/values. Some values shall be manually entered.
+        metadata_dir: The directory where the metadata file shall be saved. No metadata file is saved if the default value of 'None' is used. 
+
+    Returns:
+        The pandas dataframe in 'unicode-escape' encoding.  
+        The corresponding metadata dictionary. The dictionary is saved to the chosen path.
+    """
+
+    df=pd.read_csv(csv_table_path, encoding='unicode-escape', dtype=str, nrows=nrows) 
+    #df=pd.read_csv(file_path,encoding = "ISO-8859-1") 
+    #remove any apostrophe from data
+    df=df.replace({"'":""}, regex=True) # In order not to encounter error when reading numeric classes e.g. '1' for Class variable in table C4
+
+    #replace any dot in the column names by underscore 
+    for i, var in enumerate(list(df.columns)):
+        if "." in var:
+            df.rename(columns={var:var.replace(".","_")}, inplace=True)
+        else:
+            continue
+    
+    if gen_metadata:
+        if optional_table_name=='None':
+            tbl_name=os.path.basename(csv_table_path)
+            tbl_name=os.path.splitext(tbl_name)[0]
+        else:
+            tbl_name=optional_table_name
+
+        metadata={}
+        metadata['tbl_name']=tbl_name
+        metadata['tbl_key_name']='Enter string, tuple of strings for concatenated key. Enter Null if table is not linked in relation'
+        metadata['parent_ref']='Enter related parent table name and parent key in tuples. Parent key can be a tuple of variable names for concatenated keys. Enter Null if table is teh root'
+
+        var_name_lst=list(df.dtypes.index)
+        var_type_lst=df.dtypes.values
+        var_tpls=[[var, str(type)] for var, type in zip(var_name_lst,var_type_lst)]
+        metadata['var']=var_tpls
+    
+    else:
+        metadata={}
+
+    if metadata_dir != 'None' and gen_metadata==True :
+        fname=os.path.join(metadata_dir,tbl_name+".json")
+        if os.path.isfile(fname):
+            ans=input('Do you really want to replace the existing JSON metadata file? (y/n)')
+            if ans=='n':
+                return df, metadata
+        with open(fname, "w") as outfile:
+            json.dump(metadata, outfile)
+
+    return df, metadata
+
+
+def import_df_into_db(table_name: str, df: pd.DataFrame, db_conn: object):
+    """Imports the input dataframe into an sqlite database table. The data will NOT be imported if it already exists in the database.
+    
+    Args:
+        table_name: The intended name of the table in the database.
+        df: The input data
+        db_conn: Database (sqlite3) connection object
+    """
+
+    cur=db_conn.cursor()
+    cur.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name=(?) ",(table_name,)) #sqlite_master holds  the schema of the db including table names
+    if cur.fetchone()[0]==0 : # If table does not exist (ie returned count is zero), then import the table into db from pandas
+        df.to_sql(table_name, db_conn, index=False)
+        print(f'Table {table_name} is created in the database')
+    else:
+        print (f'Table {table_name} already exists in the database')
+
+
+def gen_queries(n_queries: int,db_conn: object, real_tbl_lst: list, metadata_lst: list,  syn_tbl_lst: list,max_query_time=5 , groupby_terms=np.inf, where_terms=np.inf, join_terms=np.inf) -> list:
+    ''' The function generates multiple twin random queries of aggregate-filter type. 
+    
+    Args:
+        n_queries: The required number of queries to be geenrated.
+        db_conn: A connection to the sqlite database where all the input real and synthetic data reside.
+        real_tbl_lst: A list of real tables to be used for generating the random queries. The list may include related tables.
+        metadata_list: A lsit of dictionaries describing the varibales and relations for each input table. A single metadat dictionaries is used for each real table and its counterpart syntheitc table since both real and syntheitc tables shall have identical varibales and relations.
+        syn_tbl_lst: A list of synthetic tables to be used for generating the random queries.
+        max_query_time: The maximum time in seconds that is allowed to execute a randomly generated query expression before it skips it to the next random expression. 
+    
+    Returns: 
+        A list of dictionaries where each dictionary includes the query result for real data as a dataframe, the query result for synthetic data as a dataframe, a dictioanry describing the query details, a float represnting the twin query Hellinger distance and another represnting  Euclidean distance, whenever applicable.  
+    '''
+    queries = []
+    k=0
+    while k < n_queries:
+        query_obj = RND_QRY(db_conn, real_tbl_lst, metadata_lst)
+        query_obj.no_groupby_vars = groupby_terms
+        query_obj.no_where_vars = where_terms
+        query_obj.no_join_tables=join_terms
+        real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms = query_obj.compile_aggfltr_expr()
+        p = multiprocessing.Process(target=query_obj._test_query_time, name="_test_query_time", args=(real_expr,))
+        p.start()
+        p.join(max_query_time)  # wait 5 seconds until process terminates
+        if p.is_alive():
+            p.terminate()
+            p.join()
+            # print('Cant wait any further! I am skipping to next random query!') #MK TEMP
+            continue
+        rnd_query = query_obj.make_twin_aggfltr_query(syn_tbl_lst, real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms)
+        matched_query = query_obj._match_twin_query(rnd_query)
+        scored_query = query_obj.calc_dist_scores(matched_query)
+        queries.append(scored_query)
+        k+=1
+        print('Generated Random Aggregate Filter Query - {} '.format(str(k)))
+    return queries
+        
+
+
+class QRY_RPRT():
+    def __init__(self, dataset_table_lst, random_queries):
+        self.tbl_lst=dataset_table_lst
+        self.rnd_queries=random_queries
+
+        self.style = """
+            .mystyle {
+                font-size: 7pt; 
+                font-family: Arial;
+                border-collapse: collapse; 
+                border: 1px solid silver;
+            /*     margin-left: auto;
+                margin-right: auto; */
+                
+            }
+
+            .mystyle td, th {
+                padding: 5px;
+                text-align: center;
+            }
+
+            .mystyle tr:nth-child(even) {
+                background: #E0E0E0;
+            }
+
+            .mystyle tr:hover {
+                background: silver;
+                cursor: pointer;
+            }
+
+
+            ul li {
+                font-size: 7px;
+            }
+
+            p {
+                color: navy;
+                text-indent: 7px;
+            }
+        """
+
+        self.start_html= f"<!DOCTYPE html><html><head><style>{self.style}</style></head><body><H1>Random Queries Generated by Fuzzy SQL</H1>"
+        self.end_html="</body></html>"
+
+    def query_to_html(self, query_id, rnd_query):
+        assert query_id=='real' or query_id=='syn',("query_id shall be either 'real' or 'syn' ")
+        html_string=f"<u>SQL statement - {query_id}:</u><br>"
+        html_string+=rnd_query['query_desc'][f'sql_{query_id}']
+        html_string+="<br><br>"
+        if len(rnd_query[f'query_{query_id}']) !=0:
+            html_string+=f"SQL result - {query_id}:<br>"
+            html_string+=rnd_query[f'query_{query_id}'].head(5).to_html(classes='mystyle')
+            html_string+="Number of returned records: "+str(rnd_query['query_desc'][f'n_rows_{query_id}'])
+        else:
+            html_string+=f"<H4>No records returned</H4>"
+        html_string+="<br><br>"
+        return html_string
+
+    def print_html_mltpl(self, output_file):
+        with open(output_file, 'w') as f:
+            f.write(self.start_html)
+            for query in self.rnd_queries:
+                f.write(f"<H3>======================= START RANDOM QUERY ======================</H3>")
+                f.write(self.query_to_html('real',query))
+                f.write(self.query_to_html('syn',query))
+                f.write("Hellinger Distance = {:.3f}".format(query['query_hlngr_score']))
+                f.write("<br>")
+                f.write("Normalized Euclidean Distance = {:.3f}".format(query['query_ecldn_score']))
+                f.write("<H3>************************************************************************************</H3>")
+            f.write(self.end_html)
+
+
+    def calc_stats(self):
+        #history_arr =history_arr[~np.isnan(history_arr)]
+        hlngr_lst=[self.rnd_queries[i]['query_hlngr_score'] for i in range(len(self.rnd_queries))]
+        ecldn_lst=[self.rnd_queries[i]['query_ecldn_score'] for i in range(len(self.rnd_queries))]
+
+        hlngr_lst=[x for x in hlngr_lst if ~np.isnan(x)]
+        ecldn_lst=[x for x in ecldn_lst if ~np.isnan(x)]
+
+        if len(hlngr_lst)!=0:
+            mean=np.mean(hlngr_lst)
+            median=np.median(hlngr_lst)
+            stddev=np.sqrt(np.var(hlngr_lst))
+        else:
+            mean=np.nan
+            median=np.nan
+            stddev=np.nan
+        hlngr_stats= {'mean':mean, 'median':median, 'stddev':stddev}
+
+        if len(ecldn_lst)!=0:
+            mean=np.mean(ecldn_lst)
+            median=np.median(ecldn_lst)
+            stddev=np.sqrt(np.var(ecldn_lst))
+        else:
+            mean=np.nan
+            median=np.nan
+            stddev=np.nan
+        ecldn_stats= {'mean':mean, 'median':median, 'stddev':stddev}
+
+        return hlngr_stats, ecldn_stats
+
+    def plot_violin(self,type: str, outputfile: str ):
+        hlngr_stats, ecldn_stats=self.calc_stats()
+        if type == 'Hellinger':
+            lst=[self.rnd_queries[i]['query_hlngr_score'] for i in range(len(self.rnd_queries))]
+            stats=hlngr_stats
+        elif type== 'Euclidean':
+            lst=[self.rnd_queries[i]['query_ecldn_score'] for i in range(len(self.rnd_queries))]
+            stats=ecldn_stats
+        else:
+            raise ValueError ('type shall be either Hellinger or Euclidean')
+
+        fig, ax=plt.subplots(1,1,figsize=(12, 6))
+        sns.violinplot(x=lst, ax=ax)
+        #ax.set_xlim(-0.2,1)
+        ax.set_xlabel(type +" ( median: {} , mean: {} , std dev: {} ) ".format(round(stats['median'],2), round(stats['mean'],2),round(stats['stddev'],2)))
+        #ax.set_xticks([0,0.2,0.4,0.6,0.8,1.0])
+        fig.suptitle(f'Fuzzy SQL for {self.tbl_lst}', fontsize=12)
+        fig.savefig(outputfile)
+        # fig.show()
 
 
 

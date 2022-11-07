@@ -1,10 +1,14 @@
+import matplotlib
+matplotlib.use('Agg')
+
 import sys
 sys.path.append('/home/samer/projects/fuzzy_sql/src')
 
-from fuzzy_sql.fuzzy_sql import *
+from fuzzy_sql.rnd_query import *
 import json
 import os
 from pathlib import Path
+
 
 
 
@@ -27,8 +31,11 @@ if __name__ == "__main__":
     conn = sqlite3.connect(db_path)
 
 
-    rnd_queries=gen_mltpl_aggfltr(100,conn, real_tbl_lst, metadata_lst,  syn_tbl_lst, groupby_terms=2, where_terms=3, join_terms=2 )
+    rnd_queries=gen_queries(3,conn, real_tbl_lst, metadata_lst,  syn_tbl_lst, groupby_terms=2, where_terms=3, join_terms=2 )
 
-    reporter=MLTPL_QRY_RPRTR()
-    reporter.print_html_mltpl(rnd_queries,'smk_cms.html')
+
+    rprtr=QRY_RPRT(real_tbl_lst, rnd_queries)
+    rprtr.print_html_mltpl('smk_cms.html')
+    rprtr.plot_violin('Hellinger','smk_cms_hlngr.png' )
+    rprtr.plot_violin('Euclidean','smk_cms_ecldn.png' )
 
