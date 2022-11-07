@@ -1255,7 +1255,7 @@ def make_table(table_name: str, df: pd.DataFrame, db_conn: object):
         print (f'Table {table_name} already exists in the database')
         
 
-def prep_data_for_db(csv_table_path: Path, optional_table_name='None', gen_metadata=False, metadata_dir='None', nrows=None) -> tuple:
+def prep_data_for_db(csv_table_path: Path, optional_table_name='None', is_child=False, metadata_dir='None', nrows=None) -> tuple:
     """Reads the input csv file and prepare it for importation into sqlite db for fuzzy-sql analysis. 
     The file name (without extension) will be used as a table name in the database.
     All values are imported as strings. 
@@ -1265,7 +1265,7 @@ def prep_data_for_db(csv_table_path: Path, optional_table_name='None', gen_metad
     Args:
         csv_table_path: The input file full path including the file name and csv extension.
         optional_table_name: This is an optional name of the table when imported into the database. The default 'None' will use the csv file name (without extension) as the table's name.
-        gen_metadata: A boolean to generate metadata dictionary with default keys/values. Some values (e.g. details about parent tables) shall be manually entered.
+        is_child: A boolean to indicate whether teh input table is child or not. This will impact the generated metadata template. Enter 'False' if the input table is tabular or not a child. 
         metadata_dir: The directory where the metadata file shall be saved. No metadata file is saved if the default value of 'None' is used. 
         n_rows: The number of rows to be read from the input csv file. The default of None will read all the rows in the csv file.
 
@@ -1286,27 +1286,31 @@ def prep_data_for_db(csv_table_path: Path, optional_table_name='None', gen_metad
         else:
             continue
     
-    if gen_metadata:
-        if optional_table_name=='None':
-            tbl_name=os.path.basename(csv_table_path)
-            tbl_name=os.path.splitext(tbl_name)[0]
-        else:
-            tbl_name=optional_table_name
 
-        metadata={}
-        metadata['tbl_name']=tbl_name
-        metadata['tbl_key_name']='Enter string, tuple of strings for concatenated key. Enter Null if table is not linked in relation'
-        metadata['parent_ref']='Enter related parent table name and parent key in tuples. Parent key can be a tuple of variable names for concatenated keys. Enter Null if table is teh root'
-
-        var_name_lst=list(df.dtypes.index)
-        var_type_lst=df.dtypes.values
-        var_tpls=[[var, str(type)] for var, type in zip(var_name_lst,var_type_lst)]
-        metadata['var']=var_tpls
-    
+    if optional_table_name=='None':
+        tbl_name=os.path.basename(csv_table_path)
+        tbl_name=os.path.splitext(tbl_name)[0]
     else:
-        metadata={}
+        tbl_name=optional_table_name
 
-    if metadata_dir != 'None' and gen_metadata==True :
+    metadata={}
+    metadata['table_name']=tbl_name
+    # metadata['tbl_key_name']='Enter string, tuple of strings for concatenated key. Enter Null if table is not linked in relation'
+    # metadata['parent_ref']='Enter related parent table name and parent key in tuples. Parent key can be a tuple of variable names for concatenated keys. Enter Null if table is teh root'
+
+    var_name_lst=list(df.dtypes.index)
+    var_type_lst=df.dtypes.values
+    var_tpls=[[var, str(type)] for var, type in zip(var_name_lst,var_type_lst)]
+    metadata['table_vars']=var_tpls
+    
+    if is_child:
+        parent_details={
+            "enter_first_parent_name":[["enter_parent_key"],["enter_this_child_key"]],
+            "add_another_parent_name":[["enter_parent_composite_key1","enter_parent_composite_key2"],["enter_this_child_composite_key1","enter_this_child_composite_key2"]]
+        }
+        metadata['parent_details']=parent_details
+
+    if metadata_dir != 'None' :
         fname=os.path.join(metadata_dir,tbl_name+".json")
         if os.path.isfile(fname):
             ans=input('Do you really want to replace the existing JSON metadata file? (y/n)')
