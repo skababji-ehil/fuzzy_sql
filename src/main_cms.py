@@ -4,7 +4,7 @@ matplotlib.use('Agg')
 import sys
 sys.path.append('/home/samer/projects/fuzzy_sql/src')
 
-from fuzzy_sql.rnd_query import *
+from fuzzy_sql.fuzzy_sql import *
 import json
 import os
 from pathlib import Path
