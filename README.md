@@ -1,3 +1,3 @@
 # fuzzy-sql
 
-The package generate random SQL Statements to check the query response from synthetic data against that of tabular real data. Both datasets shall have the same number of columns and rows. Dataset may include related tables. Refer to documentation for further details. 
+The package generate random SQL Statements to check the query response from synthetic data against that of real data. The package supports both tabular and longitudinal datasets. Table shapes, variable names and relations in both real and synthetic datasets shall be identical. Refer to the documentation for further details. 
