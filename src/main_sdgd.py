@@ -30,13 +30,13 @@ if __name__ == "__main__":
     # connect to db
     conn = sqlite3.connect(db_path)
 
-    rnd_queries=gen_queries(3,conn, real_tbl_lst, metadata_lst,  syn_tbl_lst )
+    rnd_queries=gen_queries(100,conn, real_tbl_lst, metadata_lst,  syn_tbl_lst )
 
 
-    rprtr=QRY_RPRT(real_tbl_lst, rnd_queries)
-    rprtr.print_html_mltpl('smk_sdgd.html')
-    rprtr.plot_violin('Hellinger','smk_sdgd_hlngr.png' )
-    rprtr.plot_violin('Euclidean','smk_sdgd_ecldn.png' )
+    rprtr=QryRprt(real_tbl_lst, rnd_queries)
+    rprtr.print_html_mltpl('sdgd.html')
+    rprtr.plot_violin('Hellinger','sdgd_hlngr.png' )
+    rprtr.plot_violin('Euclidean','sdgd_ecldn.png' )
 
 
 
