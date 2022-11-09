@@ -11,7 +11,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="fuzzy-sql",
-    version="1.0.0",
+    version="1.0.0-beta",
     description="A generator of random SQL SELECT queries mainly to compare responses from a real dataset against that from a synthetic dataset.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -30,7 +30,8 @@ setup(
         "scikit-learn",
         "jupyter",
         "jsonschema",
-        "scipy"
+        "scipy",
+        "matplotlib"
     ],
     extras_require={
         "dev": ["jupyter"],
