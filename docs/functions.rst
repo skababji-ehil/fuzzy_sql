@@ -1,8 +1,11 @@
 Functions
 =========
 
-
 .. autofunction:: fuzzy_sql.fuzzy_sql.prep_data_for_db
+
+|
+
+.. autofunction:: fuzzy_sql.fuzzy_sql.make_table
 
 |
 

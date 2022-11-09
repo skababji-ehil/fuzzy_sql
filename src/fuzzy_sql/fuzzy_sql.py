@@ -1386,7 +1386,7 @@ def prep_data_for_db(csv_table_path: Path, optional_table_name='None', is_child=
     Args:
         csv_table_path: The input file full path including the file name and csv extension.
         optional_table_name: This is an optional name of the table when imported into the database. The default 'None' will use the csv file name (without extension) as the table's name.
-        is_child: A boolean to indicate whether teh input table is child or not. This will impact the generated metadata template. Enter 'False' if the input table is tabular or not a child. 
+        is_child: A boolean to indicate whether the input table is child or not. This will only impact the generated metadata template. Enter 'False' if the input table is tabular or not a child. 
         metadata_dir: The directory where the metadata file shall be saved. No metadata file is saved if the default value of 'None' is used. 
         n_rows: The number of rows to be read from the input csv file. The default of None will read all the rows in the csv file.
 
