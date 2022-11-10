@@ -6,7 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Fuzzy SQL'
+project = 'Fuzzy SQL User Guide'
 copyright = 'EHIL 2022'
 author = 'Samer Kababji @ EHIL'
 version = 'v1.0.0-beta'
