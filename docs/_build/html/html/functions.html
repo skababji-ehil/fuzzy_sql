@@ -14,6 +14,7 @@
     <script src="_static/underscore.js"></script>
     <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
+    <script src="_static/sphinx_highlight.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Usage" href="usage.html" />
@@ -132,8 +133,8 @@ The corresponding metadata dictionary. The dictionary is saved to the chosen pat
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>db_conn</strong> (<em>object</em>) – The connection object of the sqlite database where the data exists.</p></li>
-<li><p><strong>tbl_names_lst</strong> (<em>list of str</em>) – A list of input table names (strings) in the database to be randomly queried.</p></li>
-<li><p><strong>metadata_lst</strong> (<em>list of dict</em>) – A list of dictionaries comprising the types of variables and relationships pertaining to each input table. Each dictionary shall conform to the metadata schema.</p></li>
+<li><p><strong>tbl_names_lst</strong> (<em>list</em><em> of </em><em>str</em>) – A list of input table names (strings) in the database to be randomly queried.</p></li>
+<li><p><strong>metadata_lst</strong> (<em>list</em><em> of </em><em>dict</em>) – A list of dictionaries comprising the types of variables and relationships pertaining to each input table. Each dictionary shall conform to the metadata schema.</p></li>
 </ul>
 </dd>
 </dl>
@@ -317,7 +318,15 @@ The corresponding metadata dictionary. The dictionary is saved to the chosen pat
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Functions</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#fuzzy_sql.fuzzy_sql.prep_data_for_db"><code class="docutils literal notranslate"><span class="pre">prep_data_for_db()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#fuzzy_sql.fuzzy_sql.make_table"><code class="docutils literal notranslate"><span class="pre">make_table()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#fuzzy_sql.fuzzy_sql.import_df_into_db"><code class="docutils literal notranslate"><span class="pre">import_df_into_db()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#fuzzy_sql.fuzzy_sql.gen_queries"><code class="docutils literal notranslate"><span class="pre">gen_queries()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#fuzzy_sql.fuzzy_sql.RndQry"><code class="docutils literal notranslate"><span class="pre">RndQry</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#fuzzy_sql.fuzzy_sql.QryRprt"><code class="docutils literal notranslate"><span class="pre">QryRprt</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
 </ul>
 
@@ -356,7 +365,7 @@ The corresponding metadata dictionary. The dictionary is saved to the chosen pat
       &copy;EHIL 2022.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.1.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.3.0</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

@@ -34,7 +34,7 @@ setup(
         "matplotlib"
     ],
     extras_require={
-        "dev": ["jupyter"],
+        "dev": ["wheel","dvc", "Sphinx","sphinxcontrib-bibtex"],
     },
 
 )

@@ -16,7 +16,6 @@ db/
 .smk/
 
 .runs/
-#dist/
 src/fuzzy_sql.egg-info/
 *.db
 reports/latex/
