@@ -1,0 +1,371 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Functions &#8212; Fuzzy SQL User Guide 1.0.0-beta documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Usage" href="usage.html" />
+    <link rel="prev" title="Installation" href="installation.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="functions">
+<h1>Functions<a class="headerlink" href="#functions" title="Permalink to this heading">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.prep_data_for_db">
+<span class="sig-prename descclassname"><span class="pre">fuzzy_sql.fuzzy_sql.</span></span><span class="sig-name descname"><span class="pre">prep_data_for_db</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">csv_table_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optional_table_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_child</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nrows</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.prep_data_for_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reads the input csv file and prepares it for importation into sqlite db for fuzzy-sql analysis.
+By default, the file name (without extension) will be used as a table name in the database.
+All values are imported as strings.
+Any “’” found in the values (e.g. ‘1’)  is deleted.
+Any variable (columns) that include dots in their names will be replaced by underscores.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>csv_table_path</strong> – The input file full path including the file name and csv extension.</p></li>
+<li><p><strong>optional_table_name</strong> – This is an optional name of the table when imported into the database. The default ‘None’ will use the csv file name (without extension) as the table’s name.</p></li>
+<li><p><strong>is_child</strong> – A boolean to indicate whether the input table is child or not. This will only impact the generated metadata template. Enter ‘False’ if the input table is tabular or not a child.</p></li>
+<li><p><strong>metadata_dir</strong> – The directory where the metadata file shall be saved. No metadata file is saved if the default value of ‘None’ is used.</p></li>
+<li><p><strong>n_rows</strong> – The number of rows to be read from the input csv file. The default of None will read all the rows in the csv file.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The pandas dataframe in ‘unicode-escape’ encoding.
+The corresponding metadata dictionary. The dictionary is saved to the chosen path as provided in metadata_dir.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<dl class="py function">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.make_table">
+<span class="sig-prename descclassname"><span class="pre">fuzzy_sql.fuzzy_sql.</span></span><span class="sig-name descname"><span class="pre">make_table</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">table_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db_conn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">object</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.make_table" title="Permalink to this definition">¶</a></dt>
+<dd><p>Imports the input dataframe into a database table. All dots in the variable names will be replaced by underscores.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>table_name</strong> – The intended name of the table in the database.</p></li>
+<li><p><strong>df</strong> – The input data</p></li>
+<li><p><strong>db_conn</strong> – Database (sqlite3) connection object</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<dl class="py function">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.import_df_into_db">
+<span class="sig-prename descclassname"><span class="pre">fuzzy_sql.fuzzy_sql.</span></span><span class="sig-name descname"><span class="pre">import_df_into_db</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">table_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db_conn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">object</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.import_df_into_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>Imports the input dataframe into an sqlite database table. The data will NOT be imported if it already exists in the database.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>table_name</strong> – The intended name of the table in the database.</p></li>
+<li><p><strong>df</strong> – The input data</p></li>
+<li><p><strong>db_conn</strong> – Database (sqlite3) connection object</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<dl class="py function">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.gen_queries">
+<span class="sig-prename descclassname"><span class="pre">fuzzy_sql.fuzzy_sql.</span></span><span class="sig-name descname"><span class="pre">gen_queries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_queries</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db_conn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">object</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_tbl_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">syn_tbl_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_query_time</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.gen_queries" title="Permalink to this definition">¶</a></dt>
+<dd><p>The function generates multiple twin random queries of aggregate-filter type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_queries</strong> – The required number of queries to be geenrated.</p></li>
+<li><p><strong>db_conn</strong> – A connection to the sqlite database where all the input real and synthetic data reside.</p></li>
+<li><p><strong>real_tbl_lst</strong> – A list of real tables to be used for generating the random queries. The list may include related tables.</p></li>
+<li><p><strong>metadata_list</strong> – A lsit of dictionaries describing the varibales and relations for each input table. A single metadat dictionaries is used for each real table and its counterpart syntheitc table since both real and syntheitc tables shall have identical varibales and relations.</p></li>
+<li><p><strong>syn_tbl_lst</strong> – A list of synthetic tables to be used for generating the random queries.</p></li>
+<li><p><strong>max_query_time</strong> – The maximum time in seconds that is allowed to execute a randomly generated query expression before it skips it to the next random expression.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of dictionaries where each dictionary includes the query result for real data as a dataframe, the query result for synthetic data as a dataframe, a dictioanry describing the query details, a float represnting the twin query Hellinger distance and another represnting  Euclidean distance, whenever applicable.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fuzzy_sql.fuzzy_sql.</span></span><span class="sig-name descname"><span class="pre">RndQry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db_conn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">object</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tbl_names_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates a random query for tabular and longitudinal datasets.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>db_conn</strong> (<em>object</em>) – The connection object of the sqlite database where the data exists.</p></li>
+<li><p><strong>tbl_names_lst</strong> (<em>list of str</em>) – A list of input table names (strings) in the database to be randomly queried.</p></li>
+<li><p><strong>metadata_lst</strong> (<em>list of dict</em>) – A list of dictionaries comprising the types of variables and relationships pertaining to each input table. Each dictionary shall conform to the metadata schema.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.fix_seed">
+<span class="sig-name descname"><span class="pre">fix_seed</span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.fix_seed" title="Permalink to this definition">¶</a></dt>
+<dd><p>A boolean for setting the seed. Default is False and hence the query results will vary from one object to another.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.oprtns">
+<span class="sig-name descname"><span class="pre">oprtns</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span></em><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.oprtns" title="Permalink to this definition">¶</a></dt>
+<dd><p>A dictionary that defines the sets of various operations to be randomly sampled along with their desired discrete probabilities. The dictionary keys are defined below:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="go">&#39;AGG_OPS&#39;: The aggregate operations that can be used with any continuous variable,if any, in the SELECT statement.</span>
+<span class="go">&#39;LOGIC_OPS&#39;: The logical operations that can be used to combine conditions in th WHERE clause.</span>
+<span class="go">&#39;NOT STATE&#39;: A boolean with &#39;1&#39; indicating that a selected variable is to be negated, i.e. preceded by NOT.</span>
+<span class="go">&#39;CAT_OPS&#39;: The comparison operations that can be used with categorical variables.</span>
+<span class="go">&#39;CNT_OPS&#39;: The comparison operations that can be used with continuous variables.</span>
+<span class="go">&#39;DT_OPS&#39;: The comparison operations that can be used with date variables.</span>
+<span class="go">&#39;FILTER_TYPE&#39;: Whether to use WHERE or AND as a filter condition. This is ignored in the case of tabular datasets since WHERE is the only choice.</span>
+<span class="go">&#39;JOIN_TYPE&#39;: The type of JOIN in the SQL Lit database.  This is ignored in the case of tabular datasets.</span>
+</pre></div>
+</div>
+<p>The default options are shown below. For any key, the sum of operation probabilities shall be 1. For instance, in the values below, the probability of sampling ‘AVG’ is higher than SUM, MIN and MAX, but they all sum up to 1. All these probabilities can be redefined by the user like all other attributes. However, the user needs to make sure that the assigned probabilities will always sum up to 1:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">oprtns</span><span class="o">=</span><span class="p">{</span>
+<span class="s1">&#39;AGG_OPS&#39;</span><span class="p">:{</span><span class="s1">&#39;AVG&#39;</span><span class="p">:</span><span class="mf">0.25</span><span class="p">,</span> <span class="s1">&#39;SUM&#39;</span><span class="p">:</span><span class="mf">0.25</span><span class="p">,</span> <span class="s1">&#39;MAX&#39;</span><span class="p">:</span><span class="mf">0.25</span><span class="p">,</span> <span class="s1">&#39;MIN&#39;</span><span class="p">:</span><span class="mf">0.25</span> <span class="p">},</span>
+<span class="s1">&#39;LOGIC_OPS&#39;</span><span class="p">:{</span><span class="s1">&#39;AND&#39;</span><span class="p">:</span><span class="mf">0.9</span><span class="p">,</span><span class="s1">&#39;OR&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">},</span>
+<span class="s1">&#39;NOT_STATE&#39;</span><span class="p">:{</span><span class="s1">&#39;0&#39;</span><span class="p">:</span><span class="mf">0.9</span><span class="p">,</span> <span class="s1">&#39;1&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">},</span>
+<span class="s1">&#39;CAT_OPS&#39;</span><span class="p">:{</span><span class="s1">&#39;=&#39;</span><span class="p">:</span><span class="mf">0.25</span><span class="p">,</span> <span class="s1">&#39;&lt;&gt;&#39;</span><span class="p">:</span><span class="mf">0.25</span><span class="p">,</span> <span class="s1">&#39;LIKE&#39;</span><span class="p">:</span><span class="mf">0.15</span><span class="p">,</span> <span class="s1">&#39;IN&#39;</span><span class="p">:</span><span class="mf">0.15</span><span class="p">,</span> <span class="s1">&#39;NOT LIKE&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span> <span class="s1">&#39;NOT IN&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">},</span>
+<span class="s1">&#39;CNT_OPS&#39;</span><span class="p">:{</span><span class="s1">&#39;=&#39;</span><span class="p">:</span><span class="mf">0.2</span><span class="p">,</span> <span class="s1">&#39;&gt;&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span> <span class="s1">&#39;&lt;&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span> <span class="s1">&#39;&gt;=&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span> <span class="s1">&#39;&lt;=&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span> <span class="s1">&#39;&lt;&gt;&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span> <span class="s1">&#39;BETWEEN&#39;</span><span class="p">:</span><span class="mf">0.2</span><span class="p">,</span> <span class="s1">&#39;NOT BETWEEN&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">},</span>
+<span class="s1">&#39;DT_OPS&#39;</span><span class="p">:{</span><span class="s1">&#39;=&#39;</span><span class="p">:</span><span class="mf">0.2</span><span class="p">,</span> <span class="s1">&#39;&gt;&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span> <span class="s1">&#39;&lt;&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span> <span class="s1">&#39;&gt;=&#39;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;&lt;=&#39;</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;&lt;&gt;&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span> <span class="s1">&#39;BETWEEN&#39;</span><span class="p">:</span><span class="mf">0.2</span><span class="p">,</span> <span class="s1">&#39;IN&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span> <span class="s1">&#39;NOT BETWEEN&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">,</span> <span class="s1">&#39;NOT IN&#39;</span><span class="p">:</span><span class="mf">0.1</span><span class="p">},</span>
+<span class="s1">&#39;FILTER_TYPE&#39;</span><span class="p">:{</span><span class="s1">&#39;WHERE&#39;</span><span class="p">:</span><span class="mf">0.5</span><span class="p">,</span> <span class="s1">&#39;AND&#39;</span><span class="p">:</span><span class="mf">0.5</span><span class="p">},</span>
+<span class="s1">&#39;JOIN_TYPE&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;JOIN&#39;</span><span class="p">:</span><span class="mf">0.5</span><span class="p">,</span> <span class="s1">&#39;LEFT JOIN&#39;</span><span class="p">:</span><span class="mf">0.5</span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.max_in_terms">
+<span class="sig-name descname"><span class="pre">max_in_terms</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.max_in_terms" title="Permalink to this definition">¶</a></dt>
+<dd><p>The maximum number of values to be used in the ‘IN’ operation. You can set that to np.inf if you do not want to enforce any upper bound.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.no_groupby_vars">
+<span class="sig-name descname"><span class="pre">no_groupby_vars</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.no_groupby_vars" title="Permalink to this definition">¶</a></dt>
+<dd><p>The fixed number of terms (vars) to be used in the GROUPBY clause. Set it to np.inf (default) if you need the number of terms to be randomly selected. If it is set to a larger number than the possible GROUPBY variables, then this number will be ignored.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.no_where_vars">
+<span class="sig-name descname"><span class="pre">no_where_vars</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.no_where_vars" title="Permalink to this definition">¶</a></dt>
+<dd><p>The fixed number of terms (vars) to be used in the WHERE clause. Set it to np.inf (default) if you need the number of terms to be randomly selected . If it is set to a larger number than the possible WHERE variables, then this number will be ignored.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.no_join_tables">
+<span class="sig-name descname"><span class="pre">no_join_tables</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.no_join_tables" title="Permalink to this definition">¶</a></dt>
+<dd><p>The fixed number of join terms (tables) to be used in the JOIN clause. It does not include the name of the master parent table (i.e. the table directly following ‘FROM; in the SELECT statement). Set it to np.inf to randomly select the number of JOIN terms.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.compile_agg_expr">
+<span class="sig-name descname"><span class="pre">compile_agg_expr</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.compile_agg_expr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates random aggregate query expression.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.make_single_agg_query">
+<span class="sig-name descname"><span class="pre">make_single_agg_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">single_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groupby_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_tbl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">join_tbl_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">agg_fntn_terms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.make_single_agg_query" title="Permalink to this definition">¶</a></dt>
+<dd><p>Executes a single aggregate query expression and returns the result as a dataframe in a dictionary</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.make_twin_agg_query">
+<span class="sig-name descname"><span class="pre">make_twin_agg_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">syn_tbl_name_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_groupby_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_from_tbl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_join_tbl_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">agg_fntn_terms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.make_twin_agg_query" title="Permalink to this definition">¶</a></dt>
+<dd><p>Executes a twin (both for real and synthetic datasets) aggregate query expression and returns the results as dataframes in a dictionary</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.compile_fltr_expr">
+<span class="sig-name descname"><span class="pre">compile_fltr_expr</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.compile_fltr_expr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates random filter query expression.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.make_single_fltr_query">
+<span class="sig-name descname"><span class="pre">make_single_fltr_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">single_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_tbl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">join_tbl_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.make_single_fltr_query" title="Permalink to this definition">¶</a></dt>
+<dd><p>Executes a single filter query expression and returns the result as dataframe in a dictionary</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.make_twin_fltr_query">
+<span class="sig-name descname"><span class="pre">make_twin_fltr_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">syn_tbl_name_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_from_tbl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_join_tbl_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.make_twin_fltr_query" title="Permalink to this definition">¶</a></dt>
+<dd><p>Executes a twin filter query expression and returns the results as dataframes in a dictionary</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.compile_aggfltr_expr">
+<span class="sig-name descname"><span class="pre">compile_aggfltr_expr</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.compile_aggfltr_expr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates a random aggregate-filter query expression.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.make_single_aggfltr_query">
+<span class="sig-name descname"><span class="pre">make_single_aggfltr_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">single_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">groupby_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_tbl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">join_tbl_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">agg_fntn_terms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.make_single_aggfltr_query" title="Permalink to this definition">¶</a></dt>
+<dd><p>Executes a single aggregate-filter query expression and returns the result as a dataframe in a dictionary</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.make_twin_aggfltr_query">
+<span class="sig-name descname"><span class="pre">make_twin_aggfltr_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">syn_tbl_name_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_expr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_groupby_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_from_tbl</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">real_join_tbl_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">agg_fntn_terms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.make_twin_aggfltr_query" title="Permalink to this definition">¶</a></dt>
+<dd><p>Executes a twin aggregate-filter query expression and returns the results as dataframes in a dictionary</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.RndQry.calc_dist_scores">
+<span class="sig-name descname"><span class="pre">calc_dist_scores</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">matched_rnd_query</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.RndQry.calc_dist_scores" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates Hellinger and Normalized Euclidean scores for the input random twin queries (i.e. real and synthetic) and updates the input dictionary with the calculated scores. The input queries shall be matched.</p>
+</dd></dl>
+
+</dd></dl>
+
+<div class="line-block">
+<div class="line"><br /></div>
+</div>
+<dl class="py class">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.QryRprt">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fuzzy_sql.fuzzy_sql.</span></span><span class="sig-name descname"><span class="pre">QryRprt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset_table_lst</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_queries</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.QryRprt" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates reports and plots for the input random queries.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataset_table_lst</strong> (<em>list</em>) – List of table names that were used to generte the input queries.</p></li>
+<li><p><strong>random_queries</strong> (<em>dict</em>) – A dictionary comprising multiple number of queries as datasframes with detailed desciption for each query.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.QryRprt.query_to_html">
+<span class="sig-name descname"><span class="pre">query_to_html</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rnd_query</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.QryRprt.query_to_html" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.QryRprt.print_html_mltpl">
+<span class="sig-name descname"><span class="pre">print_html_mltpl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">output_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.QryRprt.print_html_mltpl" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.QryRprt.calc_stats">
+<span class="sig-name descname"><span class="pre">calc_stats</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.QryRprt.calc_stats" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fuzzy_sql.fuzzy_sql.QryRprt.plot_violin">
+<span class="sig-name descname"><span class="pre">plot_violin</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outputfile</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fuzzy_sql.fuzzy_sql.QryRprt.plot_violin" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Fuzzy SQL User Guide</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Functions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="installation.html" title="previous chapter">Installation</a></li>
+      <li>Next: <a href="usage.html" title="next chapter">Usage</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;EHIL 2022.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.1.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/functions.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

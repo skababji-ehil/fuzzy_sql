@@ -2,19 +2,21 @@
 docs/_build/*
 !docs/_build/latex
 docs/_build/latex/*
-!docs/_build/latex/fuzzysql.pdf
+!docs/_build/latex/fuzzysqluserguide.pdf
+!docs/_build/html
 docs/_static
 docs/_templates
 docs/make.bat
 docs/Makefile
 
-db/*
-!db/*.sql
+db/
+# db/*
+#!db/*.sql
 
 .smk/
 
 .runs/
-dist/
+#dist/
 src/fuzzy_sql.egg-info/
 *.db
 reports/latex/
