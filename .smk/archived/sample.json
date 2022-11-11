@@ -1,0 +1,39 @@
+{
+    "parent":{
+        "PNUM_R":"categorical",
+        "AGE":"interval",
+        "DIED":"categorical",
+        "DNR":"categorical",
+        "FEMALE":"categorical",
+        "HOSPBRTH":"categorical",
+        "Homeless":"categorical",
+        "HISPANIC":"categorical",	
+        "NEOMAT":"categorical",
+        "PL_CBSA":"categorical",
+        "MEDINCST":"categorical",
+        "PL_RUCA4":"categorical",
+        "PL_UIC20":"categorical",	
+        "PL_UR_CA":"categorical",
+        "PL_RUCC2":"categorical",
+        "RACE":"categorical",
+        "PL_NCHS2":"categorical"
+    },
+    "child":{
+        "PNUM_R":"categorical",
+    	"Date":"continuous",
+        "LOS":"continuous",
+        "MDC":"continuous",
+        "NDX":"continuous",
+        "NECODE":"continuous",
+        "NPR":"continuous",
+        "TOTCHG":"continuous",
+        "PROCTYPE":"continuous",
+        "DX1":"categorical",
+        "ASCHED":"categorical",
+        "AWEEKEND":"continuous",
+        "DRGVER":"continuous",
+        "HCUP_ED":"continuous"
+    },
+    
+    "key":"PNUM_R"
+}

@@ -1,0 +1,71 @@
+{
+    "table_name": "C1",
+    "table_vars": [
+        [
+            "age",
+            "continuous"
+        ],
+        [
+            "workclass",
+            "TEXT"
+        ],
+        [
+            "fnlwgt",
+            "continuous"
+        ],
+        [
+            "education",
+            "TEXT"
+        ],
+        [
+            "marital_status",
+            "TEXT"
+        ],
+        [
+            "occupation",
+            "TEXT"
+        ],
+        [
+            "relationship",
+            "TEXT"
+        ],
+        [
+            "race",
+            "TEXT"
+        ],
+        [
+            "sex",
+            "TEXT"
+        ],
+        [
+            "hours_per_week",
+            "continuous"
+        ],
+        [
+            "native_country",
+            "TEXT"
+        ],
+        [
+            "capital",
+            "continuous"
+        ],
+        [
+            "income",
+            "TEXT"
+        ]
+    ],
+    "parent_details": {
+        "parent_1": [
+            [
+                ["parent_1_key"],
+                ["self_key4parent_1"]
+                ]
+            ],
+        "parent_2": [
+            [
+                ["parent_2_comp_key_a","parent_2_comp_key_b"],
+                ["self_key4parent_2_comp_key_a","self_key4parent_2_comp_key_b"]
+            ]
+        ]
+    }
+}

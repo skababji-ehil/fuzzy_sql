@@ -1,0 +1,663 @@
+\hypertarget{utility-of-cohorts-in-synthetic-data}{%
+\section{Utility of Cohorts in Synthetic
+Data}\label{utility-of-cohorts-in-synthetic-data}}
+
+SQL select queries have two aspects that can be of a great value for
+exploring the utility of synthetic data. First, a select query may
+incorporate a \emph{filtering} clause (e.g. using WHERE) that reflects a
+specific inclusion-exclusion criterion for a cohort study. Secondly, a
+select query may aggregate variables in two or more distinct categories
+e.g. exposed and unexposed subjects. Further, the aggregation function
+(e.g. SUM, AVG\ldots{}etc.) may serve as a workload to evaluate the
+synthetic data. For instance, aggregate queries are used as workloads by
+(Fan et al. 2020). The generated query is run on both real and synthetic
+datasets. The query results from both datasets are compared and the
+relative error is calculated to serve as a utility measure. However, the
+current studies assume a pre-determined query formulation such as that
+proposed by (Li et al. 2019) where specific categorical variables are
+chosen for aggregation. This deterministic approach may lead to biased
+conclusions. For instance, a generative model may learn the underlying
+distribution of some variables better than the others. These variables
+may happen to be the ones used in the pre-defined aggregation functions
+and result in unrepresentative scores. In addition, this approach
+requires that the query to be customized to each specific dataset. A
+priori knowledge of how the synthetic data will be used is also
+necessary. Typically, a proper solution shall be independent from the
+dataset selection or usage. To tackle this problem, we are inspired by
+the randomness introduced by SQL Fuzzing techniques also known as
+Fuzzers.
+
+SQL Fuzzers are mainly used to test database management systems (DBMSs)
+for any bugs or vulnerabilities (Jibson 2019). Before executing an SQL
+query, a DBMS performs two levels of checks. First the SQL statement is
+checked for any syntactic error such as grammatical errors. Secondly,
+the query is checked semantically e.g. a call is made to a non-existent
+table. Once the DBMS performs the necessary checks, the SQL statement is
+executed according to the best execution plan (Zhong et al. 2020).
+Fuzzers usually generate large amount of queries that do not pass the
+aforementioned checks. For instance, American Fuzzy Lop (AFL) (Zalewski
+n.d.), a widely used fuzzer, has only 30\% out of its generated queries
+passing the syntax check while only 4\% can pass the semantic check
+(Zhong et al. 2020). Some research attempts are made to focus on finding
+DBMS logic errors rather than semantic and syntactic errors. However,
+such techniques generate both the queries and the test datasets (Ghit et
+al. 2020). Other researchers (Rigger and Su 2020) propose an approach to
+generate queries that ensure fetching a randomly selected row and hence
+avoid syntactic and semantic error injection. Clearly, this technique
+assumes priori knowledge of the dataset.
+
+To ensure unbiased representation of synthetic data utility, we propose
+a Fuzzy SQL technique that has the following features:
+
+Datasets may include categorical, continuous and date variables.
+
+\emph{Filtered} \emph{aggregate} queries shall be randomly generated,
+i.e. grouping may be executed using any combination of the available
+categorical variables.
+
+Aggregation may take place across any of the available continuous
+variables.
+
+A random condition may be imposed on the aggregate queries. In such
+case, the values used in the WHERE clause shall be randomly sampled from
+the real data and equally executed on both the real and synthetic data.
+
+A proper metric shall be established to compare the results from the
+real and synthetic data.
+
+\hypertarget{utility-evaluation}{%
+\subsection{Utility Evaluation}\label{utility-evaluation}}
+
+Once a cohort is defined using a random SQL query, it needs to be
+evaluated. In one approach, (Fan et al. 2020) proposes to arrange the
+data with one of the categorical variables as a dependent variable. Then
+two classifiers are trained using training examples from the real and
+synthetic data respectively. Finally the testing examples from the real
+data are used to test both models using traditional metric such as F1.
+The F1 scores for both models are compared. Clearly, this approach will
+highly depend on the selection of the dependent variable especially if
+the dataset mostly incudes categorical variables. In our case, since the
+randomly generated filtered queries can be aggregated, we use the
+Hellinger distance to evaluate the utility of cohorts. Whenever a
+continuous variable is used with an aggregation function, we measure the
+normalized Euclidean distances between resulting aggregate components in
+both the real and synthetic data. Details of our proposal and the metric
+calculations are given in the attached appendix.
+
+\hypertarget{appendix}{%
+\section{Appendix}\label{appendix}}
+
+Fuzzy SQL is developed to enable the comparison between real and
+synthetic datasets that are generated by any ML technique. Fuzzy SQL
+will generate semantically and syntactically correct SELECT random
+queries that are simultaneously applied to both inputs of real and
+synthetic datasets. The tool returns all query results along with the
+corresponding query parameters such as the SQL statement. The query
+results may be further analyzed to measure distances between real and
+synthetic responses to each query.
+
+The input datasets may be either tabular of longitudinal.
+
+We define two basic types of random SELECT queries, namely,
+\emph{'filter'} and \emph{'aggregate'} queries. We further combine these
+into a third type and we call it \emph{'filter-aggregate'} query.
+Metrics, such as the Hellinger distance, can be applied to the results
+of any aggregate query in the same manner they are applied to the
+original datasets.
+
+If the input data includes continuous variables, various 'aggregate
+functions' may be randomly applied in addition to counting the resulting
+number of records. These functions are limited to AVG, SUM, MIN and MAX.
+If the input does not include any continuous variable, only the COUNT
+aggregate function is applied. The types of each variable are typically
+defined by the user and inputted along with the real and synthetic
+datasets.
+
+\hypertarget{data-type-of-variables}{%
+\subsection{Data type of variables}\label{data-type-of-variables}}
+
+To ensure the validity of the SQL select statement as interpreted by the
+database engine, Fuzzy SQL makes a distinction among three basic data
+types, namely: Categorical, Continuous and Date. Accordingly, if a
+dataset includes a variable with a different data type, it will be
+mapped to the proper type as per the table below:
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule
+Input Data Type & Output Data Type\tabularnewline
+\midrule
+\endhead
+'qualitative', 'categorical', 'nominal', 'discrete', 'ordinal',
+'dichotomous', 'TEXT', `INTEGER' & `categorical'\footnote{The term
+  `nominal' may be interchangeably used throughout this document.}\tabularnewline
+'quantitative', 'continuous', 'interval', 'ratio', 'REAL' &
+'continuous'\tabularnewline
+'date', 'time', 'datetime' & 'date'\tabularnewline
+\bottomrule
+\end{longtable}
+
+The distinction arises from their intrinsic properties as summarized in
+the following table:
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule
+Property & `categorical' & 'continuous' & 'date'\tabularnewline
+\midrule
+\endhead
+Can be used to aggregate data across it & Yes & No & No\tabularnewline
+Can be used with the aggregate functions: SUM, AVG, MIN and MAX & No &
+Yes & No\tabularnewline
+Can be used with the `IN' operation & Yes & No & Yes\tabularnewline
+Can be used with the `BETWEEN' operation & No & Yes & Yes\tabularnewline
+\bottomrule
+\end{longtable}
+
+The three basic data types can be equally used for the rest of
+operations.
+
+\hypertarget{tabular-data-templates-1}{%
+\subsection{Tabular Data Templates}\label{tabular-data-templates-1}}
+
+Without loss of generality, and to simplify the mathematical constructs,
+we herein ignore the logical operation 'NOT' and the value comparison
+operations BETWEEN, LIKE and IN. We further consider that the same set
+of value comparison operations is applicable to all types of variables.
+In practice, a distinction in their applicability is made and all the
+aforementioned operations are considered. Further, please note that, for
+our purpose, the terms \emph{categorical} and \emph{nominal} are used
+interchangeably. Define:
+
+\begin{itemize}
+\item
+  \(\mathcal{T}^{r}\) : Database table for real data.
+\item
+  \(\mathcal{T}^{s}\): Database table for synthetic data
+\item
+  \(N\): The number of records in both \(\mathcal{T}^{r}\) and
+  \(\mathcal{T}^{s}\).
+\item
+  \(\mathbb{A}^{n} = \left\{ A_{1}^{n},A_{2}^{n},\cdots,A_{\left| \mathbb{A}^{n} \right|}^{n} \right\}\)
+  is the set of \emph{nominal} variables in both \(\mathcal{T}^{r}\) and
+  \(\mathcal{T}^{s}\) where \(|\mathbb{A}^{n}|\) indicates the number of
+  these variables.
+\item
+  \(\mathbb{A}^{c} = \{ A_{1}^{c},A_{2}^{c},\cdots,A_{|\mathbb{A}^{c}|}^{c}\}\)
+  is the set of \emph{continuous} variables in both \(\mathcal{T}^{r}\)
+  and \(\mathcal{T}^{s}\).
+\item
+  \(\mathbb{A}^{d} = \{ A_{1}^{d},A_{2}^{d},\cdots,A_{|\mathbb{A}^{d}|}^{d}\}\)
+  is the set of \emph{date} variables in both \(\mathcal{T}^{r}\) and
+  \(\mathcal{T}^{s}\).
+\item
+  For any member \(A_{j}\) in the above sets, it may assume a
+  \emph{value} given in the real dataset \(\mathcal{T}^{r}\) such that:
+\item
+  \(V(A_{j})\) is the the set of all values that \(A_{j}\) may take. The
+  length of \(V(A_{j})\) is \(|V(A_{j})| = N\).
+\end{itemize}
+
+We further define various operations:
+
+\begin{itemize}
+\item
+  \(LO = \{ AND,OR\}\) is the set of logical operations.
+\item
+  \(CO = \{ = , \neq , < , \leq , > , \geq \}\) is the set of value
+  comparison operations.
+\item
+  \(AG = \{ SUM,AVG,MIN,MAX\}\) is the set of aggregate functions.
+\end{itemize}
+
+Random samples are drawn from the above sets to construct the three
+major queries defined below. The basic sampling functions can be defined
+as:
+
+\(f_{s}:S_{m} \rightarrow S_{s}\) where \(f_{s}\) is a sampling function
+that maps any set \(S_{m}\) into a single element set \(S_{s}\). For
+instance, the set \(\text{AG}\) may be mapped by \(f_{s}\) into
+\(\{ AVG\}\)
+
+\(f_{m}:S_{m1} \rightarrow S_{m2}\) where \(f_{m}\) is a sampling
+function that maps any set \(S_{m1}\) into a multiple element set
+\(S_{m2}\). For instance, the set \(\mathbb{A}^{n}\) may be mapped by
+\(f_{m}\) into \(\{ A_{1}^{n},A_{|\mathbb{A}^{n}|}^{n}\}\)
+
+\hypertarget{aggregate-queries}{%
+\subsubsection{Aggregate Queries}\label{aggregate-queries}}
+
+If \(\mathbb{A}^{c} = \phi\), an aggregate query takes the form:
+
+SELECT
+\(f_{m}\left( \mathbb{A}^{n} \right)\mathrm{,\ \ COUNT}\mathrm{(*)}\)
+
+FROM \(\mathcal{T}^{r}\)
+
+GROUP BY \(f_{m}(\mathbb{A}^{n})\)
+
+However, if \(\mathbb{A}^{c} \neq \phi\), an aggregate query takes the
+form:
+
+SELECT
+\(f_{m}(\mathbb{A}^{n}),f_{s}(AG)(f_{s}(\mathbb{A}^{c}))\mathrm{,\ }\mathrm{COUNT(}\mathrm{*)}\)
+
+FROM \(\mathcal{T}^{r}\)
+
+GROUP BY \(f_{m}(\mathbb{A}^{n})\)
+
+Similar queries are constructed for \(\mathcal{T}^{\mathcal{s}}\).
+
+\hypertarget{filter-queries}{%
+\subsubsection{Filter Queries}\label{filter-queries}}
+
+If \(\mathbb{A}^{c} = \phi\), a filter query takes the form:
+
+SELECT \(*\)
+
+FROM \(\mathcal{T}^{r}\)
+
+WHERE
+\(\lbrack f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})\quad f_{s}(CO)\quad f_{s}(V(f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})))\rbrack\)
+
+\(\lbrack f_{s}(LO)\rbrack\)
+
+\(\lbrack f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})\quad f_{s}(CO)\quad f_{s}(V(f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})))\){]}
+
+\({\lbrack f}_{s}(LO)\rbrack\)
+
+\(\cdots\)
+
+The WHERE clause comprises basic expressions denoted by
+\(\lbrack\quad\rbrack\). Say if the sampled number of variables equals
+to 1 (i.e.
+\(|f_{m}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})|\)=1),
+then the above expression will reduce to:
+
+SELECT \(*\)
+
+FROM \(\mathcal{T}^{r}\)
+
+WHERE
+\((f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})\quad f_{s}(CO)\quad f_{s}(V(f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})))\)
+
+If \(\mathbb{A}^{c} \neq \phi\), a filter query takes the form:
+
+SELECT
+\(f_{s}(AG)(f_{s}(\mathbb{A}^{c}))\mathrm{,\ }\mathrm{COUNT(}\mathrm{*)}\)
+
+FROM \(\mathcal{T}^{r}\)
+
+WHERE
+\(\lbrack f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})\quad f_{s}(CO)\quad f_{s}(V(f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})))\rbrack\)
+
+\(\lbrack f_{s}(LO)\rbrack\)
+
+\(\lbrack f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})\quad f_{s}(CO)\quad f_{s}(V(f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})))\){]}
+
+\({\lbrack f}_{s}(LO)\rbrack\)
+
+\(\cdots\)
+
+Similar queries are constructed for \(\mathcal{T}^{\mathcal{s}}\).
+
+\hypertarget{filter-aggregate-queries}{%
+\subsubsection{Filter-Aggregate
+Queries}\label{filter-aggregate-queries}}
+
+Filter-Aggregate queries are the most important for comparing real and
+synthetic datasets. The query is constructed by combining the above two
+forms. Hence, if \(\mathbb{A}^{c} = \phi\), a filter-aggregate query
+takes the form:
+
+SELECT \(f_{m}(\mathbb{A}^{n})\mathrm{,\ }\mathrm{COUNT(}\mathrm{*)}\)
+
+FROM \(\mathcal{T}^{r}\)
+
+WHERE
+\(\lbrack f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})\quad f_{s}(CO)\quad f_{s}(V(f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})))\rbrack\)
+
+\(\lbrack f_{s}(LO)\rbrack\)
+
+\(\lbrack f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})\quad f_{s}(CO)\quad f_{s}(V(f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})))\){]}
+
+\({\lbrack f}_{s}(LO)\rbrack\)
+
+\(\cdots\)
+
+GROUP BY \(f_{m}(\mathbb{A}^{n})\)
+
+and if \(\mathbb{A}^{c} \neq \phi\), a filter-aggregate query takes the
+form:
+
+SELECT
+\(f_{m}(\mathbb{A}^{n}),f_{s}(AG)(f_{s}(\mathbb{A}^{c}))\mathrm{,\ }\mathrm{COUNT(}\mathrm{*)}\)
+
+FROM \(\mathcal{T}^{r}\)
+
+WHERE
+\(\lbrack f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})\quad f_{s}(CO)\quad f_{s}(V(f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})))\rbrack\)
+
+\(\lbrack f_{s}(LO)\rbrack\)
+
+\(\lbrack f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})\quad f_{s}(CO)\quad f_{s}(V(f_{s}(\mathbb{A}^{n} \cup \mathbb{A}^{c} \cup \mathbb{A}^{d})))\){]}
+
+\({\lbrack f}_{s}(LO)\rbrack\)
+
+\(\cdots\)
+
+GROUP BY \(f_{m}(\mathbb{A}^{n})\)
+
+Similar queries are constructed for \(\mathcal{T}^{\mathcal{s}}\).
+
+\hypertarget{longitudinal-data-templates}{%
+\subsection{Longitudinal Data
+Templates}\label{longitudinal-data-templates}}
+
+Fuzzy SQL supports the generation of valid random queries for joint
+tables in parent-child relationship. One-to-many relationship for single
+or multiple-child is supported. In continuation to the definitions given
+in Tabular Data Templates, and for simplicity, we will drop the
+distinction between the real and synthetic tables since the generated
+random queries are always identical. Define:
+
+\begin{itemize}
+\item
+  \(\mathcal{T}\) : Any randomly selected parent table.
+\item
+  \(\mathcal{T}.\mathbb{A}^{n} = \left\{ \mathcal{T}.A_{1}^{n},\mathcal{T}.A_{2}^{n},\cdots,\mathcal{T}.A_{\left| \mathcal{T}.\mathbb{A}^{n} \right|}^{n} \right\}\)
+  is the set of nominal variables in \(\mathcal{T}\) where
+  \(\left| \mathcal{T}.\mathbb{A}^{n} \right|\) indicates the number of
+  these variables. Similarly, we define the continuous and date
+  variables pertaining to the parent table using the superscripts 'c'
+  and 'd' instead on 'n'.
+\item
+  \(\mathbb{R} = \{\mathcal{R}_{1},\mathcal{R}_{2},\cdots,\mathcal{R}_{|\mathbb{R}|}\}\)
+  where \(|\mathbb{R}|\) is the number of child tables related to
+  \(\mathcal{T}\).
+\item
+  \(\mathcal{R}_{k}.\mathbb{A}^{n} = \left\{ \mathcal{R}_{k}.A_{1}^{n},\mathcal{R}_{k}.A_{2}^{n},\cdots,\mathcal{R}_{k}.A_{\left| \mathcal{R}_{k}.\mathbb{A}^{n} \right|}^{n} \right\}\)
+  is the set of nominal variables in \(\mathcal{R}_{k}\) \(\forall k\)
+  where \(\left| \mathcal{R}_{k}.\mathbb{A}^{n} \right|\) indicates the
+  number of these variables. Similarly, we define the continuous and
+  date variables pertaining to the \(k^{\text{th}}\) child table using
+  the superscripts 'c' and 'd'.
+\item
+  \(\mathcal{T}.A_{\mathcal{R}_{k}}^{n}\) : is the parent's joining key
+  between \(\mathcal{T}\) and \(\mathcal{R}_{k}\) \(\forall k\) whereas
+  \(\mathcal{T}.A_{\mathcal{R}_{k}}^{n} \in \mathcal{T}.\mathbb{A}^{n}\).
+\item
+  \(\mathcal{R}_{k}.A_{\mathcal{T}}^{n}\) : is the child's joining key
+  between \(\mathcal{T}\) and \(\mathcal{R}_{k}\) \(\forall k\) whereas
+  \(\mathcal{R}_{k}.A_{\mathcal{T}}^{n} \in \mathcal{R}_{k}.\mathbb{A}^{n}\).
+\end{itemize}
+
+To avoid repetition, we only show the template for random
+filter-aggregate queries, which essentially comprises both filter and
+aggregate queries.
+
+\hypertarget{filter-aggregate-queries-1}{%
+\subsubsection{FILTER-AGGREGATE
+QUERIES}\label{filter-aggregate-queries-1}}
+
+If
+\(f_{m}(\mathcal{T}.\mathbb{A}^{c} \cup \mathcal{R}_{k}.\mathbb{A}^{c}) = \phi,\forall k\),
+and let the random sampling of the related tables be
+\(f_{m}:\mathbb{R} = \{\mathcal{R}_{1},\mathcal{R}_{2},\cdots\} \rightarrow \mathbb{R}_{s} = \{\mathcal{R}_{s1},\mathcal{R}_{s2},\cdots\}\),
+then a filter-aggregate query takes the form:
+
+SELECT
+\(f_{m}\left( \mathcal{T}.\mathbb{A}^{n} \cup \mathcal{R}_{s1}.\mathbb{A}^{n} \cup \cdots \cup \mathcal{R}_{\left| \mathbb{R}_{s} \right|}.\mathbb{A}^{n} \right),\ \ \mathrm{COUNT(}\mathrm{*)}\)
+
+FROM \(\mathcal{T}\)
+
+JOIN \(\mathcal{R}_{s1}\) ON
+\(\mathcal{T}.A_{\mathcal{R}_{s1}}^{n} = \mathcal{R}_{s1}.A_{\mathcal{T}}^{n}\)
+
+JOIN \(\mathcal{R}_{s2}\) ON
+\(\mathcal{T}.A_{\mathcal{R}_{s2}}^{n} = \mathcal{R}_{s2}.A_{\mathcal{T}}^{n}\)
+
+\ldots{}
+
+WHERE
+\(\lbrack f_{s}(\mathcal{T}.\mathbb{A}^{n} \cup \mathcal{T}.\mathbb{A}^{c} \cup \mathcal{T}.\mathbb{A}^{d} \cup \mathcal{R}_{s1}.\mathbb{A}^{n} \cup \mathcal{R}_{s1}.\mathbb{A}^{c} \cup \mathcal{R}_{s2}.\mathbb{A}^{d} \cup \mathcal{R}_{s2}.\mathbb{A}^{n} \cup \cdots)\)
+
+\[f_{s}(CO)\]
+
+\[f_{s}(\mathcal{T}.\mathbb{A}^{n} \cup \mathcal{T}.\mathbb{A}^{c} \cup \mathcal{T}.\mathbb{A}^{d} \cup \mathcal{R}_{s1}.\mathbb{A}^{n} \cup \mathcal{R}_{s1}.\mathbb{A}^{c} \cup \mathcal{R}_{s2}.\mathbb{A}^{d} \cup \mathcal{R}_{s2}.\mathbb{A}^{n} \cup \cdots)\rbrack\]
+
+\[\lbrack f_{s}(LO)\rbrack\]
+
+\[\cdots\]
+
+GROUP BY
+\(f_{m}(\mathcal{T}.\mathbb{A}^{n} \cup \mathcal{R}_{s1}.\mathbb{A}^{n} \cup \cdots \cup \mathcal{R}_{|\mathbb{R}_{s}|}.\mathbb{A}^{n})\)
+
+If
+\(f_{m}(\mathcal{T}.\mathbb{A}^{c} \cup \mathcal{R}_{k}.\mathbb{A}^{c}) \neq \phi,\forall k\),
+the SELECT term in the above expression is replaced by:
+
+SELECT
+\(f_{m}\left( \mathcal{T}.\mathbb{A}^{n} \cup \mathcal{R}_{s1}.\mathbb{A}^{n} \cup \cdots \cup \mathcal{R}_{\left| \mathbb{R}_{s} \right|}.\mathbb{A}^{n} \right),\ \ f_{s}\left( \text{AG} \right)\left( f_{s}\left( \mathcal{T}.\mathbb{A}^{c} \cup \mathcal{R}_{s1}.\mathbb{A}^{\mathbb{c}} \cup \mathcal{R}_{s2}.\mathbb{A}^{\mathbb{c}} \cup \cdots \right) \right),\)
+
+\[\ \mathrm{COUNT(*)}\]
+
+In practice, the pre-aggregation filter condition is applied either
+using WHERE or using AND after the JOIN clause. Our implementation makes
+a random pick.
+
+\hypertarget{metrics}{%
+\subsection{Metrics}\label{metrics}}
+
+\hypertarget{hellinger-distance-for-datasets}{%
+\subsubsection{Hellinger Distance for
+Datasets}\label{hellinger-distance-for-datasets}}
+
+The Hellinger distance may be used to measure the quality of synthetic
+data. First we consider the calculation of the Hellinger distance
+between the real and the synthetic tabular datasets \(\mathcal{T}^{r}\)
+and \(\mathcal{T}^{s}\) respectively. Define:
+
+\begin{itemize}
+\item
+  \(\mathbb{A} = \{ A_{1},\cdots,A_{i},\cdots,A_{|\mathbb{A}|}\}\) is
+  the set of \emph{nominal} variables in both \(\mathcal{T}^{r}\) and
+  \(\mathcal{T}^{s}\) where \(|\mathbb{A}|\) indicates the number of
+  these variables.
+\item
+  \(o_{A_{i}}^{j}\) is the number of occurrences (i.e. counts) of the
+  \(j^{\text{th}}\) class for the nominal variable \(A_{i}\) in
+  \(\mathcal{T}^{r}\).
+\end{itemize}
+
+The discrete probability of the \(j^{\text{th}}\) class can be
+calculated as:
+
+\[r_{A_{i}}^{j} = \frac{o_{A_{i}}^{j}}{\sum_{\forall j}^{}o_{A_{i}}^{j}}\]
+
+For instance, consider the \emph{nominal} variable
+\(A_{1} = \mathrm{"income"}\) with two classes '\textless{}=50k' and
+'\textgreater{}50k'. Then the first class may have
+\(o_{A_{1}}^{1} = 1200\) occurrences and the second may have
+\(o_{A_{1}}^{2} = 2000\) occurrences with discrete probabilities of
+\(r_{A_{1}}^{1} = 0.375\) and \(r_{A_{1}}^{2} = 0.625\) respectively.
+
+Similarly, for the synthetic data \(\mathcal{T}^{s}\) we can calculate
+the discrete probabilities \(s_{A_{i}}^{j}\)
+
+The Hellinger distance for the nominal variable \(A_{i}\) is calculated
+as:
+
+\[\mathcal{H}^{A_{i}} = \frac{1}{\sqrt{2}}\left( \sum_{\forall j}^{}\left( \sqrt{r_{A_{i}}^{j}} - \sqrt{s_{A_{i}}^{j}} \right)^{2} \right)^{1/2}\]
+
+The Hellinger distance between \(\mathcal{T}^{r}\) and
+\(\mathcal{T}^{s}\) can be calculated by taking the mean across all
+\emph{nominal} variables:
+
+\[\mathcal{H}^{\mathcal{T}} = \frac{1}{|\mathbb{A}|}\sum_{i = 1}^{|\mathbb{A}|}\mathcal{H}^{A_{i}}\]
+
+\hypertarget{hellinger-distance-for-queries}{%
+\subsubsection{Hellinger Distance for
+Queries}\label{hellinger-distance-for-queries}}
+
+In \emph{aggregate} queries, grouping is done by randomly selected
+\emph{nominal} variables. In this sense, measuring the Hellinger
+distance for the datasets as explained above is just a special case
+where grouping is done by a single nominal variable at a time. So, for
+\(|\mathbb{A}|\) number of \emph{nominal} variables in the original
+datasets, we may execute \(|\mathbb{A}|\) number of queries with each
+query grouped by a single variable. Then by averaging the Hellinger
+distances of these queries, we reach the same results in 0
+
+If grouping is done by more than a single variable, it is as we are
+defining a new nominal variable \(A^{q}\) where \(A^{q}\) may be any
+combination of two or more dataset variables as defined in 0. The query
+will result in specific number of classes for \(A^{q}\). Using the
+superscript \(j\) to indicate the \(j^{\text{th}}\) class of \(A^{q}\),
+we calculate the Hellinger distance for the query by:
+
+\[\mathcal{H}^{\mathcal{Q}} = \frac{1}{\sqrt{2}}\left( \sum_{\forall j}^{}\left( \sqrt{r_{A^{q}}^{j}} - \sqrt{s_{A^{q}}^{j}} \right)^{2} \right)^{1/2}\]
+
+Both discrete probabilities \(r\) and \(s\) were defined earlier in 0.
+For instance, consider an aggregate query grouped by the two nominal
+variables \(A_{1} = \mathrm{"income"}\) and
+\(A_{2} = \mathrm{"mar}\mathrm{\text{ital}}\mathrm{\ status"}\) with
+each having two distinct classes. The query will result in the variable
+\(A^{q}\) having four distinct classes with a discrete probability
+\(r_{A^{q}}^{j}\) for each resulting class \(j\).
+
+\hypertarget{euclidean-distance-for-queries}{%
+\subsubsection{Euclidean Distance for
+Queries}\label{euclidean-distance-for-queries}}
+
+Once the \emph{aggregate} query is executed, the variable \(A^{q}\), as
+defined in 0, will result in the classes: \(1,2..j..J\). If the data
+includes a continuous variable \(A^{c}\), an aggregate function, say
+AGG, may be applied to that variable. For each class \(j\), an
+aggregation value \(\lbrack AGG(A^{c})\rbrack_{j}\) of the continuous
+variable can be calculated. For instance, let \(A^{q}\) be a combination
+of two nominal variables \(A_{1} = \mathrm{"income"}\) and
+\(A_{2} = \mathrm{"marital\ status"}\). Let \(A^{c} = \mathrm{"age"}\)
+be a continuous variable, then for each of the four distinct classes, we
+can calculate the \(\mathrm{\text{AVG}}(\mathrm{\text{age}})\). Define:
+
+\begin{itemize}
+\item
+  \(v_{j}^{r}\) is the aggregate value (e.g.
+  \(\lbrack\mathrm{\text{AVG}}(\mathrm{\text{age}})\rbrack_{j}\))
+  corresponding to the \(j^{\text{th}}\) class of an arbitrary continuos
+  variable \(A^{c}\) in \(\mathcal{T}^{r}\).
+\item
+  \(v_{j}^{s}\) is the aggregate value corresponding to the
+  \(j^{\text{th}}\) class of the same continuos variable \(A^{c}\) in
+  \(\mathcal{T}^{s}\)
+\end{itemize}
+
+From the above components, we can find the difference components:
+
+\[d_{j} = v_{j}^{r} - v_{j}^{s}\quad\forall j\]
+
+We further find the mean and standard deviation across all the classes:
+
+\[\mu^{d} = \frac{1}{J}\sum_{j = 1}^{J}d_{j}\]
+
+\[\sigma^{d} = \sqrt{\frac{1}{J}\sum_{j = 1}^{J}(d_{j} - \mu^{d})^{2}}\]
+
+and we compute the standardized aggregate values:
+
+\[z_{j} = \frac{d_{j} - \mu^{d}}{\sigma^{d}}\]
+
+Finally, we compute the norm and normalize it to reflect the normalized
+Euclidean distance between the real and synthetic queries:
+
+\[\mathcal{E}^{\mathcal{Q}} = \frac{\parallel z_{j} \parallel}{J}\]
+
+Normalizing the distance by the number of resulting classes for the
+random query enables us to average the Euclidean distance across
+multiple queries since each of them may result in different number of
+classes.
+
+\hypertarget{example-for-calculating-distances}{%
+\subsubsection{Example for calculating
+distances}\label{example-for-calculating-distances}}
+
+As a simple example, consider a real dataset with the variables and . A
+random aggregate query is executed and resulted in the following:
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule
+work\_class & education & AVG(hours\_per\_week) & COUNTS\tabularnewline
+\midrule
+\endhead
+Private & Divorced & 39.0 & 219\tabularnewline
+Self-emp & Married & 33.3 & 9\tabularnewline
+Private & Married & 41.0 & 29\tabularnewline
+Local-gov & Never-married & 36.0 & 20\tabularnewline
+Private & Never-married & Nan & Nan\tabularnewline
+Aggregate random query applied to & & &\tabularnewline
+\bottomrule
+\end{longtable}
+
+\begin{longtable}[]{@{}llll@{}}
+\toprule
+work\_class & education & AVG(hours\_per\_week) & COUNTS\tabularnewline
+\midrule
+\endhead
+Private & Divorced & 35.0 & 121\tabularnewline
+Self-emp & Married & 40.0 & 30\tabularnewline
+Private & Married & 38.5 & 21\tabularnewline
+Local-gov & Never-married & Nan & Nan\tabularnewline
+Private & Never-married & 39.0 & 3\tabularnewline
+Aggregate random query applied to & & &\tabularnewline
+\bottomrule
+\end{longtable}
+
+The query results in a new variable which is the combination of and .
+The resulting variable assumes new classes which are basically the
+combination of the classes of the original variables. Further, the
+executed random query does not necessarily result in the same
+\emph{number} and \emph{type} of records (i.e. classes) for both real
+and synthetic data. This explains the presence of Nan where it indicates
+a non-matching record. This can go both sides, i.e. synthetic data may
+miss a class combination that is present in the real data or it may
+result in a class combination which is never present in the real data.
+
+In the tables above, the real data query resulted in 277 occurrence of
+the first four classes (i.e. (Private, Divorced) with a probability
+219/277=0.791 , (Self-emp, Married) with a probability of 9/277=0.0325
+and so forth. The synthetic data query resulted in a total of 175
+occurrences and its class probabilities can be calculated in the same
+manner.
+
+Replacing Nan by a probability of zero, the Hellinger distance between
+the two queries is calculated as
+
+For the Euclidean distance, we first find the difference components of
+the resulting averages of the continuous variable hours\_per\_week as
+(4,-0.67,2.5). Note that the non-matching classes are ignored. The
+component vector can be standardized into ( 0.702,-1.145,0.443) and
+finally the norm is calculated and divided by the number of components
+resulting in normalized Euclidean distance of 0.471.
+
+\hypertarget{references}{%
+\section{References}\label{references}}
+
+Fan, Ju, Tongyu Liu, Guoliang Li, Junyou Chen, Yuwei Shen, and Xiaoyong
+Du. 2020. ``Relational Data Synthesis Using Generative Adversarial
+Networks: A Design Space Exploration.'' arXiv.
+http://arxiv.org/abs/2008.12763.Ghit, Bogdan, Nicolas Poggi, Josh Rosen,
+Reynold Xin, and Peter Boncz. 2020. ``SparkFuzz: Searching Correctness
+Regressions in Modern Query Engines.'' In \emph{Proceedings of the
+Workshop on Testing Database Systems}, 1--6. Portland Oregon: ACM.
+https://doi.org/10.1145/3395032.3395327.Jibson, Matt. 2019. ``SQLsmith:
+Randomized SQL Testing in CockroachDB.'' Cockroach Labs. June 27, 2019.
+https://www.cockroachlabs.com/blog/sqlsmith-randomized-sql-testing/.Li,
+Kaiyu, Yong Zhang, Guoliang Li, Wenbo Tao, and Ying Yan. 2019. ``Bounded
+Approximate Query Processing.'' \emph{IEEE Transactions on Knowledge and
+Data Engineering} 31 (12): 2262--76.
+https://doi.org/10.1109/TKDE.2018.2877362.Rigger, Manuel, and Zhendong
+Su. 2020. ``Testing Database Engines via Pivoted Query Synthesis.''
+https://doi.org/10.48550/ARXIV.2001.04174.Zalewski, Michal. n.d.
+``American Fuzzy Lop.'' Accessed October 20, 2022.
+https://lcamtuf.coredump.cx/afl/.Zhong, Rui, Yongheng Chen, Hong Hu,
+Hangfan Zhang, Wenke Lee, and Dinghao Wu. 2020. ``SQUIRREL: Testing
+Database Management Systems with Language Validity and Coverage
+Feedback.'' https://doi.org/10.48550/ARXIV.2006.02398.

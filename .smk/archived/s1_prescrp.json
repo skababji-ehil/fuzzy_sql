@@ -1,0 +1,39 @@
+{
+    "tbl_name": "s1_prescrp",
+    "tbl_key_name": ["DESYNPUF_ID"],
+    "parent_ref": [["s1_ben_sum_2008",["DESYNPUF_ID"]],["s1_ben_sum_2009",["DESYNPUF_ID"]],["s1_ben_sum_2010",["DESYNPUF_ID"]]],
+    "var": [
+        [
+            "DESYNPUF_ID",
+            "TEXT"
+        ],
+        [
+            "PDE_ID",
+            "INTEGER"
+        ],
+        [
+            "SRVC_DT",
+            "date"
+        ],
+        [
+            "PROD_SRVC_ID",
+            "TEXT"
+        ],
+        [
+            "QTY_DSPNSD_NUM",
+            "REAL"
+        ],
+        [
+            "DAYS_SUPLY_NUM",
+            "INTEGER"
+        ],
+        [
+            "PTNT_PAY_AMT",
+            "REAL"
+        ],
+        [
+            "TOT_RX_CST_AMT",
+            "REAL"
+        ]
+    ]
+}

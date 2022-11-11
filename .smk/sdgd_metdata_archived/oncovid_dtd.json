@@ -1,0 +1,8 @@
+{
+    "case_status":"nominal",
+    "age_group":"nominal",
+    "gender":"nominal",
+    "date_reported":"date",
+    "exposure":"nominal",
+    "health_region":"nominal"
+}

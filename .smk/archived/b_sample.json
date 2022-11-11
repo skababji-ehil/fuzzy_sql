@@ -1,0 +1,75 @@
+{
+    "tbl_name": "b_sample",
+    "tbl_key_name": ["PNUM_R"],
+    "parent_ref": "Null",
+    "var": [
+        [
+            "PNUM_R",
+            "categorical"
+        ],
+        [
+            "AGE",
+            "interval"
+        ],
+        [
+            "DIED",
+            "categorical"
+        ],
+        [
+            "DNR",
+            "categorical"
+        ],
+        [
+            "FEMALE",
+            "categorical"
+        ],
+        [
+            "HOSPBRTH",
+            "categorical"
+        ],
+        [
+            "Homeless",
+            "categorical"
+        ],
+        [
+            "HISPANIC",
+            "categorical"
+        ],
+        [
+            "NEOMAT",
+            "categorical"
+        ],
+        [
+            "PL_CBSA",
+            "categorical"
+        ],
+        [
+            "MEDINCST",
+            "categorical"
+        ],
+        [
+            "PL_RUCA4",
+            "categorical"
+        ],
+        [
+            "PL_UIC20",
+            "categorical"
+        ],
+        [
+            "PL_UR_CA",
+            "categorical"
+        ],
+        [
+            "PL_RUCC2",
+            "categorical"
+        ],
+        [
+            "RACE",
+            "categorical"
+        ],
+        [
+            "PL_NCHS2",
+            "categorical"
+        ]
+    ]
+}

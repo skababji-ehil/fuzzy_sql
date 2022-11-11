@@ -1,0 +1,8 @@
+{
+    "T3_resin": "continuous",
+    "Total_serum_thyroxin": "continuous",
+    "Total_serum_triiodothyronine": "continuous",
+    "Basal_TSH": "continuous",
+    "TSH_Post": "continuous",
+    "Class": "nominal"
+}

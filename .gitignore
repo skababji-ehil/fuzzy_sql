@@ -1,12 +1,15 @@
-docs/_build
+#docs/_build
 docs/_static
 docs/_templates
 docs/make.bat
 docs/Makefile
 
+db/
+
+
 
 .runs/
-dist/
+#dist/
 src/fuzzy_sql.egg-info/
 *.db
 reports/latex/

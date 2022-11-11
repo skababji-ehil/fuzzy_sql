@@ -1,0 +1,63 @@
+{
+    "tbl_name": "l_sample",
+    "tbl_key_name": ["PNUM_R"],
+    "parent_ref": [["b_sample",["PNUM_R"]]],
+    "var": [
+        [
+            "PNUM_R",
+            "categorical"
+        ],
+        [
+            "Date",
+            "continuous"
+        ],
+        [
+            "LOS",
+            "continuous"
+        ],
+        [
+            "MDC",
+            "continuous"
+        ],
+        [
+            "NDX",
+            "continuous"
+        ],
+        [
+            "NECODE",
+            "continuous"
+        ],
+        [
+            "NPR",
+            "continuous"
+        ],
+        [
+            "TOTCHG",
+            "continuous"
+        ],
+        [
+            "PROCTYPE",
+            "continuous"
+        ],
+        [
+            "DX1",
+            "categorical"
+        ],
+        [
+            "ASCHED",
+            "categorical"
+        ],
+        [
+            "AWEEKEND",
+            "continuous"
+        ],
+        [
+            "DRGVER",
+            "continuous"
+        ],
+        [
+            "HCUP_ED",
+            "continuous"
+        ]
+    ]
+}
