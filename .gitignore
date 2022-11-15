@@ -1,9 +1,11 @@
 # Sphinx documentation
-docs/_build/*
-!docs/_build/latex
-docs/_build/latex/*
-!docs/_build/latex/fuzzysqluserguide.pdf
-docs/_build/html
+# docs/_build/*
+# !docs/_build/latex
+# docs/_build/latex/*
+# !docs/_build/latex/fuzzysqluserguide.pdf
+
+
+docs/_build
 docs/_static
 docs/_templates
 docs/make.bat
