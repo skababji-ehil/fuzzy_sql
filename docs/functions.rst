@@ -9,10 +9,6 @@ Functions
 
 |
 
-.. autofunction:: fuzzy_sql.fuzzy_sql.import_df_into_db
-
-|
-
 .. autofunction:: fuzzy_sql.fuzzy_sql.gen_queries
 
 |

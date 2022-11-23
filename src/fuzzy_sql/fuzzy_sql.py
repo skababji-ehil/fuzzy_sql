@@ -85,15 +85,15 @@ class RndQry():
         
         """
 
-        #: The maximum number of values to be used in the 'IN' operation. You can set that to np.inf if you do not want to enforce any upper bound. 
+        #: The maximum number of values to be used in the 'IN' operation. You can set that to np.inf if you do not want to enforce any upper bound.
         self.max_in_terms: int = 3
 
         #: The fixed number of terms (vars) to be used in the GROUPBY clause. Set it to np.inf (default) if you need the number of terms to be randomly selected. If it is set to a larger number than the possible GROUPBY variables, then this number will be ignored.
         self.no_groupby_vars: int = np.inf
-        
+
         #: The fixed number of terms (vars) to be used in the WHERE clause. Set it to np.inf (default) if you need the number of terms to be randomly selected . If it is set to a larger number than the possible WHERE variables, then this number will be ignored.
         self.no_where_vars: int = np.inf
-        
+
         #: The fixed number of join terms (tables) to be used in the JOIN clause. It does not include the name of the master parent table (i.e. the table directly following 'FROM; in the SELECT statement). Set it to np.inf to randomly select the number of JOIN terms.
         self.no_join_tables: int = np.inf
 
@@ -145,7 +145,6 @@ class RndQry():
 
 # Schema definitions
 
-
     def _get_params_schema(self):
         """ Check input operations against schema
 
@@ -191,7 +190,7 @@ class RndQry():
                             "AND",
                             "OR"
                         ]
-                    },
+                        },
                 "NOT_STATE": {
                         "type": "object",
                         "properties": {
@@ -206,7 +205,7 @@ class RndQry():
                             "0",
                             "1"
                         ]
-                    },
+                        },
                 "CAT_OPS": {
                         "type": "object",
                         "properties": {
@@ -237,7 +236,7 @@ class RndQry():
                             "NOT LIKE",
                             "NOT IN"
                         ]
-                    },
+                        },
                 "CNT_OPS": {
                         "type": "object",
                         "properties": {
@@ -276,7 +275,7 @@ class RndQry():
                             "BETWEEN",
                             "NOT BETWEEN"
                         ]
-                    },
+                        },
                 "DT_OPS": {
                         "type": "object",
                         "properties": {
@@ -323,7 +322,7 @@ class RndQry():
                             "NOT BETWEEN",
                             "NOT IN"
                         ]
-                    },
+                        },
                 "FILTER_TYPE": {
                         "type": "object",
                         "properties": {
@@ -338,7 +337,7 @@ class RndQry():
                             "WHERE",
                             "AND"
                         ]
-                    },
+                        },
                 "JOIN_TYPE": {
                         "type": "object",
                         "properties": {
@@ -353,7 +352,7 @@ class RndQry():
                             "JOIN",
                             "LEFT JOIN"
                         ]
-                    }
+                        }
             },
             "required": [
                 "AGG_OPS",
@@ -392,7 +391,7 @@ class RndQry():
                                 ]
                             }
                         ]
-                        },
+                },
                 "parent_details": {
                         "type": "object",
                         "additionalProperties": {
@@ -411,7 +410,7 @@ class RndQry():
                                 }
                             ]
                         }
-                        }
+                }
             },
             "required": [
                 "table_name",
@@ -422,7 +421,6 @@ class RndQry():
 
 
 ########################################## COMMON METHODS  #########################
-
 
     def _test_query_time(self, query_expr, max_query_time=5):
         cur = self._cur
@@ -506,7 +504,7 @@ class RndQry():
         return key_lst
 
     def _get_tbl_vars_by_type(self, var_type, tbl_name, drop_key=False):
-        # Returns variables by type (i.e CAT, CNT or DT) for the input table by referring to the corresponding metadata
+        # Returns variable names by type (i.e CAT, CNT or DT) for the input table by referring to the corresponding metadata
         tbl_idx = self._get_tbl_index(tbl_name)
         fetched_vars = []
         var_tpls = self._metadata_lst[tbl_idx]['table_vars']
@@ -556,7 +554,7 @@ class RndQry():
         for i, var_tpl in enumerate(mod_metadata['table_vars']):
             if var_tpl[1] in ['quantitative', 'continuous', 'interval', 'ratio', 'REAL']:
                 mod_metadata['table_vars'][i].append("CNT")
-            elif var_tpl[1] in ['qualitative', 'categorical', 'nominal', 'discrete', 'ordinal', 'dichotomous', 'TEXT', 'INTEGER']:
+            elif var_tpl[1] in ['qualitative', 'categorical', 'nominal', 'discrete', 'ordinal', 'dichotomous', 'TEXT', 'INTEGER', 'UNQID', 'ID', 'KEY', 'key']:
                 mod_metadata['table_vars'][i].append("CAT")
             elif var_tpl[1] in ['date', 'time', 'datetime']:
                 mod_metadata['table_vars'][i].append("DT")
@@ -712,6 +710,7 @@ class RndQry():
 
 ##################################### METHODS FOR GENERATING RANDOM AGGREGATE QUERIES #############################
 
+
     def _get_rnd_groupby_lst(self, from_tbl, inp_join_tbl_lst, drop_fkey) -> list:
         # returns randomly picked cat vars including the concatenated table name of the real data (ie that is defined in the class)
         # Note: You can group by CAT_VARS and DT_VARS whether from parent or child or both
@@ -783,7 +782,7 @@ class RndQry():
             list(self.oprtns['AGG_OPS'].keys()), p=list(self.oprtns['AGG_OPS'].values()))
         return picked_log_op, picked_cnt_var
 
-    def compile_agg_expr(self) -> Tuple[str,list,str,list,tuple]:
+    def compile_agg_expr(self) -> Tuple[str, list, str, list, tuple]:
         """ Generates random aggregate query expression.
 
         """
@@ -882,6 +881,7 @@ class RndQry():
 
 
 ##################################### METHODS FOR GENERATING RANDOM FILTER QUERIES #############################
+
 
     def _get_tbl_val_dict(self, tbl_name) -> tuple:
         # Thi will return a tuple of the input dictionary name and its corresponding var-val dictionary. You can get the list of all values by checking the dictionary keys.
@@ -1039,7 +1039,7 @@ class RndQry():
 
         return terms
 
-    def compile_fltr_expr(self) -> Tuple[str,str,list]:
+    def compile_fltr_expr(self) -> Tuple[str, str, list]:
         """ Generates random filter query expression.
 
         """
@@ -1110,7 +1110,7 @@ class RndQry():
 ##################################### METHODS FOR GENERATING RANDOM FILTER-AGGREGATE QUERIES #############################
 
 
-    def compile_aggfltr_expr(self)-> Tuple[str,list,str,list,tuple]:
+    def compile_aggfltr_expr(self) -> Tuple[str, list, str, list, tuple]:
         """ Generates a random aggregate-filter query expression.
 
         """
@@ -1227,6 +1227,7 @@ class RndQry():
 
 # Matching records and calculating metrics methods
 
+
     def _match_twin_query(self, rnd_query: dict) -> dict:
         assert 'single' not in rnd_query['query_desc']['type'], "This method does not apply to single random queries!"
         assert '_fltr' not in rnd_query['query_desc']['type'], "This method does not apply to filter random queries. It only applies to aggregate queries!"
@@ -1292,9 +1293,9 @@ class RndQry():
 
         return matched_rnd_query
 
-    def calc_dist_scores(self, matched_rnd_query:dict) -> dict:
+    def calc_dist_scores(self, matched_rnd_query: dict) -> dict:
         """ Calculates Hellinger and Normalized Euclidean scores for the input random twin queries (i.e. real and synthetic) and updates the input dictionary with the calculated scores. The input queries shall be matched.
-        
+
          """
 
         assert 'single' not in matched_rnd_query['query_desc'][
@@ -1349,29 +1350,59 @@ class RndQry():
 
 ################################################### SUPPORTING FUNCTIONS ###################
 
-def make_table(table_name: str, df: pd.DataFrame, db_conn: object):
+def get_vars_to_index(metadata: dict,data: pd.DataFrame) -> list:
+    ''' Returns candidate variables to be used for indexing the input data in the database.
+
+    Args:
+        metadata: The intended name of the table in the database.
+        data: The input data
+
+    Returns:
+        A list of candidate variables for indexing
+    '''
+    cand_vars=[]
+    for var_tpl in metadata['table_vars']: 
+        if var_tpl[1] in ('UNQID', 'key', 'id', 'unqid'):  # If a unique identifier is listed in the metadata, it shall be included in the canadidate indexing variables
+            cand_vars.append(var_tpl[0]) 
+
+    len_data=len(data)
+    for var in data.columns:
+        cat_var=pd.Categorical(data[var].values)
+        card=len(cat_var.categories)
+        if card > 20: #only use variable for indexing if its cardinality (no. of distingt classes) is > 20
+            cand_vars.append(var)
+    
+    cand_vars=list(set(cand_vars))
+    return cand_vars
+
+
+def make_table(table_name: str, df: pd.DataFrame, db_conn: object, indxd_vars=[]):
     """Imports the input dataframe into a database table. All dots in the variable names will be replaced by underscores.
 
     Args:
         table_name: The intended name of the table in the database.
         df: The input data
         db_conn: Database (sqlite3) connection object
+        indxd_vars: A list of all the variables that need to be indexed in the database. A default value of empty list will result in unindexed table. 
     """
 
-    # replace any dot in the column names by underscore
-    for i, var in enumerate(list(df.columns)):
-        if "." in var:
-            df.rename(columns={var: var.replace(".", "_")}, inplace=True)
-        else:
-            continue
+    # # replace any dot in the column names by underscore
+    # for i, var in enumerate(list(df.columns)):
+    #     if "." in var:
+    #         df.rename(columns={var: var.replace(".", "_")}, inplace=True)
+    #     else:
+    #         continue
 
     cur = db_conn.cursor()
     cur.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name=(?) ",
                 (table_name,))  # sqlite_master holds  the schema of the db including table names
     # If table does not exist (ie returned count is zero), then import the table into db from pandas
-    if cur.fetchone()[0] == 0:
+    if cur.fetchone()[0] == 0: #if table does not exist
         df.to_sql(table_name, db_conn, index=False)
         print(f'Table {table_name} is created in the database')
+        for var in indxd_vars:
+            cur.execute(f"CREATE INDEX IDX_{table_name}_{var} ON {table_name}({var})")
+            print(f'.... The index: IDX_{table_name}_{var} is created for the table: {table_name} in the database')
     else:
         print(f'Table {table_name} already exists in the database')
 
@@ -1382,6 +1413,7 @@ def prep_data_for_db(csv_table_path: Path, optional_table_name='None', is_child=
     All values are imported as strings. 
     Any "'" found in the values (e.g. '1')  is deleted.
     Any variable (columns) that include dots in their names will be replaced by underscores.
+    The function also has the option to generate a template metadata dictionary corresponding to the input data frame. Optionally, the generated template dictionary can be saved to metadata_dir as a json file which can be manually ediated by the user. 
 
     Args:
         csv_table_path: The input file full path including the file name and csv extension.
@@ -1392,7 +1424,7 @@ def prep_data_for_db(csv_table_path: Path, optional_table_name='None', is_child=
 
     Returns:
         The pandas dataframe in 'unicode-escape' encoding.  
-        The corresponding metadata dictionary. The dictionary is saved to the chosen path as provided in metadata_dir.
+        The corresponding metadata dictionary. The dictionary is saved in json format to the chosen path as provided in metadata_dir.
     """
 
     df = pd.read_csv(csv_table_path, encoding='unicode-escape',
@@ -1444,26 +1476,6 @@ def prep_data_for_db(csv_table_path: Path, optional_table_name='None', is_child=
             json.dump(metadata, outfile)
 
     return df, metadata
-
-
-def import_df_into_db(table_name: str, df: pd.DataFrame, db_conn: object):
-    """Imports the input dataframe into an sqlite database table. The data will NOT be imported if it already exists in the database.
-
-    Args:
-        table_name: The intended name of the table in the database.
-        df: The input data
-        db_conn: Database (sqlite3) connection object
-    """
-
-    cur = db_conn.cursor()
-    cur.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name=(?) ",
-                (table_name,))  # sqlite_master holds  the schema of the db including table names
-    # If table does not exist (ie returned count is zero), then import the table into db from pandas
-    if cur.fetchone()[0] == 0:
-        df.to_sql(table_name, db_conn, index=False)
-        print(f'Table {table_name} is created in the database')
-    else:
-        print(f'Table {table_name} already exists in the database')
 
 
 def gen_queries(n_queries: int, db_conn: object, real_tbl_lst: list, metadata_lst: list,  syn_tbl_lst: list, max_query_time=5) -> list:
@@ -1639,3 +1651,6 @@ class QryRprt():
             "\n".join(wrap(f'Fuzzy SQL for {self.tbl_lst}')), fontsize=12)
         fig.savefig(outputfile)
         # fig.show()
+
+
+

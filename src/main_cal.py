@@ -15,7 +15,7 @@ if __name__ == "__main__":
     # set directories
     root_dir = Path('/home/samer/projects/fuzzy_sql')
     metadata_dir = os.path.join(root_dir, 'data/lucy/processed/metadata')
-    db_path = os.path.join(root_dir, 'db/lucy.db')
+    db_path = os.path.join(root_dir, 'db/cal.db')
     run_dir=os.path.join(root_dir,'.runs')
 
     # define input tables and metadata
