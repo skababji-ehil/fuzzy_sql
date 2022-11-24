@@ -16,6 +16,7 @@ db/
 #!db/*.sql
 
 .smk/
+.env_new/
 
 .runs/
 src/fuzzy_sql.egg-info/
