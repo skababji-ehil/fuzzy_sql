@@ -1376,14 +1376,14 @@ def get_vars_to_index(metadata: dict,data: pd.DataFrame) -> list:
     return cand_vars
 
 
-def make_table(table_name: str, df: pd.DataFrame, db_conn: object, indxd_vars=[]):
+def make_table(table_name: str, df: pd.DataFrame, db_conn: object, indx_vars=[]):
     """Imports the input dataframe into a database table. All dots in the variable names will be replaced by underscores.
 
     Args:
         table_name: The intended name of the table in the database.
         df: The input data
         db_conn: Database (sqlite3) connection object
-        indxd_vars: A list of all the variables that need to be indexed in the database. A default value of empty list will result in unindexed table. 
+        indx_vars: A list of all the variables that need to be indexed in the database. A default value of empty list will result in unindexed table. 
     """
 
     # # replace any dot in the column names by underscore
@@ -1400,7 +1400,7 @@ def make_table(table_name: str, df: pd.DataFrame, db_conn: object, indxd_vars=[]
     if cur.fetchone()[0] == 0: #if table does not exist
         df.to_sql(table_name, db_conn, index=False)
         print(f'Table {table_name} is created in the database')
-        for var in indxd_vars:
+        for var in indx_vars:
             cur.execute(f"CREATE INDEX IDX_{table_name}_{var} ON {table_name}({var})")
             print(f'.... The index: IDX_{table_name}_{var} is created for the table: {table_name} in the database')
     else:

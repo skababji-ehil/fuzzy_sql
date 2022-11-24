@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     # define input tables and metadata
     real_tbl_lst=['s1_ben_sum_2008','s1_ben_sum_2009','s1_ben_sum_2010','s1_carrier_1a','s1_carrier_1b','s1_inpatient','s1_outpatient','s1_prescrp']
-    syn_tbl_lst=['s2_ben_sum_2008','s2_ben_sum_2009','s2_ben_sum_2010','s2_carrier_2a','s2_carrier_2b','s2_inpatient','s2_outpatient','s2_prescrp']
+    syn_tbl_lst=['s2_ben_sum_2008','s2_ben_sum_2009','s2_ben_sum_2010','s2_carrier_1a','s2_carrier_1b','s2_inpatient','s2_outpatient','s2_prescrp']
 
     metadata_lst = []
     for tbl_name in real_tbl_lst:
