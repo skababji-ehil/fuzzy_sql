@@ -26,6 +26,7 @@ notebooks/*.tar
 notebooks/*.json
 notebooks/*.csv
 .env_dev/
+.env/
 
 
 # Byte-compiled / optimized / DLL files
