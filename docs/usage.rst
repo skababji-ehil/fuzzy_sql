@@ -80,9 +80,9 @@ Code examples
 --------------
 Usage is best explained using real examples from various datasets. Please follow the steps below to install and run the examples:
 
-#. Download and unzip the file from the link below:  
+#. Download and unzip the file from the link below: 
 
-    `<https://ehealthinformation-my.sharepoint.com/:u:/g/personal/skababji_ehealthinformation_ca/Ec6Paj0ypqNHm6_4cHn2qP4Br-ek5L6WGUGNar_tEf3oHQ?e=Nzrcxa>`_
+    `<https://ehealthinformation-my.sharepoint.com/:u:/g/personal/skababji_ehealthinformation_ca/EbqmAXvntFtGu6_PgLBuUYYBxuI4v0aW1QH7PQgHRIlM0w?e=8TfgwE>`_
 
 #. Navigate to the folder that contains the python files `main_sdgd.py, main_cal.py, main_cms.py and main_cms_tuned.py`. Each file is a standalone example and generates random queries corresponding to the following datasets:
 
@@ -90,13 +90,15 @@ Usage is best explained using real examples from various datasets. Please follow
     *  cal: Longitudinal dataset with single child
     *  cms: Longitudinal dataset with multiple-child
   
-#. In the directory above, create your virtual environment as explained in :doc:`/installation` . This is repeated here for convenience assuming a Linux system:
+#. In the directory above, and assuming a `Linux` system, type the following shell commands to install the necessary packages using a virtual environment:
 
-    .. code-block:: console
+    .. code-block:: shell
 
-        $ python3 -m venv .
-        $ source bin/activate
-        $ pip install --upgrade pip
-        $ pip install git+ssh://git@github.com/skababji-ehil/fuzzy_sql.git@v1.0.0-beta#egg=fuzzy_sql
+        python3 -m venv .
+        source bin/activate
+        pip install --upgrade pip
+        pip install fuzzy_sql-1.1.0b0-py3-none-any.whl
+        pip install -U matplotlib
 
-#. Run each of the four scripts using your activated environment above. The scripts are self-explanatory and include various useful comments. 
+    
+#. In the activated environment, and using your source code editor, e.g. `Visual Studio Code`, run each of the four scripts. The scripts are self-explanatory and include various useful comments. 

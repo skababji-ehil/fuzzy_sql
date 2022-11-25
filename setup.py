@@ -18,7 +18,7 @@ setup(
     author="Samer Kababji",
     author_email="skababji@ehealthinformation.ca",
     classifiers=[
-        "Development Status :: 3 - Alpha", "Programming Language :: Python :: 3","Operating System :: OS Independent","License :: OSI Approved :: MIT License"
+        "Development Status :: 4 - Beta", "Programming Language :: Python :: 3.8","Operating System :: OS Independent","License :: OSI Approved :: MIT License"
     ],
     keywords="sql, synthetic, clinical trials, generative, testing, fuzzy, fuzzing",
     package_dir={"": "src"},
