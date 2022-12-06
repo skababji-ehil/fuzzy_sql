@@ -771,6 +771,8 @@ class RndQry():
             cnt_vars = self._prepend_tbl_name(tbl_name, cnt_vars) if len(
                 inp_join_tbl_lst) != 0 else cnt_vars
             all_cnt_vars.append(cnt_vars)
+        if all_cnt_vars==[[]]: #fxining bug when all variables in sole table are nominal 
+            all_cnt_vars=[]
         if len(all_cnt_vars) == 0:
             # if there are no continuous variables, return  'None' for picked_log_op and picked_cnt_var
             return 'None', 'None'
