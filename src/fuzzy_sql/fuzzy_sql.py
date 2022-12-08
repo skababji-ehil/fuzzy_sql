@@ -1266,16 +1266,14 @@ class RndQry():
         # red_real=red_real.astype("category")
         # red_syn=red_syn.astype("category")
 
-        in_real_only = red_real.merge(
-            red_syn, how='outer', indicator=True).loc[lambda x: x['_merge'] == 'left_only']
+        in_real_only = red_real.merge(red_syn, how='outer', indicator=True).loc[lambda x: x['_merge'] == 'left_only']
         del in_real_only['_merge']
         in_real_only[agg_col_nmbrs] = 0
         ext_syn = pd.concat([ext_syn, in_real_only], axis=0, ignore_index=True)
         ext_syn.sort_values(
             ext_var_nmbrs[0:-i], inplace=True, ignore_index=True)
 
-        in_syn_only = red_real.merge(
-            red_syn, how='outer', indicator=True).loc[lambda x: x['_merge'] == 'right_only']
+        in_syn_only = red_real.merge(red_syn, how='outer', indicator=True).loc[lambda x: x['_merge'] == 'right_only']
         del in_syn_only['_merge']
         in_syn_only[agg_col_nmbrs] = 0
         ext_real = pd.concat([ext_real, in_syn_only],
@@ -1310,7 +1308,7 @@ class RndQry():
         syn = matched_rnd_query['query_syn']
         desc = matched_rnd_query['query_desc']
         # decide the column back index of COUNT header
-        cnt_idx = -1 if desc['agg_fntn'] == 'None' else -2
+        cnt_idx = -1 if desc['agg_fntn'] == 'None' or desc['agg_fntn']==('None','None') else -2
         assert real.iloc[:, :cnt_idx].equals(
             syn.iloc[:, :cnt_idx]), "Real and Synthetic tables should be matched!"
 
@@ -1343,6 +1341,8 @@ class RndQry():
                     scored_rnd_query['query_ecldn_score'] = res
                 else:
                     scored_rnd_query['query_ecldn_score'] = np.nan
+            else:
+                scored_rnd_query['query_ecldn_score'] = np.nan
         else:
             scored_rnd_query['query_hlngr_score'] = np.nan
             scored_rnd_query['query_ecldn_score'] = np.nan
