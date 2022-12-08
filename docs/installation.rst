@@ -18,7 +18,7 @@ Installation
 
     .. code-block:: console
 
-        $ pip install git+ssh://git@github.com/skababji-ehil/fuzzy_sql.git@v1.1.0-beta#egg=fuzzy_sql
+        $ pip install git+ssh://git@github.com/skababji-ehil/fuzzy_sql.git@v1.1.1-beta#egg=fuzzy_sql
 
 The package includes all the necessary dependencies. Please note that the package is currently private and can be installed only by the personnel who have access to the repo. 
 

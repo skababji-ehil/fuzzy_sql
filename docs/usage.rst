@@ -82,7 +82,7 @@ Usage is best explained using real examples from various datasets. Please follow
 
 #. Download and unzip the file from the link below: 
 
-    `<https://ehealthinformation-my.sharepoint.com/:u:/g/personal/skababji_ehealthinformation_ca/EbqmAXvntFtGu6_PgLBuUYYBxuI4v0aW1QH7PQgHRIlM0w?e=8TfgwE>`_
+    `<https://ehealthinformation-my.sharepoint.com/:u:/g/personal/skababji_ehealthinformation_ca/EXmzslttZBhJg94eEBGhU3UB4zqcex6JR4719te7ZQMZAg?e=hAHKzn>`_
 
 #. Navigate to the folder that contains the python files `main_sdgd.py, main_cal.py, main_cms.py and main_cms_tuned.py`. Each file is a standalone example and generates random queries corresponding to the following datasets:
 
@@ -97,7 +97,7 @@ Usage is best explained using real examples from various datasets. Please follow
         python3 -m venv .
         source bin/activate
         pip install --upgrade pip
-        pip install fuzzy_sql-1.1.0b0-py3-none-any.whl
+        pip install fuzzy_sql-1.1.1b0-py3-none-any.whl
         pip install -U matplotlib
 
     
