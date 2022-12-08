@@ -1227,20 +1227,15 @@ class RndQry():
         return dic
 
 
-# Matching records and calculating metrics methods
+############################################ Matching records and calculating metrics for Aggregate and Aggregate-Filter queries 
 
 
-    def _match_twin_query(self, rnd_query: dict) -> dict:
+    def _match_queries4agg(self, rnd_query: dict) -> dict:
         assert 'single' not in rnd_query['query_desc']['type'], "This method does not apply to single random queries!"
         assert '_fltr' not in rnd_query['query_desc']['type'], "This method does not apply to filter random queries. It only applies to aggregate queries!"
         matched_rnd_query = {}
         ext_real = rnd_query['query_real']
         ext_syn = rnd_query['query_syn']
-        # grpby_vars=rnd_query['query_desc']['grpby_vars'] #vars including real table name
-        # real_agg_vars=[x for x in list(query_real.columns) if x not in grpby_vars]
-        # syn_agg_vars=[x for x in list(query_syn.columns) if x not in grpby_vars]
-        # real=copy.deepcopy(query_real)
-        # syn=copy.deepcopy(query_syn)
 
         # redefine var names into number to assure smooth sorting
         ext_var_names = list(ext_real.columns)
@@ -1259,12 +1254,6 @@ class RndQry():
 
         assert (red_real.columns == red_syn.columns).all(
         ), "Real and synthetic queries can not be matched since they have different variable names"
-
-        #in_both=real.merge(syn, how='inner', indicator=False)
-        # print(f"real\n {red_real.dtypes}\n\nsyn\n {red_syn.dtypes}") #SMK TEMP
-
-        # red_real=red_real.astype("category")
-        # red_syn=red_syn.astype("category")
 
         in_real_only = red_real.merge(red_syn, how='outer', indicator=True).loc[lambda x: x['_merge'] == 'left_only']
         del in_real_only['_merge']
@@ -1293,7 +1282,7 @@ class RndQry():
 
         return matched_rnd_query
 
-    def calc_dist_scores(self, matched_rnd_query: dict) -> dict:
+    def gather_metrics4agg(self, matched_rnd_query: dict) -> dict:
         """ Calculates Hellinger and Normalized Euclidean scores for the input random twin queries (i.e. real and synthetic) and updates the input dictionary with the calculated scores. The input queries shall be matched.
 
          """
@@ -1348,6 +1337,18 @@ class RndQry():
             scored_rnd_query['query_ecldn_score'] = np.nan
 
         return scored_rnd_query
+
+
+################################################## Calculating metrics for Filter queries 
+
+    # def gather_metrics4fltr(self, rnd_query: dict):
+    #     real = rnd_query['query_real']
+    #     syn = rnd_query['query_syn']
+    #     desc = rnd_query['query_desc']
+    #     meta=self._metadata_lst
+        
+    #     for var in real.columns:
+    #         vat_type=self._get_var_type()
 
 
 ################################################### SUPPORTING FUNCTIONS ###################
@@ -1503,8 +1504,8 @@ def gen_queries(n_queries: int, db_conn: object, real_tbl_lst: list, metadata_ls
             continue
         rnd_query = query_obj.make_twin_aggfltr_query(
             syn_tbl_lst, real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms)
-        matched_query = query_obj._match_twin_query(rnd_query)
-        scored_query = query_obj.calc_dist_scores(matched_query)
+        matched_query = query_obj._match_queries4agg(rnd_query)
+        scored_query = query_obj.gather_metrics4agg(matched_query)
         queries.append(scored_query)
         k += 1
         print('Generated Random Aggregate Filter Query - {} '.format(str(k)))

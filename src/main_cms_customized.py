@@ -44,8 +44,8 @@ if __name__ == "__main__":
             continue
         rnd_query = query_obj.make_twin_aggfltr_query(
             syn_tbl_lst, real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms)
-        matched_query = query_obj._match_twin_query(rnd_query)
-        scored_query = query_obj.calc_dist_scores(matched_query)
+        matched_query = query_obj._match_queries4agg(rnd_query)
+        scored_query = query_obj.gather_metrics4agg(matched_query)
         queries.append(scored_query)
         k += 1
         print('Generated Random Aggregate Filter Query - {} '.format(str(k)))
