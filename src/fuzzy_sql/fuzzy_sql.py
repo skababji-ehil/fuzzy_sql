@@ -1341,14 +1341,25 @@ class RndQry():
 
 ################################################## Calculating metrics for Filter queries 
 
+    
+    # # rnd_qry.gather_metrics4fltr(rnd_queries[i]) #to call the function
     # def gather_metrics4fltr(self, rnd_query: dict):
     #     real = rnd_query['query_real']
     #     syn = rnd_query['query_syn']
     #     desc = rnd_query['query_desc']
-    #     meta=self._metadata_lst
-        
-    #     for var in real.columns:
-    #         vat_type=self._get_var_type()
+    #     if len(desc['join_tbl_name_lst_real'])==0: #sole table
+    #         real_table_name=desc['from_tbl_name_real']
+    #         for var in real.columns:
+    #             #now check type each variable
+    #             # if var is cat - > call hlngr4cat, save hlngr for var
+    #             # if var is cnt . > call hlngr4 cnt, save hlngr for var
+    #             # return histor list for all var hlngrs along with median and iqr across them all 
+    #     else:
+    #         for var in real.columns:
+    #             # here we extarct the table name and var name inside the loop from the column name using the dot . separtaion 
+    #             # if var is cat - > call hlngr4cat, save hlngr for var
+    #             # if var is cnt . > call hlngr4 cnt, save hlngr for var
+    #             # return histor list for all var hlngrs along with median and iqr across them all 
 
 
 ################################################### SUPPORTING FUNCTIONS ###################
