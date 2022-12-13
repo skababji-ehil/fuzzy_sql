@@ -1511,8 +1511,8 @@ def gen_queries(n_queries: int, db_conn: object, real_tbl_lst: list, metadata_ls
     while k < n_queries:
         query_obj = RndQry(db_conn, real_tbl_lst, metadata_lst)
         real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms = query_obj.compile_aggfltr_expr()
-        if not query_obj._test_query_time(real_expr):
-            continue
+        # if not query_obj._test_query_time(real_expr):
+        #     continue
         rnd_query = query_obj.make_twin_aggfltr_query(
             syn_tbl_lst, real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms)
         matched_query = query_obj._match_queries4agg(rnd_query)
