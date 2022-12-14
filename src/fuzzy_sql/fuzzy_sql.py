@@ -11,7 +11,8 @@ import pandas as pd
 import copy
 import random
 import time
-import multiprocess
+import multiprocessing as mp
+from interruptingcow import timeout, Quota
 from typing import Union, Tuple
 
 
@@ -425,8 +426,7 @@ class RndQry():
     def _test_query_time(self, query_expr, max_query_time=5):
         cur = self._cur
         # time.sleep(10) #SMK TEMP
-        p = multiprocess.Process(
-            target=cur.execute, name="_test_query_time", args=(query_expr,))
+        p = mp.Process(target=cur.execute, name="_test_query_time", args=(query_expr,))
         p.start()
         p.join(max_query_time)  # wait 5 seconds until process terminates
         if p.is_alive():
@@ -1176,7 +1176,7 @@ class RndQry():
         """ Executes a twin aggregate-filter query expression and returns the results as dataframes in a dictionary
 
         """
-
+        
         self._validate_syn_lst(syn_tbl_name_lst)  # validate syn list
         # real_expr,real_groupby_lst,real_from_tbl, real_join_tbl_lst, agg_fntn_terms=self.compile_aggfltr_expr()
         # print(real_expr) #SMK TEMP
@@ -1511,10 +1511,19 @@ def gen_queries(n_queries: int, db_conn: object, real_tbl_lst: list, metadata_ls
     while k < n_queries:
         query_obj = RndQry(db_conn, real_tbl_lst, metadata_lst)
         real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms = query_obj.compile_aggfltr_expr()
-        if not query_obj._test_query_time(real_expr):
+        
+        # if not query_obj._test_query_time(real_expr):
+        #     continue
+        
+        try:
+            with timeout(10,exception=RuntimeError):
+                cur=db_conn.cursor()
+                cur.execute(real_expr)
+        except RuntimeError:
+            print('Cant wait any further! I am using INTERRUPTINCOW for skipping this one!')  # MK TEMP
             continue
-        rnd_query = query_obj.make_twin_aggfltr_query(
-            syn_tbl_lst, real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms)
+        
+        rnd_query = query_obj.make_twin_aggfltr_query(syn_tbl_lst, real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms)
         matched_query = query_obj._match_queries4agg(rnd_query)
         scored_query = query_obj.gather_metrics4agg(matched_query)
         queries.append(scored_query)
