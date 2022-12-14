@@ -1376,17 +1376,22 @@ def get_vars_to_index(metadata: dict,data: pd.DataFrame) -> list:
     Returns:
         A list of candidate variables for indexing
     '''
+    # cand_vars=[]
+    # for var_tpl in metadata['table_vars']: 
+    #     if var_tpl[1] in ('UNQID', 'key', 'id', 'unqid'):  # If a unique identifier is listed in the metadata, it shall be included in the canadidate indexing variables
+    #         cand_vars.append(var_tpl[0]) 
+
+    # len_data=len(data)
+    # for var in data.columns:
+    #     cat_var=pd.Categorical(data[var].values)
+    #     card=len(cat_var.categories)
+    #     if card > 20: #only use variable for indexing if its cardinality (no. of distingt classes) is > 20 (if >0 then it means index all variables)
+    #         cand_vars.append(var)
+            
+    #indexing all variables including contiuous     
     cand_vars=[]
     for var_tpl in metadata['table_vars']: 
-        if var_tpl[1] in ('UNQID', 'key', 'id', 'unqid'):  # If a unique identifier is listed in the metadata, it shall be included in the canadidate indexing variables
-            cand_vars.append(var_tpl[0]) 
-
-    len_data=len(data)
-    for var in data.columns:
-        cat_var=pd.Categorical(data[var].values)
-        card=len(cat_var.categories)
-        if card > 20: #only use variable for indexing if its cardinality (no. of distingt classes) is > 20
-            cand_vars.append(var)
+        cand_vars.append(var_tpl[0]) 
     
     cand_vars=list(set(cand_vars))
     return cand_vars
