@@ -669,11 +669,13 @@ class RndQry():
                     child = random.choice(child1_lst)
             return join_expr, parent1, join_tbl_lst
 
-    def _make_query(self, cur: object, query_exp: str) -> pd.DataFrame:
-        cur.execute(query_exp)
-        query = cur.fetchall()
+    def _make_query(self, query_exp: str) -> pd.DataFrame:
+        cur=self._db_conn.cursor()
+        res=cur.execute(query_exp)
+        query = res.fetchall()
         query = pd.DataFrame(
             query, columns=[description[0] for description in cur.description])
+        cur.close()
         return query
 
     def _validate_syn_lst(self, syn_tbl_name_lst):
@@ -822,7 +824,7 @@ class RndQry():
             groupby_lst = self._drop_tbl_name(groupby_lst)
         else:
             groupby_lst = groupby_lst
-        query = self._make_query(self._cur, single_expr)
+        query = self._make_query( single_expr)
         # grpby_vars=self._drop_tbl_name(groupby_lst)
         dic['query'] = query
         dic['query_desc'] = {
@@ -858,8 +860,8 @@ class RndQry():
         else:
             syn_join_tbl_lst = []
 
-        query_real = self._make_query(self._cur, real_expr)
-        query_syn = self._make_query(self._cur, syn_expr)
+        query_real = self._make_query(real_expr)
+        query_syn = self._make_query(syn_expr)
         # grpby_vars=self._drop_tbl_name(real_grp_lst)
         dic = {}
         dic['query_real'] = query_real
@@ -1064,7 +1066,7 @@ class RndQry():
         dic = {}
         # single_expr,from_tbl, join_tbl_lst =self.compile_fltr_expr()
         # print(single_expr) #SMK TMP
-        query = self._make_query(self._cur, single_expr)
+        query = self._make_query(single_expr)
         dic['query'] = query
         dic['query_desc'] = {
             "type": "single_fltr",
@@ -1088,8 +1090,8 @@ class RndQry():
         syn_from_tbl = syn_tbl_name_lst[self._get_tbl_index(real_from_tbl)]
         syn_join_tbl_lst = [syn_tbl_name_lst[self._get_tbl_index(
             real_tbl_name)] for real_tbl_name in real_join_tbl_lst]
-        query_real = self._make_query(self._cur, real_expr)
-        query_syn = self._make_query(self._cur, syn_expr)
+        query_real = self._make_query(real_expr)
+        query_syn = self._make_query(syn_expr)
         dic = {}
         dic['query_real'] = query_real
         dic['query_syn'] = query_syn
@@ -1157,7 +1159,7 @@ class RndQry():
         dic = {}
         # single_expr,groupby_lst,from_tbl, join_tbl_lst, agg_fntn_terms=self.compile_aggfltr_expr()
         # print(single_expr) #SMK TEMP
-        query = self._make_query(self._cur, single_expr)
+        query = self._make_query(single_expr)
         # grpby_vars=self._drop_tbl_name(groupby_lst)
         dic['query'] = query
         dic['query_desc'] = {
@@ -1194,11 +1196,11 @@ class RndQry():
         else:
             syn_join_tbl_lst = []
 
-        query_real = self._make_query(self._cur, real_expr)
+        query_real = self._make_query(real_expr)
         real_col_dic = dict(
             zip(list(query_real.columns[0:len(real_groupby_lst)]), real_groupby_lst))
         query_real.rename(columns=real_col_dic, inplace=True)
-        query_syn = self._make_query(self._cur, syn_expr)
+        query_syn = self._make_query(syn_expr)
         # No need to rename the table names to match these in the synthetic data since matching processes requires that both real and syn tables have same varibale names.
         syn_col_dic = dict(
             zip(list(query_syn.columns[0:len(real_groupby_lst)]), real_groupby_lst))
@@ -1514,12 +1516,17 @@ def gen_queries(n_queries: int, db_conn: object, real_tbl_lst: list, metadata_ls
         
         # if not query_obj._test_query_time(real_expr):
         #     continue
-        
+        test_cur=db_conn.cursor()
         try:
-            with timeout(10,exception=RuntimeError):
-                cur=db_conn.cursor()
-                cur.execute(real_expr)
+            # with db_conn:
+            #     db_conn.execute(real_expr)
+            with timeout(5,exception=RuntimeError): #timeout is 5 sec
+                test_cur.execute(real_expr)
+        # except (sqlite3.OperationalError, sqlite3.IntegrityError) as e:
+        #     print('Could not complete operation:', e)
+        #     continue
         except RuntimeError:
+            test_cur.close()
             print('Cant wait any further! I am using INTERRUPTINCOW for skipping this one!')  # MK TEMP
             continue
         
