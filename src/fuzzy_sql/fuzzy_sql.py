@@ -1499,12 +1499,12 @@ def prep_data_for_db(csv_table_path: Path, optional_table_name='None', is_child=
     return df, metadata
 
 
-def gen_queries(n_queries: int, db_conn: object, real_tbl_lst: list, metadata_lst: list,  syn_tbl_lst: list, max_query_time=5) -> list:
+def gen_queries(n_queries: int, db_path: str, real_tbl_lst: list, metadata_lst: list,  syn_tbl_lst: list, max_query_time=5) -> list:
     ''' The function generates multiple twin random queries of aggregate-filter type. 
 
     Args:
         n_queries: The required number of queries to be geenrated.
-        db_conn: A connection to the sqlite database where all the input real and synthetic data reside.
+        db_path: Database full path as string.
         real_tbl_lst: A list of real tables to be used for generating the random queries. The list may include related tables.
         metadata_list: A lsit of dictionaries describing the varibales and relations for each input table. A single metadat dictionaries is used for each real table and its counterpart syntheitc table since both real and syntheitc tables shall have identical varibales and relations.
         syn_tbl_lst: A list of synthetic tables to be used for generating the random queries.
@@ -1513,25 +1513,34 @@ def gen_queries(n_queries: int, db_conn: object, real_tbl_lst: list, metadata_ls
     Returns: 
         A list of dictionaries where each dictionary includes the query result for real data as a dataframe, the query result for synthetic data as a dataframe, a dictioanry describing the query details, a float represnting the twin query Hellinger distance and another represnting  Euclidean distance, whenever applicable.  
     '''
+
+
+    
     queries = []
     k = 0
     while k < n_queries:
+        db_conn = sqlite3.connect(db_path) #Every iteration the databse is opened and closed
         query_obj = RndQry(db_conn, real_tbl_lst, metadata_lst)
         real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms = query_obj.compile_aggfltr_expr()
         
         # if not query_obj._test_query_time(real_expr):
         #     continue
-        test_cur=db_conn.cursor()
+        
+        #test_cur=db_conn.cursor()
+        
         try:
             # with db_conn:
             #     db_conn.execute(real_expr)
             with timeout(5,exception=RuntimeError): #timeout is 5 sec
-                test_cur.execute(real_expr)
+                db_conn.execute(real_expr)
+                #test_cur.execute(real_expr)
+                
         # except (sqlite3.OperationalError, sqlite3.IntegrityError) as e:
         #     print('Could not complete operation:', e)
         #     continue
         except RuntimeError:
-            test_cur.close()
+            db_conn.close()
+            #test_cur.close()
             print('Cant wait any further! I am using INTERRUPTINCOW for skipping this one!')  # MK TEMP
             continue
         
@@ -1541,6 +1550,7 @@ def gen_queries(n_queries: int, db_conn: object, real_tbl_lst: list, metadata_ls
         queries.append(scored_query)
         k += 1
         print('Generated Random Aggregate Filter Query - {} '.format(str(k)))
+        db_conn.close()
     return queries
 
 
