@@ -11,8 +11,7 @@ import pandas as pd
 import copy
 import random
 import time
-import multiprocessing as mp
-from interruptingcow import timeout, Quota
+import multiprocess as mp
 from typing import Union, Tuple
 
 
@@ -23,11 +22,11 @@ sns.set_style("ticks", {'axes.grid': True})
 
 class RndQry():
 
-    def __init__(self, db_conn: object, tbl_names_lst: list,  metadata_lst: list):
+    def __init__(self, db_path: str, tbl_names_lst: list,  metadata_lst: list):
         """ Generates a random query for tabular and longitudinal datasets. 
 
         Args:
-            db_conn (object): The connection object of the sqlite database where the data exists.
+            db_path (string): The full path to the sqlite databse where the data exists.
             tbl_names_lst (list of str) : A list of input table names (strings) in the database to be randomly queried. 
             metadata_lst (list of dict): A list of dictionaries comprising the types of variables and relationships pertaining to each input table. Each dictionary shall conform to the metadata schema.
 
@@ -114,8 +113,9 @@ class RndQry():
                 "Dictionary of defined operations did not pass schema validation!")
 
         self._seed_no = 141
-        self._db_conn = db_conn
-        self._cur = db_conn.cursor()
+        self._db_path=db_path
+        #self._db_conn = db_conn
+        #self._cur = db_conn.cursor()
         self._tbl_name_lst = tbl_names_lst
         self._parent_name_lst, self._child_name_lst, self._sole_name_lst = self._classify_tables(
             tbl_names_lst, metadata_lst)
@@ -128,9 +128,11 @@ class RndQry():
 
         # Construct list of input tables as pandas dataframes for value bags
         mod_tbl_lst = []
-        for tbl_name in tbl_names_lst:
-            df = pd.read_sql_query(f'SELECT * FROM {tbl_name}', db_conn)
-            mod_tbl_lst.append(df)
+        conn=sqlite3.connect(db_path)
+        with conn:
+            for tbl_name in tbl_names_lst:
+                df = pd.read_sql_query(f'SELECT * FROM {tbl_name}', conn)
+                mod_tbl_lst.append(df)
         self._tbl_lst = mod_tbl_lst
 
         # Generate value lists
@@ -423,12 +425,18 @@ class RndQry():
 
 ########################################## COMMON METHODS  #########################
 
-    def _test_query_time(self, query_expr, max_query_time=5):
-        cur = self._cur
-        # time.sleep(10) #SMK TEMP
-        p = mp.Process(target=cur.execute, name="_test_query_time", args=(query_expr,))
+    def _exec_sql4testing(self, db_path:str, sql_str:str):
+        conn=sqlite3.connect(db_path)
+        with conn:
+            cur = conn.cursor()
+            res=cur.execute(sql_str)
+            print(res.fetchone())
+        
+
+    def _test_query_time(self,db_path,query_expr, max_query_time=5):
+        p = mp.Process(target=self._exec_sql4testing, name="_test_query_time", args=(db_path,query_expr))
         p.start()
-        p.join(max_query_time)  # wait 5 seconds until process terminates
+        p.join(5)  # wait 5 seconds until process terminates
         if p.is_alive():
             p.terminate()
             p.join()
@@ -670,32 +678,36 @@ class RndQry():
             return join_expr, parent1, join_tbl_lst
 
     def _make_query(self, query_exp: str) -> pd.DataFrame:
-        cur=self._db_conn.cursor()
-        res=cur.execute(query_exp)
-        query = res.fetchall()
-        query = pd.DataFrame(
-            query, columns=[description[0] for description in cur.description])
-        cur.close()
+        conn=sqlite3.connect(self._db_path)
+        with conn:
+            cur=conn.cursor()
+            res=cur.execute(query_exp)
+            query = res.fetchall()
+            query = pd.DataFrame(
+                query, columns=[description[0] for description in cur.description])
+            cur.close()
         return query
 
     def _validate_syn_lst(self, syn_tbl_name_lst):
-        assert len(syn_tbl_name_lst) == len(
-            self._tbl_name_lst), "The number of the synthetic data tables does not match the number of the real data tables!"
+        conn=sqlite3.connect(self._db_path)
+        with conn:
+            assert len(syn_tbl_name_lst) == len(
+                self._tbl_name_lst), "The number of the synthetic data tables does not match the number of the real data tables!"
 
-        for i, (real_name, syn_name) in enumerate(zip(self._tbl_name_lst, syn_tbl_name_lst)):
-            real = self._tbl_lst[i]
-            try:
-                syn = pd.read_sql_query(
-                    f'SELECT * FROM {syn_name}', self._db_conn)
-                assert real.shape == syn.shape, f"The synesthetic table {syn_name} does not have the same shape of the real table {real_name}! Please make sure that the real and synthetic lists are ordered properly."
-            except:
-                raise Exception(
-                    f"Table {syn_name} does not exist in database!")
-            try:
-                assert list(real.columns).sort() == list(syn.columns).sort()
-            except:
-                raise Exception(
-                    f"Table {syn_name} and {real_name} do not have identical variable names!")
+            for i, (real_name, syn_name) in enumerate(zip(self._tbl_name_lst, syn_tbl_name_lst)):
+                real = self._tbl_lst[i]
+                try:
+                    syn = pd.read_sql_query(
+                        f'SELECT * FROM {syn_name}', conn)
+                    assert real.shape == syn.shape, f"The synesthetic table {syn_name} does not have the same shape of the real table {real_name}! Please make sure that the real and synthetic lists are ordered properly."
+                except:
+                    raise Exception(
+                        f"Table {syn_name} does not exist in database!")
+                try:
+                    assert list(real.columns).sort() == list(syn.columns).sort()
+                except:
+                    raise Exception(
+                        f"Table {syn_name} and {real_name} do not have identical variable names!")
 
         self._syn_tbl_name_lst = syn_tbl_name_lst
 
@@ -1519,30 +1531,12 @@ def gen_queries(n_queries: int, db_path: str, real_tbl_lst: list, metadata_lst: 
     queries = []
     k = 0
     while k < n_queries:
-        db_conn = sqlite3.connect(db_path) #Every iteration the databse is opened and closed
-        query_obj = RndQry(db_conn, real_tbl_lst, metadata_lst)
+        query_obj = RndQry(db_path, real_tbl_lst, metadata_lst)
         real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms = query_obj.compile_aggfltr_expr()
         
-        # if not query_obj._test_query_time(real_expr):
-        #     continue
-        
-        #test_cur=db_conn.cursor()
-        
-        try:
-            # with db_conn:
-            #     db_conn.execute(real_expr)
-            with timeout(5,exception=RuntimeError): #timeout is 5 sec
-                db_conn.execute(real_expr)
-                #test_cur.execute(real_expr)
-                
-        # except (sqlite3.OperationalError, sqlite3.IntegrityError) as e:
-        #     print('Could not complete operation:', e)
-        #     continue
-        except RuntimeError:
-            db_conn.close()
-            #test_cur.close()
-            print('Cant wait any further! I am using INTERRUPTINCOW for skipping this one!')  # MK TEMP
+        if not query_obj._test_query_time(db_path,real_expr):
             continue
+        
         
         rnd_query = query_obj.make_twin_aggfltr_query(syn_tbl_lst, real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms)
         matched_query = query_obj._match_queries4agg(rnd_query)
@@ -1550,7 +1544,7 @@ def gen_queries(n_queries: int, db_path: str, real_tbl_lst: list, metadata_lst: 
         queries.append(scored_query)
         k += 1
         print('Generated Random Aggregate Filter Query - {} '.format(str(k)))
-        db_conn.close()
+    
     return queries
 
 
