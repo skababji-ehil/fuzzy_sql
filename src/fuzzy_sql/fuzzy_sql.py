@@ -114,8 +114,6 @@ class RndQry():
 
         self._seed_no = 141
         self._db_path=db_path
-        #self._db_conn = db_conn
-        #self._cur = db_conn.cursor()
         self._tbl_name_lst = tbl_names_lst
         self._parent_name_lst, self._child_name_lst, self._sole_name_lst = self._classify_tables(
             tbl_names_lst, metadata_lst)
@@ -430,7 +428,7 @@ class RndQry():
         with conn:
             cur = conn.cursor()
             res=cur.execute(sql_str)
-            print(res.fetchone())
+            #print(res.fetchone())
         
 
     def _test_query_time(self,db_path,query_expr, max_query_time=5):
@@ -1378,35 +1376,42 @@ class RndQry():
 
 ################################################### SUPPORTING FUNCTIONS ###################
 
-def get_vars_to_index(metadata: dict,data: pd.DataFrame) -> list:
-    ''' Returns candidate variables to be used for indexing the input data in the database.
+def get_vars_to_index(metadata: dict,data: pd.DataFrame, index_vars_types='all', cardinality_cutoff=1) -> list:
+    ''' Returns a list of candidate variables to be used for indexing the input data in the database.
 
     Args:
         metadata: The intended name of the table in the database.
         data: The input data
-
+        index_vars_types: (string): The default 'all' will include all varibles in indexing. If set to 'cat', only categorical varaables as defined in the metadata will be used for indexing. 
+        cardinality_cutoff (integer): A number identifying the minimum number of distinct catgeories a varibales needs to have in order to be considered for indexing. A default value of 1 will include all variables.
+        
     Returns:
         A list of candidate variables for indexing
     '''
-    # cand_vars=[]
-    # for var_tpl in metadata['table_vars']: 
-    #     if var_tpl[1] in ('UNQID', 'key', 'id', 'unqid'):  # If a unique identifier is listed in the metadata, it shall be included in the canadidate indexing variables
-    #         cand_vars.append(var_tpl[0]) 
-
-    # len_data=len(data)
-    # for var in data.columns:
-    #     cat_var=pd.Categorical(data[var].values)
-    #     card=len(cat_var.categories)
-    #     if card > 20: #only use variable for indexing if its cardinality (no. of distingt classes) is > 20 (if >0 then it means index all variables)
-    #         cand_vars.append(var)
-            
-    #indexing all variables including contiuous     
-    cand_vars=[]
-    for var_tpl in metadata['table_vars']: 
-        cand_vars.append(var_tpl[0]) 
     
-    cand_vars=list(set(cand_vars))
-    return cand_vars
+    cand_vars=[]
+    if index_vars_types=='cat':
+        for var_tpl in metadata['table_vars']: 
+            if var_tpl[1] in ('UNQID', 'key', 'id', 'unqid'):  # If a unique identifier is listed in the metadata, it shall be included in the canadidate indexing variables
+                cand_vars.append(var_tpl[0]) 
+        len_data=len(data)
+        for var in data.columns:
+            cat_var=pd.Categorical(data[var].values)
+            card=len(cat_var.categories)
+            if card > cardinality_cutoff: 
+                cand_vars.append(var)
+                
+    elif index_vars_types=='all':
+        #indexing all variables including contiuous     
+        cand_vars=[]
+        for var_tpl in metadata['table_vars']: 
+            cand_vars.append(var_tpl[0]) 
+        
+        cand_vars=list(set(cand_vars))
+    else: 
+        raise Exception("Please choose either 'cat' or 'all' for index_vars_types")
+        
+    return list(set(cand_vars))
 
 
 def make_table(table_name: str, df: pd.DataFrame, db_conn: object, indx_vars=[]):
@@ -1511,11 +1516,11 @@ def prep_data_for_db(csv_table_path: Path, optional_table_name='None', is_child=
     return df, metadata
 
 
-def gen_queries(n_queries: int, db_path: str, real_tbl_lst: list, metadata_lst: list,  syn_tbl_lst: list, max_query_time=5) -> list:
+def gen_aggfltr_queries(n_queries: int, db_path: str, real_tbl_lst: list, metadata_lst: list,  syn_tbl_lst: list, max_query_time=5) -> list:
     ''' The function generates multiple twin random queries of aggregate-filter type. 
 
     Args:
-        n_queries: The required number of queries to be geenrated.
+        n_queries: The required number of queries to be generated.
         db_path: Database full path as string.
         real_tbl_lst: A list of real tables to be used for generating the random queries. The list may include related tables.
         metadata_list: A lsit of dictionaries describing the varibales and relations for each input table. A single metadat dictionaries is used for each real table and its counterpart syntheitc table since both real and syntheitc tables shall have identical varibales and relations.
@@ -1531,6 +1536,7 @@ def gen_queries(n_queries: int, db_path: str, real_tbl_lst: list, metadata_lst: 
     queries = []
     k = 0
     while k < n_queries:
+        start=time.time()
         query_obj = RndQry(db_path, real_tbl_lst, metadata_lst)
         real_expr, real_groupby_lst, real_from_tbl, real_join_tbl_lst, agg_fntn_terms = query_obj.compile_aggfltr_expr()
         
@@ -1543,7 +1549,8 @@ def gen_queries(n_queries: int, db_path: str, real_tbl_lst: list, metadata_lst: 
         scored_query = query_obj.gather_metrics4agg(matched_query)
         queries.append(scored_query)
         k += 1
-        print('Generated Random Aggregate Filter Query - {} '.format(str(k)))
+        end=time.time()
+        print('Generated Random Aggregate Filter Query - {} in {:0.1f} seconds.'.format(str(k), end-start))
     
     return queries
 

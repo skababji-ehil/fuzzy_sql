@@ -9,8 +9,8 @@
 project = 'Fuzzy SQL User Guide'
 copyright = 'EHIL 2022'
 author = 'Samer Kababji @ EHIL'
-version = 'v1.1.1-beta'
-release = '1.1.1-beta'
+version = 'v2.0.0-beta'
+release = '2.0.0-beta'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

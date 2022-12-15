@@ -9,7 +9,7 @@ Functions
 
 |
 
-.. autofunction:: fuzzy_sql.fuzzy_sql.gen_queries
+.. autofunction:: fuzzy_sql.fuzzy_sql.gen_aggfltr_queries
 
 |
 
