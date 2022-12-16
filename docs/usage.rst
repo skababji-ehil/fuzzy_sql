@@ -82,23 +82,18 @@ Usage is best explained using real examples from various datasets. Please follow
 
 #. Download and unzip the file from the link below: 
 
-    `<https://ehealthinformation-my.sharepoint.com/:u:/g/personal/skababji_ehealthinformation_ca/EXmzslttZBhJg94eEBGhU3UB4zqcex6JR4719te7ZQMZAg?e=hAHKzn>`_
+    `<https://ehealthinformation-my.sharepoint.com/:u:/g/personal/skababji_ehealthinformation_ca/EV0BRAhYReVIu-Ncyb02LXcBElLMUk20OkHjJYbp7E6z7g?e=aVFaQo>`_
 
-#. Navigate to the folder that contains the python files `main_sdgd.py, main_cal.py, main_cms.py and main_cms_tuned.py`. Each file is a standalone example and generates random queries corresponding to the following datasets:
+#. Navigate to the folder that contains the Jupyter Notebooks. The folder includes examples for the following three datasets: 
 
-    *  sdgd: Tabular dataset 
+    *  sdgd-C1: Tabular dataset 
     *  cal: Longitudinal dataset with single child
     *  cms: Longitudinal dataset with multiple-child
-  
-#. In the directory above, and assuming a `Linux` system, type the following shell commands to install the necessary packages using a virtual environment:
 
-    .. code-block:: shell
+The sample datasets are provided in `csv` format under the `data` folder. Metadata `json` files are also provided to define the corresponding variable types and data relations for longitudinal datasets. Sample data and metadata files are kept separate for each of the above datasets. 
 
-        python3 -m venv .
-        source bin/activate
-        pip install --upgrade pip
-        pip install fuzzy_sql-1.1.1b0-py3-none-any.whl
-        pip install -U matplotlib
+The first step is to prepare and import the csv files into the databases. All notebooks starting with the format x.1 are used for that purpose. These three notebooks (one for each dataset) are typically run only for the first time to create and setup the databases. A separate database is created for each dataset. The remaining notebooks are for generating SQL random queries after setting up the databases. 
 
-    
-#. In the activated environment, and using your source code editor, e.g. `Visual Studio Code`, run each of the four scripts. The scripts are self-explanatory and include various useful comments. 
+Use Jupyter by typing in your terminal :code:`jupyter notebook` and run the provided notebooks in the proper sequence i.e. first, sett up a database and then generate random queries. 
+
+The notebooks include setting up the necessary environment besides various valuable comments. Moreover, details about adjusting query parameters are provided in one of the files. 
