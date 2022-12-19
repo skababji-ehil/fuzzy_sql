@@ -94,6 +94,6 @@ The sample datasets are provided in `csv` format under the `data` folder. Metada
 
 The first step is to prepare and import the csv files into the databases. All notebooks starting with the format x.1 are used for that purpose. These three notebooks (one for each dataset) are typically run only for the first time to create and setup the databases. A separate database is created for each dataset. The remaining notebooks are for generating SQL random queries after setting up the databases. 
 
-Use Jupyter by typing in your terminal :code:`jupyter notebook` and run the provided notebooks in the proper sequence i.e. first, sett up a database and then generate random queries. 
+git statusssUse Jupyter by typing in your terminal :code:`jupyter notebook` and run the provided notebooks in the proper sequence i.e. first, sett up a database and then generate random queries. 
 
 The notebooks include setting up the necessary environment besides various valuable comments. Moreover, details about adjusting query parameters are provided in one of the files. 
