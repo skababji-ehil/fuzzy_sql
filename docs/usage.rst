@@ -82,7 +82,7 @@ Usage is best explained using real examples from various datasets. Please follow
 
 #. Download and unzip the file from the link below: 
 
-    `<https://ehealthinformation-my.sharepoint.com/:u:/g/personal/skababji_ehealthinformation_ca/EV0BRAhYReVIu-Ncyb02LXcBElLMUk20OkHjJYbp7E6z7g?e=aVFaQo>`_
+    `<https://ehealthinformation-my.sharepoint.com/:u:/g/personal/skababji_ehealthinformation_ca/EV0BRAhYReVIu-Ncyb02LXcBElLMUk20OkHjJYbp7E6z7g?e=aeRUFu>`_
 
 #. Navigate to the folder that contains the Jupyter Notebooks. The folder includes examples for the following three datasets: 
 

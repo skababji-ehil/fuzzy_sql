@@ -9,6 +9,10 @@ import random
 import multiprocess as mp
 from typing import Union, Tuple
 
+from scipy.stats import gaussian_kde
+from scipy.integrate import quad
+
+
 
 
 
@@ -1344,25 +1348,112 @@ class RandomQuery():
         return scored_rnd_query
 
 
-################################################## Calculating metrics for Filter queries 
 
-    
-    # # rnd_qry.gather_metrics4fltr(rnd_queries[i]) #to call the function
-    # def gather_metrics4fltr(self, rnd_query: dict):
-    #     real = rnd_query['query_real']
-    #     syn = rnd_query['query_syn']
-    #     desc = rnd_query['query_desc']
-    #     if len(desc['join_tbl_name_lst_real'])==0: #sole table
-    #         real_table_name=desc['from_tbl_name_real']
-    #         for var in real.columns:
-    #             #now check type each variable
-    #             # if var is cat - > call hlngr4cat, save hlngr for var
-    #             # if var is cnt . > call hlngr4 cnt, save hlngr for var
-    #             # return histor list for all var hlngrs along with median and iqr across them all 
-    #     else:
-    #         for var in real.columns:
-    #             # here we extarct the table name and var name inside the loop from the column name using the dot . separtaion 
-    #             # if var is cat - > call hlngr4cat, save hlngr for var
-    #             # if var is cnt . > call hlngr4 cnt, save hlngr for var
-    #             # return histor list for all var hlngrs along with median and iqr across them all 
 
+############################################ Calculating metrics for FILTER queries 
+
+    def _calc_hlngr4cat(self,real_var:pd.Series,syn_var:pd.Series):
+
+        real_var_obsvs = len(real_var)
+        syn_var_obsvs = len(syn_var)
+        
+        if real_var_obsvs==0 and syn_var_obsvs==0: #If both real and synthetic queries returned NO records, then Hellinger distance can not be calculated
+            return np.nan, np.nan
+        else:
+            real_probs = real_var.value_counts()/real_var_obsvs #value_counts() ignores both None and  np.nan values and returns counts for everything else 
+            real_nan_prob = (real_var_obsvs-real_var.count())/real_var_obsvs if real_var_obsvs!=0 else 0 #count() returns the total counts of all available catagories while ignoring the np.nan and None
+            real_probs.loc['NaN'] = real_nan_prob
+            real_probs.rename(f'real_{real_probs.name}', inplace=True)
+
+            syn_probs = syn_var.value_counts()/syn_var_obsvs
+            syn_nan_prob = (syn_var_obsvs-syn_var.count())/syn_var_obsvs if syn_var_obsvs!=0 else 0
+            syn_probs.loc['NaN'] = syn_nan_prob
+            syn_probs.rename(f'syn_{syn_probs.name}', inplace=True)
+
+            pivot=pd.concat([real_probs,syn_probs],axis=1, join='outer')
+            pivot.fillna(0, inplace=True)
+            p=pivot.iloc[:,0].values
+            q=pivot.iloc[:,1].values
+            hlngr_dist = np.sqrt(np.sum((np.sqrt(p)-np.sqrt(q))**2)/2)
+            return hlngr_dist, pivot
+        
+        
+    def _calc_hlngr4cnt(self,real_var: pd.Series, syn_var: pd.Series):
+
+        if len(real_var)==0 and len(syn_var)==0: #If both real and synthetic queries returned NO records, then Hellinger distance can not be calculated
+            return np.nan, np.nan
+        else:  
+            real_X = real_var.values.astype(np.float32)
+            real_X=real_X[~np.isnan(real_X)]
+            real_set=set(list(real_X))
+            # assert len(real_set)>10,f'Variable {real_var.name} has {len(real_set)} levels only. Consider re-defining the variable as CAT'
+            #Check no of levels in the cotinuous variable if it is enough to generate a pdf
+            if len(real_set)<20:
+                print( f'Variable {real_var.name} is defined as continuous but it has only few levels, so it will be treated as categorical variable')
+                hlngr_dist, pivot=self._calc_hlngr4cat(real_var,syn_var)
+                return hlngr_dist, pivot
+            
+            # estimated density function for real data using gaussian kernel
+            p = gaussian_kde(real_X)
+            syn_X = syn_var.values.astype(np.float32)
+            syn_X=syn_X[~np.isnan(syn_X)]
+            # estimated density function for syn data using gaussian kernel
+            q = gaussian_kde(syn_X)
+            
+            hlngr_integrand= lambda z: (p(z)**0.5 - q(z)**0.5)**2
+            hlngr_dist = np.sqrt(quad(hlngr_integrand, -np.inf, np.inf)[0]/2)
+            
+            pdfs = (p, q)  # density functions
+            return hlngr_dist, pdfs
+        
+    def gather_metrics4fltr(self, rnd_query: dict):
+        real = rnd_query['query_real']
+        syn = rnd_query['query_syn']
+        desc = rnd_query['query_desc']
+        scored_query=rnd_query
+        hlngr_vars={} #catcher for the individual hellinger distance pertaining to each variable in rnd_query (or the tabular dataset)
+        hlngr_vars['real_table_name']=[]
+        hlngr_vars['syn_table_name']=[]
+        hlngr_vars['var_name']=[]
+        hlngr_vars['var_type']=[]
+        hlngr_vars['var_hlngr_distance']=[]
+        hlngr_pivots=[]
+        if len(desc['join_tbl_name_lst_real'])==0: #sole table
+            for var in real.columns:
+                real_table_name=desc['from_tbl_name_real']
+                hlngr_vars['real_table_name'].append(real_table_name)
+                hlngr_vars['syn_table_name'].append(desc['from_tbl_name_syn'])
+                hlngr_vars['var_name'].append(var)
+                var_type=self._get_var_type(real_table_name,var) #check type each variable
+                hlngr_vars['var_type'].append(var_type)
+                if var_type=='CAT':
+                    var_hlngr_dist, var_pivot=self._calc_hlngr4cat(real[var],syn[var])
+                    hlngr_vars['var_hlngr_distance'].append(var_hlngr_dist)
+                    hlngr_pivots.append(var_pivot)
+                elif var_type=='CNT':
+                    var_hlngr_dist, var_pivot=self._calc_hlngr4cnt(real[var],syn[var])
+                    hlngr_vars['var_hlngr_distance'].append(var_hlngr_dist)
+                    hlngr_pivots.append(var_pivot)
+                else:
+                    raise TypeError(f'Unrecognized variable type: {var_type}')
+            
+            
+            data_hlngr_median = np.median(list(hlngr_vars['var_hlngr_distance']))
+            data_hlngr_stddev = np.std(list(hlngr_vars['var_hlngr_distance'])) 
+            data_iqr = np.subtract(*np.percentile(list(hlngr_vars['var_hlngr_distance']), [75, 25]))
+            
+            scored_query['hlngr_median']=data_hlngr_median
+            scored_query['hlngr_iqr']=data_iqr
+            scored_query['hlngr_stddev']=data_hlngr_stddev
+            
+            hlngr_vars=pd.DataFrame(hlngr_vars)
+            scored_query['hlngr_breakdown']=hlngr_vars  #hlngr_vars is dataframe showin each variable and its corresponding hellinger distance  
+            
+            return scored_query  #scored query will include entries for the median, IQR and stddev of Hellinger distances of all varibales. The last entry is a dataframe  of hlmngr breakdown  per variable
+        else:
+            pass
+            # for var in real.columns:
+            #     # here we extarct the table name and var name inside the loop from the column name using the dot . separtaion 
+            #     # if var is cat - > call hlngr4cat, save hlngr for var
+            #     # if var is cnt . > call hlngr4 cnt, save hlngr for var
+            #     # return histor list for all var hlngrs along with median and iqr across them all 
