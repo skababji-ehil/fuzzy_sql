@@ -688,13 +688,13 @@ class RandomQuery():
         with conn:
             assert len(syn_tbl_name_lst) == len(
                 self._tbl_name_lst), "The number of the synthetic data tables does not match the number of the real data tables!"
-
+            # self._syn_tbl_lst=[] #SMK NOTE: You can comment out this line and the commented one  below if you want to keep synthetic data in memory as frames
             for i, (real_name, syn_name) in enumerate(zip(self._tbl_name_lst, syn_tbl_name_lst)):
                 real = self._tbl_lst[i]
                 try:
-                    syn = pd.read_sql_query(
-                        f'SELECT * FROM {syn_name}', conn)
+                    syn = pd.read_sql_query(f'SELECT * FROM {syn_name}', conn)
                     assert real.shape == syn.shape, f"The synesthetic table {syn_name} does not have the same shape of the real table {real_name}! Please make sure that the real and synthetic lists are ordered properly."
+                    # self._syn_tbl_lst.append(syn)
                 except:
                     raise Exception(
                         f"Table {syn_name} does not exist in database!")
@@ -1385,23 +1385,24 @@ class RandomQuery():
         else:  
             real_X = real_var.values.astype(np.float32)
             real_X=real_X[~np.isnan(real_X)]
-            real_set=set(list(real_X))
-            # assert len(real_set)>10,f'Variable {real_var.name} has {len(real_set)} levels only. Consider re-defining the variable as CAT'
-            #Check no of levels in the cotinuous variable if it is enough to generate a pdf
-            if len(real_set)<20:
-                print( f'Variable {real_var.name} is defined as continuous but it has only few levels, so it will be treated as categorical variable')
-                hlngr_dist, pivot=self._calc_hlngr4cat(real_var,syn_var)
-                return hlngr_dist, pivot
-            
-            # estimated density function for real data using gaussian kernel
-            p = gaussian_kde(real_X)
+            real_set=set(list(real_X))           
             syn_X = syn_var.values.astype(np.float32)
             syn_X=syn_X[~np.isnan(syn_X)]
-            # estimated density function for syn data using gaussian kernel
-            q = gaussian_kde(syn_X)
-            
+            syn_set=set(list(syn_X))
+               
+            #Check no of levels in the cotinuous variable if it is enough to generate a pdf
+            if len(real_set)<20 or len(syn_set)<20:
+                print( f'Variable {real_var.name} is defined as continuous but it has very small number of observations, so it will be treated as categorical variable')
+                hlngr_dist, pivot=self._calc_hlngr4cat(real_var,syn_var)
+                return hlngr_dist, pivot
+             
+            p = gaussian_kde(real_X) # estimated density function for real data using gaussian kernel
+            q = gaussian_kde(syn_X)# estimated density function for syn data using gaussian kernel
             hlngr_integrand= lambda z: (p(z)**0.5 - q(z)**0.5)**2
-            hlngr_dist = np.sqrt(quad(hlngr_integrand, -np.inf, np.inf)[0]/2)
+            lb=min(min(real_X),min(syn_X))
+            ub=max(max(real_X),max(syn_X))
+            # hlngr_dist = np.sqrt(quad(hlngr_integrand, -np.inf, np.inf)[0]/2)
+            hlngr_dist = np.sqrt(quad(hlngr_integrand, lb, ub)[0]/2)
             
             pdfs = (p, q)  # density functions
             return hlngr_dist, pdfs
@@ -1436,8 +1437,7 @@ class RandomQuery():
                     hlngr_pivots.append(var_pivot)
                 else:
                     raise TypeError(f'Unrecognized variable type: {var_type}')
-            
-            
+             
             data_hlngr_median = np.median(list(hlngr_vars['var_hlngr_distance']))
             data_hlngr_stddev = np.std(list(hlngr_vars['var_hlngr_distance'])) 
             data_iqr = np.subtract(*np.percentile(list(hlngr_vars['var_hlngr_distance']), [75, 25]))
@@ -1457,3 +1457,53 @@ class RandomQuery():
             #     # if var is cat - > call hlngr4cat, save hlngr for var
             #     # if var is cnt . > call hlngr4 cnt, save hlngr for var
             #     # return histor list for all var hlngrs along with median and iqr across them all 
+            
+            
+            
+############################################ Calculating metrics for TABULAR datasets
+
+    def gather_metrics4tabular(self, real_table_name, syn_table_name):
+        conn=sqlite3.connect(self._db_path)
+        with conn:
+            real= pd.read_sql_query(f'SELECT * FROM {real_table_name}', conn)                    
+            syn = pd.read_sql_query(f'SELECT * FROM {syn_table_name}', conn)
+        assert real.shape == syn.shape, f"The synesthetic table {syn_table_name} does not have the same shape of the real table {real_table_name}!"
+        #desc = rnd_query['query_desc']
+        #scored_query=rnd_query
+        hlngr_vars={} #catcher for the individual hellinger distance pertaining to each variable in rnd_query (or the tabular dataset)
+        hlngr_vars['real_table_name']=[]
+        hlngr_vars['syn_table_name']=[]
+        hlngr_vars['var_name']=[]
+        hlngr_vars['var_type']=[]
+        hlngr_vars['var_hlngr_distance']=[]
+        hlngr_pivots=[]
+        for var in real.columns:
+            hlngr_vars['real_table_name'].append(real_table_name)
+            hlngr_vars['syn_table_name'].append(syn_table_name)
+            hlngr_vars['var_name'].append(var)
+            var_type=self._get_var_type(real_table_name,var) #check type each variable
+            hlngr_vars['var_type'].append(var_type)
+            if var_type=='CAT':
+                var_hlngr_dist, var_pivot=self._calc_hlngr4cat(real[var],syn[var])
+                hlngr_vars['var_hlngr_distance'].append(var_hlngr_dist)
+                hlngr_pivots.append(var_pivot)
+            elif var_type=='CNT':
+                var_hlngr_dist, var_pivot=self._calc_hlngr4cnt(real[var],syn[var])
+                hlngr_vars['var_hlngr_distance'].append(var_hlngr_dist)
+                hlngr_pivots.append(var_pivot)
+            else:
+                raise TypeError(f'Unrecognized variable type: {var_type}')
+        
+        data_hlngr_median = np.median(list(hlngr_vars['var_hlngr_distance']))
+        data_hlngr_stddev = np.std(list(hlngr_vars['var_hlngr_distance'])) 
+        data_iqr = np.subtract(*np.percentile(list(hlngr_vars['var_hlngr_distance']), [75, 25]))
+        
+        result={} #Note unlike scored query, result does no include ral and syn tables since they are already always availabel in database
+        result['hlngr_median']=data_hlngr_median
+        result['hlngr_iqr']=data_iqr
+        result['hlngr_stddev']=data_hlngr_stddev
+        
+        hlngr_vars=pd.DataFrame(hlngr_vars)
+        result['hlngr_breakdown']=hlngr_vars  #hlngr_vars is dataframe showin each variable and its corresponding hellinger distance  
+        
+        return result 

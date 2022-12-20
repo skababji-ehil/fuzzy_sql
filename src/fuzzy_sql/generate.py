@@ -39,10 +39,6 @@ def gen_aggfltr_queries(n_queries: int, db_path: str, real_tbl_lst: list, metada
     return queries
 
 
-
-
-
-
 def gen_fltr_queries(n_queries: int, db_path: str, real_tbl_lst: list, metadata_lst: list,  syn_tbl_lst: list, max_query_time=5) -> list:
     ''' The function generates multiple twin random queries of filter type. 
 
@@ -75,8 +71,25 @@ def gen_fltr_queries(n_queries: int, db_path: str, real_tbl_lst: list, metadata_
         k += 1
         end=time.time()
         print('Generated Random Filter Query - {} in {:0.1f} seconds.'.format(str(k), end-start))
+        print('\n')
     
     return queries
 
 
+def calc_tabular_hlngr(db_path: str,  real_table_name:str, metadata: dict, syn_table_name: str):
+    ''' The function calculates the Hellinger distance between two tables that are existing in a database. Both tables shall have the same number of observations and variable names. This function does NOT apply to longitudinal data.
+    
+    Args:
+        db_path: A string providing the full path to the database. 
+        real_table_name: The name of the table that holds the real data.
+        metadata: A dictionary showing the real table name and the type of each of its variables. The metadata dictionary shall conform to Fuzzy SQL schema.
+        syn_table_name: The name of the table that holds the synthetic data. The synthetic table in the database shall have the same structure of the real table.
+        
+    Returns:
+        A dictionary with the median, IQR and Standard Deviation of the  Hellinger distance in addition to teh individual Hellinger distance for each variable. 
+    '''
 
+    query_obj = RandomQuery(db_path, [real_table_name], [metadata])
+    result=query_obj.gather_metrics4tabular(real_table_name,syn_table_name)
+
+    return result
