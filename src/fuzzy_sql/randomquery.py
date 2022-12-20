@@ -1407,6 +1407,18 @@ class RandomQuery():
             pdfs = (p, q)  # density functions
             return hlngr_dist, pdfs
         
+    def _calc_hlngr4fltr(self,var_type,real_var: pd.Series, syn_var: pd.Series):
+        if var_type in ('UNQID', 'KEY') or isinstance(real_var,pd.DataFrame): #the second condition detetcs if teh var name is repeated twice (ie datframe instead of series) in the query which means that it is a join varibale even if it is decalred in the metdata otherwise, so it will excluded
+            var_hlngr_dist,var_pivot=np.nan, np.nan #do not include key in hlngr calculations
+        elif var_type=='CAT':
+            var_hlngr_dist, var_pivot=self._calc_hlngr4cat(real_var,syn_var)
+        elif var_type=='CNT':
+            var_hlngr_dist, var_pivot=self._calc_hlngr4cnt(real_var,syn_var)
+        else:
+            raise TypeError(f'Unrecognized variable type: {var_type}')
+        return var_hlngr_dist,var_pivot
+        
+        
     def gather_metrics4fltr(self, rnd_query: dict):
         real = rnd_query['query_real']
         syn = rnd_query['query_syn']
@@ -1427,37 +1439,66 @@ class RandomQuery():
                 hlngr_vars['var_name'].append(var)
                 var_type=self._get_var_type(real_table_name,var) #check type each variable
                 hlngr_vars['var_type'].append(var_type)
-                if var_type=='CAT':
-                    var_hlngr_dist, var_pivot=self._calc_hlngr4cat(real[var],syn[var])
-                    hlngr_vars['var_hlngr_distance'].append(var_hlngr_dist)
-                    hlngr_pivots.append(var_pivot)
-                elif var_type=='CNT':
-                    var_hlngr_dist, var_pivot=self._calc_hlngr4cnt(real[var],syn[var])
-                    hlngr_vars['var_hlngr_distance'].append(var_hlngr_dist)
-                    hlngr_pivots.append(var_pivot)
-                else:
-                    raise TypeError(f'Unrecognized variable type: {var_type}')
+                var_hlngr_dist, var_pivot=self. _calc_hlngr4fltr(var_type, real[var],syn[var])
+                hlngr_vars['var_hlngr_distance'].append(var_hlngr_dist)
+                hlngr_pivots.append(var_pivot) #pivot represent the ditributio or histogram for each variable and can be used in the future
+        else: #longitudina 
+            
+            #find hlngr dist for 'from tables' vars
+            from_real_table=desc['from_tbl_name_real'] #this is a string
+            from_syn_table=desc['from_tbl_name_syn']
+            from_real_table_vars=[var_tpl[1]for var_tpl in self._get_tbl_var_tpl_lst(from_real_table)]
+            for var in from_real_table_vars:
+                hlngr_vars['real_table_name'].append(from_real_table)
+                hlngr_vars['syn_table_name'].append(from_syn_table)
+                hlngr_vars['var_name'].append(var)
+                var_type=self._get_var_type(from_real_table,var) #check type each variable
+                hlngr_vars['var_type'].append(var_type)
+                var_hlngr_dist, _=self. _calc_hlngr4fltr(var_type, real[var],syn[var]) #The pivot (ie var distribution or histogram is ignored for longitudinal since it will get complicated, however it can be retrieved whenver needed)
+                hlngr_vars['var_hlngr_distance'].append(var_hlngr_dist)         
+            hlngr_vars=pd.DataFrame(hlngr_vars)  #The hellinger df for the 'from' tables
+            
+            #find hlngr dist pivot for all 'join tables'
+            hlngr_vars4join={} #catcher for the individual hellinger distance pertaining to each variable for the 'join' tables
+            hlngr_vars4join['real_table_name']=[]
+            hlngr_vars4join['syn_table_name']=[]
+            hlngr_vars4join['var_name']=[]
+            hlngr_vars4join['var_type']=[]
+            hlngr_vars4join['var_hlngr_distance']=[]
+            join_real_tables=desc['join_tbl_name_lst_real'] #this is a list of strings
+            join_syn_tables=desc['join_tbl_name_lst_syn']
+
+            for this_real_table,this_syn_table in zip(join_real_tables,join_syn_tables):
+                this_real_table_vars=[var_tpl[1]for var_tpl in self._get_tbl_var_tpl_lst(this_real_table)]
+                for var in this_real_table_vars:
+                    hlngr_vars4join['real_table_name'].append(this_real_table)
+                    hlngr_vars4join['syn_table_name'].append(this_syn_table)
+                    hlngr_vars4join['var_name'].append(var)
+                    var_type=self._get_var_type(this_real_table,var) #check type of each variable
+                    hlngr_vars4join['var_type'].append(var_type)
+                    var_hlngr_dist, _=self. _calc_hlngr4fltr(var_type, real[var],syn[var]) #The pivot (ie var distribution or histogram is ignored for longitudinal since it will get complicated, however it can be retrieved whenver needed)
+                    hlngr_vars4join['var_hlngr_distance'].append(var_hlngr_dist)         
+            hlngr_vars4join=pd.DataFrame(hlngr_vars4join)  #The hellinger df for the 'from' tables
+            
+            hlngr_vars=pd.concat([hlngr_vars,hlngr_vars4join], axis=0, ignore_index=True)        #vertically stack both dataframes above 
              
-            data_hlngr_median = np.median(list(hlngr_vars['var_hlngr_distance']))
-            data_hlngr_stddev = np.std(list(hlngr_vars['var_hlngr_distance'])) 
-            data_iqr = np.subtract(*np.percentile(list(hlngr_vars['var_hlngr_distance']), [75, 25]))
-            
-            scored_query['hlngr_median']=data_hlngr_median
-            scored_query['hlngr_iqr']=data_iqr
-            scored_query['hlngr_stddev']=data_hlngr_stddev
-            
-            hlngr_vars=pd.DataFrame(hlngr_vars)
-            scored_query['hlngr_breakdown']=hlngr_vars  #hlngr_vars is dataframe showin each variable and its corresponding hellinger distance  
-            
-            return scored_query  #scored query will include entries for the median, IQR and stddev of Hellinger distances of all varibales. The last entry is a dataframe  of hlmngr breakdown  per variable
-        else:
-            pass
-            # for var in real.columns:
-            #     # here we extarct the table name and var name inside the loop from the column name using the dot . separtaion 
-            #     # if var is cat - > call hlngr4cat, save hlngr for var
-            #     # if var is cnt . > call hlngr4 cnt, save hlngr for var
-            #     # return histor list for all var hlngrs along with median and iqr across them all 
-            
+        #calc median dataframe and otehr stats
+        data_hlngr_median = np.median(list(hlngr_vars['var_hlngr_distance'])) #this will ignore any np.nan by default
+        data_hlngr_stddev = np.std(list(hlngr_vars['var_hlngr_distance'])) 
+        data_iqr = np.subtract(*np.percentile(list(hlngr_vars['var_hlngr_distance']), [75, 25]))
+        
+        scored_query['hlngr_median']=data_hlngr_median
+        scored_query['hlngr_iqr']=data_iqr
+        scored_query['hlngr_stddev']=data_hlngr_stddev
+        
+        hlngr_vars=pd.DataFrame(hlngr_vars)
+        scored_query['hlngr_breakdown']=hlngr_vars  #hlngr_vars is dataframe showin each variable and its corresponding hellinger distance  
+        
+        return scored_query  #scored query will include entries for the median, IQR and stddev of Hellinger distances of all varibales. The last entry is a dataframe  of hlmngr breakdown  per variable
+        
+        
+
+
             
             
 ############################################ Calculating metrics for TABULAR datasets
