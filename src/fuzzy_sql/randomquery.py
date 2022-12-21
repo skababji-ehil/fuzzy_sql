@@ -1091,7 +1091,7 @@ class RandomQuery():
         """
 
         self._validate_syn_lst(syn_tbl_name_lst)  # validate syn list
-        # real_expr,real_from_tbl, real_join_tbl_lst =self.compile_fltr_expr()
+        real_expr,real_from_tbl, real_join_tbl_lst =self.compile_fltr_expr()
         # print(real_expr) #SMK TMP
         syn_expr = self._expr_replace_tbl_name(real_expr)
         syn_from_tbl = syn_tbl_name_lst[self._get_tbl_index(real_from_tbl)]
