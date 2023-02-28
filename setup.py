@@ -21,6 +21,10 @@ setup(
         "Development Status :: 4 - Beta", "Programming Language :: Python :: 3.8","Operating System :: OS Independent","License :: OSI Approved :: MIT License"
     ],
     keywords="sql, synthetic, clinical trials, generative, testing, fuzzy, fuzzing",
+    project_urls = {
+        'Home': 'https://github.com/skababji-ehil/fuzzy_sql',
+        'Documentation': 'https://fuzzy-sql.readthedocs.io/en/latest/index.html#'
+    },
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=[
