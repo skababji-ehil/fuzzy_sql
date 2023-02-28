@@ -11,7 +11,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="fuzzy-sql",
-    version="2.0.0-beta",
+    version="2.0.1-beta",
     description="A generator of random SQL SELECT queries mainly to compare responses from a real dataset against that from a synthetic dataset.",
     long_description=long_description,
     long_description_content_type="text/markdown",

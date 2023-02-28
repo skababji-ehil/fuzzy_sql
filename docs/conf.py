@@ -7,10 +7,10 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'Fuzzy SQL User Guide'
-copyright = 'EHIL 2022'
-author = 'Samer Kababji @ EHIL'
-version = 'v2.0.0-beta'
-release = '2.0.0-beta'
+copyright = 'Electronit Health Information Laboratory (EHIL) - 2023'
+author = 'Samer El Kababji @ EHIL'
+version = 'v2.0.1-beta'
+release = '2.0.1-beta' 
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

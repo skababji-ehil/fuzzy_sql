@@ -4,6 +4,10 @@
 # docs/_build/latex/*
 # !docs/_build/latex/fuzzysqluserguide.pdf
 
+examples/data
+examples/databases
+examples/*.png
+examples/*html
 
 docs/_build
 docs/_static
