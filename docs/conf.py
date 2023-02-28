@@ -6,11 +6,11 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Fuzzy SQL User Guide'
+project = 'Fuzzy SQL'
 copyright = 'Electronit Health Information Laboratory (EHIL) - 2023'
 author = 'Samer El Kababji @ EHIL'
-version = 'v2.0.3-beta'
-release = '2.0.3-beta' 
+version = 'v2.0-beta'
+release = '2.0-beta' 
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -75,9 +75,9 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 html_theme = 'classic'
 html_static_path = ['_static']
 
-html_theme_options = {
-    "nosidebar": True,
-}
+# html_theme_options = {
+#     "nosidebar": True,
+# }
 
 # Setting latex env by SMK
 
