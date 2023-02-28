@@ -18,9 +18,9 @@ Installation
 
     .. code-block:: console
 
-        pip install fuzzy_sql-2.0.0b0-py3-none-any.whl
+        pip install fuzzy-sql
 
-The package includes all the necessary dependencies. Please note that the package is currently private and can be installed only by the personnel who have access to the wheel file. 
+The package includes all the necessary dependencies.  
 
 Once installed, you may import any of the available functions. For further details, please check :doc:`/functions`  and :doc:`/usage`   
 

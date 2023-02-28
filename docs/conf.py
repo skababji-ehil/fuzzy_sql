@@ -9,8 +9,8 @@
 project = 'Fuzzy SQL User Guide'
 copyright = 'Electronit Health Information Laboratory (EHIL) - 2023'
 author = 'Samer El Kababji @ EHIL'
-version = 'v2.0.1-beta'
-release = '2.0.1-beta' 
+version = 'v2.0.2-beta'
+release = '2.0.2-beta' 
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -72,10 +72,12 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'alabaster'
+html_theme = 'classic'
 html_static_path = ['_static']
 
-
+html_theme_options = {
+    "nosidebar": True,
+}
 
 # Setting latex env by SMK
 
