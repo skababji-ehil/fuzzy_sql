@@ -26,13 +26,21 @@ release = '2.0-beta'
 # specify the master doc, otherwise the build at read the docs fails
 master_doc = 'index'
 
+# extensions = [
+#     'sphinx.ext.duration',
+#     'sphinx.ext.doctest',
+#     'sphinx.ext.autodoc',
+#     'sphinxcontrib.bibtex',
+#     'sphinx.ext.napoleon',
+# ]
+
 extensions = [
     'sphinx.ext.duration',
     'sphinx.ext.doctest',
     'sphinx.ext.autodoc',
-    'sphinxcontrib.bibtex',
     'sphinx.ext.napoleon',
 ]
+
 
 autoclass_content = 'both'
 
