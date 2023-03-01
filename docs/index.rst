@@ -11,8 +11,8 @@ Fuzzy SQL User Guide
 
    introduction
    installation
-   functions
-   usage
+   api_reference
+   examples
 
 
 

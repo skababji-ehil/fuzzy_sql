@@ -22,6 +22,6 @@ Installation
 
 The package includes all the necessary dependencies.  
 
-Once installed, you may import any of the available functions. For further details, please check :doc:`/functions`  and :doc:`/usage`   
+Once installed, you may import any of the available functions. For further details, please check :doc:`/api_reference`  and :doc:`/examples`   
 
  

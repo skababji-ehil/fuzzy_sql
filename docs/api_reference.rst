@@ -1,5 +1,5 @@
-Usage
-=====
+API Reference
+=============
 
 Schema
 -------
@@ -21,9 +21,9 @@ Whether tabular or longitudinal, data is passed to the main class of Fuzzy SQL a
         }
 
 
-    The table name is passed to any applicable functions in Fuzzy SQL as a list. For instance, consider generating multiple random queries using the function `gen_aggfltr_queries` in :doc:`/functions` , you need to pass the table name as a list of single item, i.e. `real_tbl_lst=['T']`. Similarly, you pass its metadata as a list i.e. `metadata_lst=[T_metadata]`. 
+    The table name is passed to any applicable functions in Fuzzy SQL as a list. For instance, consider generating multiple random queries using the function `gen_aggfltr_queries` in :doc:`/api_reference` , you need to pass the table name as a list of single item, i.e. `real_tbl_lst=['T']`. Similarly, you pass its metadata as a list i.e. `metadata_lst=[T_metadata]`. 
     
-    Finally, any synthetic table names shall be passed in an identical way to that is used in passing real table names, i.e. in a form of list of table names. Please refer to :ref:`Code examples` for detailed code examples.
+    Finally, any synthetic table names shall be passed in an identical way to that is used in passing real table names, i.e. in a form of list of table names. Please refer to :doc:`/examples` for detailed code examples.
 
 
 * Longitudinal dataset:
@@ -58,7 +58,8 @@ Whether tabular or longitudinal, data is passed to the main class of Fuzzy SQL a
 
     Notice that the above schema allows the addition of several parent tables as well as composite keys to be provided as list entries. 
 
-    The table names are passed to various functions in Fuzzy SQL as a list of tables. For instance, consider generating multiple random queries using the function `gen_aggfltr_queries`, you can pass the dataset table names and dataset_dictionaries as lists of multiple items, i.e. `real_tbl_lst=['P','T']` and `metadata_lst=[P_metadata, C_metadata]` respectively. Please refer to :ref:`Code examples` for detailed code examples. The metadata schema can checked by accessing the class method: `RndQry._get_metdata_schema(self)`.
+    The table names are passed to various functions in Fuzzy SQL as a list of tables. For instance, consider generating multiple random queries using the function `gen_aggfltr_queries`, you can pass the dataset table names and dataset_dictionaries as lists of multiple items, i.e. `real_tbl_lst=['P','T']` and `metadata_lst=[P_metadata, C_metadata]` respectively. Please refer to :doc:`/examples` for detailed code examples. The metadata schema can checked by accessing the class method: `RndQry._get_metdata_schema(self)`.
+
 
 Data Types
 -----------
@@ -74,22 +75,26 @@ To ensure the validity of the SQL select statement as interpreted by the databas
 |    'date', 'time', 'datetime'                                                                    | 'date'           |
 +--------------------------------------------------------------------------------------------------+------------------+
 
-.. _Code examples:
 
-Code examples
---------------
-Usage is best explained using real examples from various datasets. First,  go to the **examples** folder in the repo and download and unzip the data file by running  **0.0-download_data.ipynb**. This will download the three datasets in separate subfolders under the **examples** folder. Both the real and synthetic sample datasets are provided in `csv` formats. The metadata files are  provided in `json` format to define the corresponding variable types and data relations for longitudinal datasets. Below is a list of the three sample datasets:  
+Functions
+---------
 
-    *  sdgd-C1: Tabular dataset. Real, Synthetic and Metadata for sdgd-C1 is downloaded under :code:`data/sdgd/`
-    *  cal: Longitudinal dataset with single child. Real, Synthetic and Metadata for sdgd-C1 is downloaded under :code:`data/cal/`
-    *  cms: Longitudinal dataset with multiple-child. Real, Synthetic and Metadata for sdgd-C1 is downloaded under :code:`data/cms/`
+.. autofunction:: fuzzy_sql.load.prep_data_for_db
 
-If **0.0-download_data.ipynb** fails to download and unzip the data file, you may manually download the file from the link:
+|
 
-https://drive.google.com/file/d/1ag35pYzSdZSE71kY5_BDoN02zOzyzBQY/view?usp=share_link
+.. autofunction:: fuzzy_sql.load.make_table
 
-If you encounter difficulties accessing the link, please contact us.
+|
 
-The first step is to prepare and import the csv files into the databases. All notebooks starting with the format x.1 are used for that purpose. These three notebooks (one for each dataset) are typically run only for the first time to create and setup the databases. A separate database is created for each dataset. The remaining notebooks are for generating SQL random queries after setting up the databases. 
+.. autofunction:: fuzzy_sql.generate.gen_aggfltr_queries
 
-Use Jupyter by typing in your terminal :code:`jupyter notebook` and run the provided notebooks in the proper sequence i.e. first, set up a database and then generate random queries. The notebooks include setting up the necessary environment besides various valuable comments. Moreover, details about adjusting query parameters are provided in one of the files. 
+|
+
+.. autoclass:: fuzzy_sql.randomquery.RandomQuery
+
+|
+
+.. autoclass:: fuzzy_sql.report.Report
+
+
