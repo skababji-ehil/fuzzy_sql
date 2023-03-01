@@ -8,7 +8,7 @@ sys.path.insert(0,os.path.abspath("./src"))
 
 # -- Project information -----------------------------------------------------
 project = 'Fuzzy SQL'
-copyright = 'Electronit Health Information Laboratory (EHIL) - 2023'
+copyright = 'Electronic Health Information Laboratory (EHIL) - 2023'
 author = 'Samer El Kababji @ EHIL'
 version = 'v2.0-beta'
 release = '2.0-beta' 
