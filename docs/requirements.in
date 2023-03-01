@@ -3,3 +3,5 @@ sphinxcontrib-napoleon==0.7
 sphinxcontrib-bibtex==2.5.0
 readthedocs-sphinx-search==0.2.0
 readthedocs-sphinx-ext==2.2.0
+fuzzy-sql==2.0.4b0
+# lexicalrichness==0.4.1

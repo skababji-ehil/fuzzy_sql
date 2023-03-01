@@ -3,6 +3,17 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+
+# -- General configuration ---------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
+import sys
+sys.path.append('/home/samer/projects/fuzzy_sql/src') #This will enable reading the modules
+
+# import sys
+# import os
+# sys.path.insert(0, os.path.abspath("/home/samer/projects/fuzzy_sql/src"))
+
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
@@ -12,15 +23,8 @@ author = 'Samer El Kababji @ EHIL'
 version = 'v2.0-beta'
 release = '2.0-beta' 
 
-# -- General configuration ---------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
-# import sys
-# sys.path.append('/home/samer/projects/fuzzy_sql/src') #This will enable reading the modules
-
-import sys
-import os
-sys.path.insert(0, os.path.abspath("/home/samer/projects/fuzzy_sql/src"))
-
+# specify the master doc, otherwise the build at read the docs fails
+master_doc = 'index'
 
 extensions = [
     'sphinx.ext.duration',
