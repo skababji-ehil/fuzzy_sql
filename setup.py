@@ -39,7 +39,7 @@ setup(
         "matplotlib"
     ],
     extras_require={
-        "dev": ["wheel","dvc", "Sphinx","sphinxcontrib-bibtex"],
+        "dev": ["wheel","dvc", "sphinx","sphinxcontrib-bibtex","sphinxcontrib-napoleon"],
     },
 
 )

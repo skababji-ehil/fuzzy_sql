@@ -14,11 +14,13 @@ release = '2.0-beta'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
-import sys
-sys.path.append('/home/samer/projects/fuzzy_sql/src') #This will enable reading the modules
+# import sys
+# sys.path.append('/home/samer/projects/fuzzy_sql/src') #This will enable reading the modules
 
+import sys
 import os
-sys.path.insert(0, os.path.abspath("../../"))
+sys.path.insert(0, os.path.abspath("/home/samer/projects/fuzzy_sql/src"))
+
 
 extensions = [
     'sphinx.ext.duration',
