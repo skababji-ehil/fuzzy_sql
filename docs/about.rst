@@ -3,7 +3,7 @@ About Fuzzy SQL
 
 `Fuzzy SQL <https://github.com/skababji-ehil/fuzzy_sql>`_ generates semantically and syntactically valid SELECT random queries that can be applied to tabular and longitudinal datasets stored in an  `SQLite <https://www.sqlite.org/index.html>`_ database.
 
-The project is developed by `Electronic Health Information Laboratory (EHIL) <https://www.ehealthinformation.ca/home>`_. EHIL was formed in 2005 at the `CHEO Research Institute <https://www.cheoresearch.ca/>`_.  
+The project was developed and maintained by `Samer El Kababi <https://www.linkedin.com/in/samer-el-kababji-92906251/>`_  under `Electronic Health Information Laboratory (EHIL) <https://www.ehealthinformation.ca/home>`_. EHIL was formed in 2005 at the `CHEO Research Institute <https://www.cheoresearch.ca/>`_.  
 
 
 The package is mainly used to compare the responses of real and synthetic datasets against valid random SELECT queries. The tool returns all query results along with the corresponding query parameters such as the SQL statement. The query results may be further analyzed to measure distances between real and synthetic responses.
