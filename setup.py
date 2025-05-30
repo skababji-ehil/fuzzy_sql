@@ -15,14 +15,14 @@ setup(
     description="A generator of random SQL SELECT queries mainly to compare responses from a real dataset against that from a synthetic dataset.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="Samer Kababji",
-    author_email="skababji@ehealthinformation.ca",
+    author="Samer El Kababji",
+    author_email="skababji@gmail.com",
     classifiers=[
         "Development Status :: 4 - Beta", "Programming Language :: Python :: 3.8","Operating System :: OS Independent","License :: OSI Approved :: MIT License"
     ],
     keywords="sql, synthetic, clinical trials, generative, testing, fuzzy, fuzzing",
     project_urls = {
-        'Home': 'https://github.com/skababji-ehil/fuzzy_sql',
+        'Home': 'https://github.com/skababji/fuzzy_sql',
         'Documentation': 'https://fuzzy-sql.readthedocs.io/en/latest/index.html#'
     },
     package_dir={"": "src"},
